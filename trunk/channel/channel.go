@@ -121,13 +121,19 @@ func (chn *Channel) SupportsADSR() bool {
 }
 
 func (chn *Channel) SupportsDetune() bool {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.Detune) > 0 {
+        if chn.ChannelSpecs.Detune[chn.Num] != 0 {
+            return true
+        }
+    }
     return false
 }
 
 func (chn *Channel) SupportsDutyChange() int {
-    // ToDo: implement
-    return 0
+    if len(chn.ChannelSpecs.Duty) > 0 {
+        return chn.ChannelSpecs.Duty[chn.Num];
+    }
+    return -1
 }
 
 func (chn *Channel) SupportsFilter() bool {
@@ -149,12 +155,20 @@ func (chn *Channel) SupportsFM() bool {
 }
 
 func (chn *Channel) SupportsRingMod() bool {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.RingMod) > 0 {
+        if chn.ChannelSpecs.RingMod[chn.Num] != 0 {
+            return true
+        }
+    }
     return false
 }
 
 func (chn *Channel) SupportsWaveTable() bool {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.WaveTable) > 0 {
+        if chn.ChannelSpecs.WaveTable[chn.Num] != 0 {
+            return true
+        }
+    }
     return false
 }
 
@@ -169,7 +183,9 @@ func (chn *Channel) SupportsHwVolEnv() int {
 }
 
 func (chn *Channel) SupportsVolumeChange() int {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.VolChange) > 0 {
+        return chn.ChannelSpecs.VolChange[chn.Num]
+    }
     return 0
 }
 
@@ -193,12 +209,16 @@ func (chn *Channel) GetMinOctave() int {
 }
 
 func (chn *Channel) GetMinNote() int {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.MinNote) > 0 {
+        return chn.ChannelSpecs.MinNote[chn.Num]
+    }
     return 0
 }
 
 func (chn *Channel) GetMaxVolume() int {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.MaxVol) > 0 {
+        return chn.ChannelSpecs.MaxVol[chn.Num]
+    }
     return 0
 }
 
@@ -208,11 +228,15 @@ func (chn *Channel) MachineVolLimit() int {
 }
 
 func (chn *Channel) SetMaxVolume(maxVol int) {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.MaxVol) > 0 {
+        chn.ChannelSpecs.MaxVol[chn.Num] = maxVol
+    }
 }
 
 func (chn *Channel) SetMaxOctave(maxOct int) {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.MaxOct) > 0 {
+        chn.ChannelSpecs.MaxOct[chn.Num] = maxOct
+    }
 }
 
 func (chn *Channel) AddCmd(cmds []int) {
