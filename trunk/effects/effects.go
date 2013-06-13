@@ -17,6 +17,7 @@ type EffectMap struct {
     data []*utils.ParamList
     keys []int
     refCount []int
+    extraData []int
 }
 
 
@@ -25,15 +26,24 @@ func (m *EffectMap) FindKey(key int) int {
 }
 
 func (m *EffectMap) Append(key int, lst *utils.ParamList) {
-    // ToDo: implement
+    m.keys = append(m.keys, key)
+    m.data = append(m.data, lst)
+    m.refCount = append(m.refCount, 0)
+    m.extraData = append(m.extraData, 0)
 }
 
 func (m *EffectMap) PutInt(key, val int) {
-    // ToDo: implement
+    pos := m.FindKey(key)
+    if (pos != -1) {
+        m.extraData[pos] = val
+    }
 }
 
 func (m *EffectMap) GetInt(key int) int {
-    // ToDo: implement
+    pos := m.FindKey(key)
+    if (pos != -1) {
+        return m.extraData[pos]
+    }
     return 0
 }
 
