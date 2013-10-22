@@ -177,27 +177,27 @@ func getEffectFrequency() int {
    inRange([]int{1,2}, []int{0,0,0}, 5) -> 0   (too many elements in min)
 */
 func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
-    i, valok := o.(int)
-    lo, minok := minimum.(int)
-    hi, maxok := maximum.(int)
-    values, valsok := o.([]int)
-    los, minsok := minimum.([]int)
-    his, maxsok := maximum.([]int)
+    i, isValScalar := o.(int)
+    lo, isMinScalar := minimum.(int)
+    hi, isMaxScalar := maximum.(int)
+    values, isValSlice := o.([]int)
+    los, isMinSlice := minimum.([]int)
+    his, isMaxSlice := maximum.([]int)
     
-    if valok {
-        if minok && maxok {
+    if isValScalar {
+        if isMinScalar && isMaxScalar {
             return (i >= lo && i <= hi)
         } else {
             return false
         }
     } else {
-        if minok && maxok && valsok {
+        if isMinScalar && isMaxScalar && isValSlice {
             for _, val := range values {
                 if val < lo || val > hi {
                     return false
                 }
             }
-        } else if minok && maxsok && valsok {
+        } else if isMinScalar && isMaxSlice && isValSlice {
             if len(his) == len(values) {
                 for j, _ := range values {
                     if values[j] < lo || values[j] > his[j] {
@@ -207,7 +207,7 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
             } else {
                 return false
             }
-        } else if minsok && maxok && valsok {
+        } else if isMinSlice && isMaxScalar && isValSlice {
             if len(los) == len(values) {
                 for j, _ := range values {
                     if values[j] < los[j] || values[j] > hi {
@@ -217,7 +217,7 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
             } else {
                 return false
             }
-        } else if minsok && maxsok && valsok {
+        } else if isMinSlice && isMaxSlice && isValSlice {
             if len(los) == len(his) && len(his) == len(values) {
                 for j, _ := range values {
                     if values[j] < los[j] || values[j] > his[j] {
