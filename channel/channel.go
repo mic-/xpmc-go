@@ -173,12 +173,16 @@ func (chn *Channel) SupportsWaveTable() bool {
 }
 
 func (chn *Channel) SupportsHwToneEnv() int {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.ToneEnv) > 0 {
+        return chn.ChannelSpecs.ToneEnv[chn.Num]
+    }
     return 0
 }
 
 func (chn *Channel) SupportsHwVolEnv() int {
-    // ToDo: implement
+    if len(chn.ChannelSpecs.VolEnv) > 0 {
+        return chn.ChannelSpecs.VolEnv[chn.Num]
+    }
     return 0
 }
 
@@ -290,7 +294,8 @@ func (chn *Channel) NoteLength(len float64) (frames, cutoffFrames, scaling float
 }
 
 
-
+// Write the length of the current note to the channel's command
+// stream.
 func (chn *Channel) WriteLength() {
     
     if timing.UseFractionalDelays {
@@ -311,28 +316,7 @@ func (chn *Channel) WriteLength() {
         }
         
     } else {
-        //w1 := int(math.Floor(chn.CurrentNoteFrames.Active))
-        //w2 := int(math.Floor(chn.CurrentNoteFrames.Active))
-
-        /*if w1 < shortestDelay[1] then
-            shortestDelay[1] = w1
-        end if
-        if w2 >= 1 and w2 < shortestDelay[1] then
-            shortestDelay[1] = w2
-        end if
-        if w1 > longestDelay then
-            longestDelay = w1
-        end if
-        if w2 > longestDelay then
-            longestDelay = w2
-        end if
-
-        if w1 > 127 then
-            ADD_CMD(chn, {or_bits(floor(w1 / 128), #80),
-                    and_bits(w1, #7F)})
-        elsif w1 >= 1 then
-            ADD_CMD(chn, {w1})
-        end if*/
+	// ToDo: necessary to handle this?
     }
 }
 
