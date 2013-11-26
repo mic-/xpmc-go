@@ -452,7 +452,7 @@ func handleMetaCommand() {
                         if !strings.ContainsRune(s, ':') && s[0] != '\\' {
                             s = workDir + s
                         }
-                        compileFile(s)
+                        CompileFile(s)
                     }
                 } else {
                     ERROR("Malformed #INCLUDE, missing ending \"")
@@ -997,12 +997,17 @@ func assertDisablingEffect(name string, cmd int) {
 }
 
 
-func compileFile(fileName string) {
+func CompileFile(fileName string) {
     var prevLine int
     var dotOff, tieOff, slurOff bool
+    var parserCreationError error
     
     OldParsers.Push(Parser)
-    Parser = NewParserState()   // ToDo: pass fileName to NewParserState
+    
+    Parser,parserCreationError = NewParserState(fileName)
+    if parserCreationError != nil {
+        ERROR("Failed to read file: " + fileName);
+    }
     
     for {
         characterHandled := false
@@ -3554,4 +3559,6 @@ func compileFile(fileName string) {
         }               
                 
     }
+    
+    Parser = OldParsers.Pop()
 }

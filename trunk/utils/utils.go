@@ -16,6 +16,7 @@ import (
     "strconv"
     "strings"
     "container/list"
+    "io/ioutil"
 )
 
 type ParserState struct {
@@ -62,15 +63,23 @@ func NewParserStateStack() *ParserStateStack {
     return &ParserStateStack{list.New()}
 }
 
-func (s *ParserState) Init() {
+func (s *ParserState) Init(fileName string) error {
+    var err error
+    s.fileData, err = ioutil.ReadFile(fileName)
+    s.fileDataPos = 0
     s.LineNum = 1
     s.UserDefinedBase = 10
+    s.currentBase = 10
+    s.wtListOk = false
+    s.allowFloats = false
+    s.ShortFileName = ""    // ToDo: set actual short filename
+    return err
 }
 
-func NewParserState() *ParserState {
-    s := &ParserState{}
-    s.Init()
-    return s
+func NewParserState(fileName string) (parser *ParserState, err error) {
+    parser = &ParserState{}
+    err = parser.Init(fileName)
+    return
 }
 
 // Global variables
