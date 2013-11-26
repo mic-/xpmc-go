@@ -6,6 +6,7 @@ import (
     "./defs"
     "./targets"
     "./timing"
+    "./utils"
 )
 
 
@@ -53,9 +54,12 @@ func main() {
         timing.SupportedLengths = defs.EXTENDED_LENGTHS()
     }
     
+    utils.OldParsers = utils.NewParserStateStack()
+    
     compiler.Verbose(false)
     compiler.WarningsAreErrors(false)
     target = targets.TARGET_UNKNOWN
 
     showHelp("")
+    compiler.CompileFile("test.mml")
 }
