@@ -15,14 +15,19 @@ import (
     "fmt"
     "strconv"
     "strings"
+    "container/list"
 )
 
-type ParserState struct
+type ParserState struct {
     LineNum int
     ShortFileName string
     fileData []byte
     fileDataPos int
     UserDefinedBase int
+    currentBase int
+    allowFloats bool
+    wtListOk bool
+    listDelimiter string    
 }
 
 type ParamList struct {
@@ -35,18 +40,18 @@ type ParserStateStack struct {
     data *list.List
 }
 
-func (s *ParserStateStack) Push(e ParserState) {
+func (s *ParserStateStack) Push(e *ParserState) {
     _ = s.data.PushBack(e)
 }
 
-func (s *ParserStateStack) Pop() ParserState {
+func (s *ParserStateStack) Pop() *ParserState {
     e := s.data.Back()
-    return s.data.Remove(e).(ParserState)
+    return s.data.Remove(e).(*ParserState)
 }
 
-func (s *ParserStateStack) Peek() ParserState {
+func (s *ParserStateStack) Peek() *ParserState {
     e := s.data.Back()
-    return e.Value.(ParserState)
+    return e.Value.(*ParserState)
 }
 
 func (s *ParserStateStack) Len() int {
@@ -63,7 +68,7 @@ func (s *ParserState) Init() {
 }
 
 func NewParserState() *ParserState {
-    s := &ParserStateStack{list.New()}
+    s := &ParserState{}
     s.Init()
     return s
 }
@@ -75,9 +80,6 @@ var OldParsers *ParserStateStack
 
 // Local variables
 
-var allowFloats, wtListOk bool
-var currentBase int
-var listDelimiter string
 
 // Compiler messages
 
@@ -185,14 +187,14 @@ func (p *ParserState) GetStringInRange(validChars string) string {
 
 
 // Read a string of characters until some character in endChars is found.
-func GetStringUntil(endChars string) string {
+func (p *ParserState) GetStringUntil(endChars string) string {
     var c int
     
-    SkipWhitespace()
+    p.SkipWhitespace()
     s := ""
     c = 0
     for c != -1 {
-        c = Getch()
+        c = p.Getch()
         if strings.ContainsRune(endChars, rune(c)) {
             break
         } else {
@@ -200,20 +202,20 @@ func GetStringUntil(endChars string) string {
         }
     }
     
-    Ungetch()
+    p.Ungetch()
     
     return s
 }
 
-func GetAlphaString() string {
+func (p *ParserState) GetAlphaString() string {
     var c int
     
-    SkipWhitespace()
+    p.SkipWhitespace()
 
     s := ""
     c = 0
     for c != -1 {
-        c = Getch()
+        c = p.Getch()
         if (c >= 'A' && c <= 'Z') ||
            (c >= 'a' && c <= 'z') {
             s += string(byte(c))
@@ -222,38 +224,39 @@ func GetAlphaString() string {
         }
     }
     
-    Ungetch()
+    p.Ungetch()
     
     return s
 }
 
 
-func SetNumericBase(newBase int) {
-    currentBase = newBase
+func (p *ParserState) SetNumericBase(newBase int) {
+    p.currentBase = newBase
 }
 
 
-func AllowFloatsInNumericStrings() {
-    allowFloats = true
+func (p *ParserState) AllowFloatsInNumericStrings() {
+    p.allowFloats = true
 }
 
 
-func GetNumericString() string {
-    SkipWhitespace()
+func (p *ParserState) GetNumericString() string {
+    p.SkipWhitespace()
 
     s := ""
     c := 0
+    
     prefixOk := false
-    prefix := 0
-    sign := 0
+    prefix   := 0
+    sign     := 0
 
     for {
-        c = Getch()
+        c = p.Getch()
         if (c >= '0' && c <= '9') || 
            (c == '-' && len(s) == 0) ||
-           (c == '.' && allowFloats && len(s) > 0 && (!(prefix == 'x' || currentBase == 16))) ||
+           (c == '.' && p.allowFloats && len(s) > 0 && (!(prefix == 'x' || p.currentBase == 16))) ||
            ((c == 'x' || c == 'd') && prefixOk) ||
-           ((prefix == 'x' || currentBase == 16) && ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+           ((prefix == 'x' || p.currentBase == 16) && ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
             if c == '0' && len(s) == 0 && prefix == 0 {
                 prefixOk = true
             } else {
@@ -277,7 +280,7 @@ func GetNumericString() string {
         }
     }
     
-    Ungetch()
+    p.Ungetch()
     
     if prefix == 'x' {
         if len(s) > 2 {
@@ -291,14 +294,14 @@ func GetNumericString() string {
         } else {
             s = ""
         }
-    } else if currentBase == 16 {
+    } else if p.currentBase == 16 {
         if len(s) > 0 {
             //s = '#' & s
         }
     }
     
-    allowFloats = false
-    currentBase = 10
+    p.allowFloats = false
+    p.currentBase = 10
     
     if sign == -1 {
         s = "-" + s
@@ -308,7 +311,7 @@ func GetNumericString() string {
 }
 
 
-func GetList() (*ParamList,error) {
+func (p *ParserState) GetList() (*ParamList,error) {
     var startVal, stopVal, stepVal int
     
     lst := &ParamList{}
@@ -319,47 +322,47 @@ func GetList() (*ParamList,error) {
     endOk := false              // Not ok to read a }
     concatTo := lst.MainPart    // Concatenate to s[2]
     
-    SkipWhitespace()
+    p.SkipWhitespace()
     
-    c := Getch()
+    c := p.Getch()
 
-    if byte(c) == listDelimiter[0] {
+    if byte(c) == p.listDelimiter[0] {
         for {
-            SkipWhitespace()
+            p.SkipWhitespace()
             //set_numeric_base(UserDefinedBase)
-            t := GetNumericString()
+            t := p.GetNumericString()
             
             if len(t) > 0 {
-                num, e := strconv.ParseInt(t, UserDefinedBase, 0)
+                num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
                 if e == nil {
-                    SkipWhitespace()
-                    c = Getch()
+                    p.SkipWhitespace()
+                    c = p.Getch()
                     if c == ':' {
                         startVal = int(num)
-                        SetNumericBase(UserDefinedBase)
-                        t = GetNumericString()
-                        num, e = strconv.ParseInt(t, UserDefinedBase, 0)
+                        p.SetNumericBase(p.UserDefinedBase)
+                        t = p.GetNumericString()
+                        num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
                         rept := 0
                         if e == nil {
                             stopVal = int(num)
-                            SkipWhitespace()
-                            c = Getch()
+                            p.SkipWhitespace()
+                            c = p.Getch()
                             if c == ':' {
-                                if UserDefinedBase == 10 {
-                                    AllowFloatsInNumericStrings()
+                                if p.UserDefinedBase == 10 {
+                                    p.AllowFloatsInNumericStrings()
                                 }
-                                SetNumericBase(UserDefinedBase)
-                                t = GetNumericString()
-                                num, e = strconv.ParseInt(t, UserDefinedBase, 0)
+                                p.SetNumericBase(p.UserDefinedBase)
+                                t = p.GetNumericString()
+                                num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
                                 if e == nil {
                                     stepVal = int(num)
                                 } else {
                                     ERROR("Malformed interval: " + t)
                                 }
-                                c = Getch()
+                                c = p.Getch()
                                 if c == '\''{
-                                    t = GetNumericString()
-                                    num, e = strconv.ParseInt(t, UserDefinedBase, 0)
+                                    t = p.GetNumericString()
+                                    num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
                                     if e == nil {
                                         if num < 1 {
                                             ERROR("Repeat value must be >= 1",)
@@ -369,7 +372,7 @@ func GetList() (*ParamList,error) {
                                         ERROR("Expected a repeat value, got " + t)
                                     }
                                 } else {
-                                    Ungetch()
+                                    p.Ungetch()
                                 }
                             } else if c == '\'' {
                                 if rept != 0 {
@@ -380,8 +383,8 @@ func GetList() (*ParamList,error) {
                                 } else {
                                     stepVal = 1
                                 }
-                                t = GetNumericString()
-                                num, e = strconv.ParseInt(t, UserDefinedBase, 0)
+                                t = p.GetNumericString()
+                                num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
                                 if e == nil {
                                     if num < 1 {
                                         ERROR("Repeat value must be >= 1")
@@ -392,7 +395,7 @@ func GetList() (*ParamList,error) {
                                 }
                                                                 
                             } else {
-                                Ungetch()
+                                p.Ungetch()
                                 if stopVal < startVal {
                                     stepVal = -1
                                 } else {
@@ -427,9 +430,9 @@ func GetList() (*ParamList,error) {
                     
                     } else if c == '\'' {
                         startVal = int(num)
-                        SetNumericBase(UserDefinedBase)
-                        t = GetNumericString()
-                        num, e = strconv.ParseInt(t, UserDefinedBase, 0)
+                        p.SetNumericBase(p.UserDefinedBase)
+                        t = p.GetNumericString()
+                        num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
                         if e == nil {
                             if num < 1 {
                                 ERROR("Repeat value must be >= 1")
@@ -446,7 +449,7 @@ func GetList() (*ParamList,error) {
                             ERROR("Expected a repeat value, got " + t)
                         }
                     } else {
-                        Ungetch()
+                        p.Ungetch()
                         concatTo = append(concatTo, int(num))
                     }
                     commaOk = true
@@ -456,24 +459,24 @@ func GetList() (*ParamList,error) {
                     ERROR("Syntax error: " + t)
                 }
             } else {
-                c = Getch()
+                c = p.Getch()
                 if c == ',' {
                     if !commaOk {
                         ERROR("Unexpected comma")
                     }
                     commaOk = false
-                    pipeOk = false
-                    endOk = false
+                    pipeOk  = false
+                    endOk   = false
                 } else if c == '|' {
                     if lst.LoopedPart == nil && pipeOk {
                         concatTo = lst.LoopedPart
                         commaOk = false
-                        pipeOk = false
-                        endOk = false
+                        pipeOk  = false
+                        endOk   = false
                     } else {
                         ERROR("Unexpected |")
                     }
-                } else if byte(c) == listDelimiter[1] {
+                } else if byte(c) == p.listDelimiter[1] {
                     if endOk {
                         err = error(nil)
                         break
@@ -482,29 +485,29 @@ func GetList() (*ParamList,error) {
                     }
                 } else if c == ';' {
                     for c != 10 && c != -1 {
-                        c = Getch()
+                        c = p.Getch()
                     }
                 } else if c == '"' {
                     t = ""
-                    c = Getch()
+                    c = p.Getch()
                     for c != '"' && c != -1 {
                         t += string(byte(c))
-                        c = Getch()
+                        c = p.Getch()
                     }
                     //ToDo: fix:  s[concatTo] &= {t}
                 } else if c == '\'' || c == ':' {
                     ERROR("Unexpected " + string(byte(c)))
-                } else if c == 'W' && wtListOk {
-                    c = Getch()
+                } else if c == 'W' && p.wtListOk {
+                    c = p.Getch()
                     if c == 'T' {
-                        t = GetNumericString()
-                        num, e := strconv.ParseInt(t, UserDefinedBase, 0)
+                        t = p.GetNumericString()
+                        num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
                         if e == nil {
                             if num==0 { num++ }  //temp
                             //ToDo: fix: s[concatTo] &= {{-1, 'W', 'T', o[2]}}
                             commaOk = true
-                            pipeOk = true
-                            endOk = true
+                            pipeOk  = true
+                            endOk   = true
                         } else {
                             ERROR("Expected a number, got " + t)
                         }
@@ -522,14 +525,14 @@ func GetList() (*ParamList,error) {
     
     if err == nil {
         for {
-            SkipWhitespace()
-            c = Getch()
+            p.SkipWhitespace()
+            c = p.Getch()
             if c == '+' || c == '-' || c == '*' || c == '\'' {
-                SkipWhitespace()
-                AllowFloatsInNumericStrings()
-                t := GetNumericString()
+                p.SkipWhitespace()
+                p.AllowFloatsInNumericStrings()
+                t := p.GetNumericString()
                 if len(t) > 0 {
-                    num, e := strconv.ParseInt(t, UserDefinedBase, 0)
+                    num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
                     if e == nil {
                         for i, _ := range lst.MainPart {
                             if c == '+' {
@@ -586,22 +589,22 @@ func GetList() (*ParamList,error) {
                     ERROR("Expected a numeric constant after " + string(byte(c)))
                 }
             } else {
-                Ungetch()
+                p.Ungetch()
                 break
             }
         }
     }
     
     // Reset these configurations
-    wtListOk = false
-    listDelimiter = "{}"
+    p.wtListOk = false
+    p.listDelimiter = "{}"
     
     return lst, err
 }
 
 
-func SetListDelimiters(delim string) {
-    listDelimiter = delim
+func (p *ParserState) SetListDelimiters(delim string) {
+    p.listDelimiter = delim
 }
 
 
