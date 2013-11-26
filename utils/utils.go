@@ -154,8 +154,8 @@ func (p *ParserState) SkipWhitespace() {
     
     for c != -1 {
         c = p.Getch()
-        if c == ' ' || c == '\t' || c == 13 || c == 10 {
-            if c == 10 {
+        if c == ' ' || c == '\t' || c == 13 || c == '\n' {
+            if c == '\n' {
                 p.LineNum++
             }
         } else {
@@ -177,7 +177,7 @@ func (p *ParserState) GetString() string {
     c = 0
     for c != -1 {
         c = p.Getch()
-        if c == -1 || c == ' ' || c == '\t' || c == 13 || c == 10 {
+        if c == -1 || c == ' ' || c == '\t' || c == 13 || c == '\n' {
             break
         } else {
             s += string(byte(c))
@@ -340,18 +340,19 @@ func (p *ParserState) GetNumericString() string {
 func (p *ParserState) GetList() (*ParamList,error) {
     var startVal, stopVal, stepVal int
     
-    lst := &ParamList{}
+    lst := &ParamList{[]int{}, []int{}}
     err := errors.New("Bad list")
     
     commaOk := false            // Not ok to read a comma
-    pipeOk := true              // Ok to read a |
-    endOk := false              // Not ok to read a }
-    concatTo := lst.MainPart    // Concatenate to s[2]
+    pipeOk  := true             // Ok to read a |
+    gotPipe := false
+    endOk   := false            // Not ok to read a }
+    concatTo := []int{}   	
     
     p.SkipWhitespace()
     
     c := p.Getch()
-
+    
     if byte(c) == p.listDelimiter[0] {
         for {
             p.SkipWhitespace()
@@ -360,7 +361,6 @@ func (p *ParserState) GetList() (*ParamList,error) {
             
             if len(t) > 0 {
                 num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
-            //fmt.Printf("List contains %d\n", num)
                 if e == nil {
                     p.SkipWhitespace()
                     c = p.Getch()
@@ -480,8 +480,8 @@ func (p *ParserState) GetList() (*ParamList,error) {
                         concatTo = append(concatTo, int(num))
                     }
                     commaOk = true
-                    pipeOk = true
-                    endOk = true
+                    pipeOk  = true
+                    endOk   = true
                 } else {
                     ERROR("Syntax error: " + t)
                 }
@@ -495,17 +495,24 @@ func (p *ParserState) GetList() (*ParamList,error) {
                     pipeOk  = false
                     endOk   = false
                 } else if c == '|' {
-                    if lst.LoopedPart == nil && pipeOk {
-                        concatTo = lst.LoopedPart
+                    if pipeOk && !gotPipe {
+                    	lst.MainPart = append(lst.MainPart, concatTo...)
+                        concatTo = []int{}
                         commaOk = false
                         pipeOk  = false
                         endOk   = false
+                        gotPipe = true
                     } else {
                         ERROR("Unexpected |")
                     }
                 } else if byte(c) == p.listDelimiter[1] {
                     if endOk {
-                        err = error(nil)
+                    	if gotPipe {
+                    	    lst.LoopedPart = append(lst.LoopedPart, concatTo...)
+                    	} else {
+                    	    lst.MainPart = append(lst.MainPart, concatTo...)
+                    	}
+                        err = nil
                         break
                     } else {
                         ERROR("Malformed list")

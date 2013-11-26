@@ -108,7 +108,11 @@ type Channel struct {
 
 
 func NewChannel() *Channel {
-    return &Channel{}
+    chn := &Channel{}
+    chn.LoopPoint = -1
+    chn.UsesEffect = map[string]bool{}
+    chn.Loops = NewLoopStack()
+    return chn
 }
 
 func (chn *Channel) SupportsADSR() bool {
