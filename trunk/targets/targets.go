@@ -47,7 +47,6 @@ const (
 )
 
 
-
 type ITarget interface {
     GetAdsrLen() int
     GetAdsrMax() int
@@ -138,6 +137,23 @@ func NewTarget(tID int) ITarget {
     return ITarget(nil)
 }
 
+func NameToID(targetName string) int {
+    switch targetName {
+    case "at8":
+        return TARGET_AT8;
+    case "gbc":
+        return TARGET_GBC;
+    case "kss":
+        return TARGET_KSS;
+    case "sgg":
+        return TARGET_SGG;
+    case "smd":
+        return TARGET_SMD;
+    case "sms":
+        return TARGET_SMS;
+    }
+    return TARGET_UNKNOWN;
+}
         
 func (t *Target) Init() {
     // Stub to fulfill the ITarget interface

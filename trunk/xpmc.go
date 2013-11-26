@@ -2,8 +2,10 @@ package main
 
 import (
     "fmt"
+    "os"
     "./compiler"
     "./defs"
+    "./song"
     "./targets"
     "./timing"
     "./utils"
@@ -60,6 +62,31 @@ func main() {
     compiler.WarningsAreErrors(false)
     target = targets.TARGET_UNKNOWN
 
+    for i, arg := range os.Args {
+        if i >= 1 {
+            if arg[0] == '-' {
+                if arg == "-v" {
+                    compiler.Verbose(true);
+                } else if arg == "-w" {
+                    compiler.WarningsAreErrors(true);
+                } else if arg == "-h" || arg == "-help" {
+                    showHelp("")
+                    return
+                } else if targets.NameToID(arg[1:]) != targets.TARGET_UNKNOWN {
+                    target = targets.NameToID(arg[1:])
+                } 
+            } else {
+                if target == targets.TARGET_UNKNOWN {
+                    fmt.Printf("Error: No target platform specified.\nRun the compiler with the -h option to see a list of targets.")
+                    return
+                }
+                compiler.Init()
+                compiler.CurrSong = song.NewSong(target)
+                compiler.CompileFile(arg);
+                return
+            }
+        }
+    }
+
     showHelp("")
-    compiler.CompileFile("test.mml")
 }
