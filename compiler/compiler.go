@@ -471,7 +471,7 @@ func handleMetaCommand() {
 
         case "SONG":
             s := Parser.GetString()
-            num, err := strconv.ParseInt(s, UserDefinedBase, 0)
+            num, err := strconv.ParseInt(s, Parser.UserDefinedBase, 0)
             if err == nil {
                 if num > 1 && num < 100 {
                     // ToDo: fix
@@ -517,7 +517,7 @@ func handleMetaCommand() {
 
         case "BASE":
             s := Parser.GetString()
-            newBase, err := strconv.ParseInt(s, UserDefinedBase, 0)
+            newBase, err := strconv.ParseInt(s, Parser.UserDefinedBase, 0)
             if err == nil {
                 if newBase == 10 || newBase == 16 {
                     userDefinedBase = int(newBase)
@@ -730,9 +730,9 @@ func handleArpeggioDef(cmd string) {
     if err == nil {
         idx := effects.Arpeggios.FindKey(num)
         if idx < 0 {
-            t := GetString()
+            t := Parser.GetString()
             if t == "=" {
-                lst, err := utils.GetList()
+                lst, err := Parser.GetList()
                 if err == nil {
                     if len(lst.MainPart) != 0 || len(lst.LoopedPart) != 0 {
                         if inRange(lst.MainPart, -63, 63) && inRange(lst.LoopedPart, -63, 63) {
@@ -765,9 +765,9 @@ func handlePitchMacDef(cmd string) {
     if err == nil {
         idx := effects.PitchMacros.FindKey(num) 
         if idx < 0 {
-            t := GetString()
+            t := Parser.GetString()
             if t == "=" {
-                lst, err := utils.GetList()
+                lst, err := Parser.GetList()
                 if err == nil {
                     effects.PitchMacros.Append(num, lst)
                     effects.PitchMacros.PutInt(num, getEffectFrequency())
@@ -792,9 +792,9 @@ func handleModMacDef(cmd string) {
     if err == nil {
         idx := effects.MODs.FindKey(num)
         if idx < 0 {
-            t := GetString()
+            t := Parser.GetString()
             if t == "=" {
-                lst, err := utils.GetList()
+                lst, err := Parser.GetList()
                 if err == nil {
                     switch currSong.Target.GetID() {
                     case targets.TARGET_SMD:
@@ -853,9 +853,9 @@ func handleFeedbackMacDef(cmd string) {
     if err == nil {
         idx := effects.FeedbackMacros.FindKey(num)
         if idx < 0 {
-            t := GetString()
+            t := Parser.GetString()
             if t == "=" {
-                lst, err := utils.GetList()
+                lst, err := Parser.GetList()
                 if err == nil {
                     if len(lst.MainPart) != 0 || len(lst.LoopedPart) != 0 {
                         if inRange(lst.MainPart, 0, 7) && inRange(lst.LoopedPart, 0, 7) {
@@ -887,9 +887,9 @@ func handleVibratoMacDef(cmd string) {
     if err == nil {
         idx := effects.Vibratos.FindKey(num)
         if idx < 0 {
-            t := GetString()
+            t := Parser.GetString()
             if t == "=" {
-                lst, err := utils.GetList()
+                lst, err := Parser.GetList()
                 if err == nil {
                     if len(lst.MainPart) == 3 && len(lst.LoopedPart) == 0 {
                         if inRange(lst.MainPart, []int{0, 1, 0}, []int{127, 127, 63}) {
@@ -971,7 +971,7 @@ func assertIsChannelName(c int) {
 
 
 func assertEffectIdExistsAndChannelsActive(name string, eff *effects.EffectMap) (int, int, error) {
-    s := GetNumericString()
+    s := Parser.GetNumericString()
     num, err := strconv.Atoi(s)
     idx := -1
     if err == nil {
@@ -987,8 +987,8 @@ func assertEffectIdExistsAndChannelsActive(name string, eff *effects.EffectMap) 
 
 
 func assertDisablingEffect(name string, cmd int) {
-    c := Getch()
-    s := string(byte(c)) + string(byte(Getch()))
+    c := Parser.Getch()
+    s := string(byte(c)) + string(byte(Parser.Getch()))
     if s == "OF" {
         applyCmdOnAllActive(name, []int{cmd, 0})
     } else {
@@ -1001,10 +1001,13 @@ func compileFile(fileName string) {
     var prevLine int
     var dotOff, tieOff, slurOff bool
     
+    OldParsers.Push(Parser)
+    Parser = NewParserState()   // ToDo: pass fileName to NewParserState
+    
     for {
         characterHandled := false
 
-        c := Getch()
+        c := Parser.Getch()
         if c == -1 {
             break
         }
@@ -1012,10 +1015,10 @@ func compileFile(fileName string) {
         c2 := c
         
         if c == 10 {
-            LineNum++
+            Parser.LineNum++
         }
         
-        if LineNum > prevLine {
+        if Parser.LineNum > prevLine {
             if !keepChannelsActive {
                 for i, _ := range currSong.Channels {
                     if i < len(currSong.Channels)-1 {
@@ -1023,7 +1026,7 @@ func compileFile(fileName string) {
                     }
                 }
             }
-            prevLine = LineNum
+            prevLine = Parser.LineNum
         }
 
         /* Meta-commands */
@@ -1040,17 +1043,17 @@ func compileFile(fileName string) {
                 for _, chn := range currSong.Channels {
                     chn.WriteNote(true)
                 }
-                m := Getch()
+                m := Parser.Getch()
                 s := ""
                 if m == '@' {
-                    s = "@" + GetNumericString()
+                    s = "@" + Parser.GetNumericString()
                 } else if IsNumeric(m) {
-                    Ungetch()
-                    s = GetNumericString()
+                    Parser.Ungetch()
+                    s = Parser.GetNumericString()
                 } else {
-                    Ungetch()
-                    s = GetAlphaString()
-                    s += GetNumericString()
+                    Parser.Ungetch()
+                    s = Parser.GetAlphaString()
+                    s += Parser.GetNumericString()
                 }
                 
                 if len(s) > 0 {
@@ -1111,9 +1114,9 @@ func compileFile(fileName string) {
                             if err == nil {
                                 idx := effects.Filters.FindKey(num)
                                 if idx < 0 {
-                                    t := GetString()
+                                    t := Parser.GetString()
                                     if t == "=" {
-                                        lst, err := utils.GetList()
+                                        lst, err := Parser.GetList()
                                         if err == nil {
                                             if currSong.Target.GetID() == targets.TARGET_C64 {
                                                 if len(lst.MainPart) == 3 && len(lst.LoopedPart) == 0 {
@@ -1147,9 +1150,9 @@ func compileFile(fileName string) {
                             if err == nil {
                                 idx := effects.Portamentos.FindKey(num)
                                 if idx < 0 {
-                                    t := GetString()
+                                    t := Parser.GetString()
                                     if t == "=" {
-                                        lst, err := utils.GetList()
+                                        lst, err := Parser.GetList()
                                         if err == nil {
                                             if len(lst.MainPart) == 2 && len(lst.LoopedPart) == 0 {
                                                 if inRange(lst.MainPart, []int{0, 1}, []int{127, 127}) {
@@ -1192,12 +1195,12 @@ func compileFile(fileName string) {
                                     idx = effects.WaveformMacros.FindKey(num)
                                 }
                                 if idx < 0 {
-                                    t := GetString()
+                                    t := Parser.GetString()
                                     if t == "=" {
                                         if isWTM {
                                             //ToDo: fix:  allow_wt_list()
                                         }
-                                        lst, err := utils.GetList()
+                                        lst, err := Parser.GetList()
                                         if currSong.Target.SupportsWaveTable() {
                                             if err == nil {
                                                 if !isWTM { // Regular @WT
@@ -1273,9 +1276,9 @@ func compileFile(fileName string) {
                             if err == nil {
                                 idx := effects.PCMs.FindKey(num)
                                 if idx < 0 {
-                                    t := GetString()
+                                    t := Parser.GetString()
                                     if t == "=" {
-                                        lst, err := utils.GetList()
+                                        lst, err := Parser.GetList()
                                         if currSong.Target.SupportsPCM() {
                                             if err == nil {
                                                 if len(lst.LoopedPart) == 0 {
@@ -1318,9 +1321,9 @@ func compileFile(fileName string) {
                             if err == nil {
                                 idx := effects.ADSRs.FindKey(num)
                                 if idx < 0 {
-                                    t := GetString()
+                                    t := Parser.GetString()
                                     if t == "=" {
-                                        lst, err := utils.GetList()
+                                        lst, err := Parser.GetList()
                                         if err == nil {
                                             if len(lst.LoopedPart) == 0 {
                                                 if len(lst.MainPart) == currSong.Target.GetAdsrLen() {
@@ -1351,14 +1354,14 @@ func compileFile(fileName string) {
     
                         } else if strings.HasPrefix(s, "te") {
                             //t := s[2:]
-                            m = Getch()
+                            m = Parser.Getch()
                             num1, err1 := strconv.Atoi(s[2:])
                             num2 := 7
                             err2 := error(nil)
                             if m == ',' {
-                                num2, err2 = strconv.Atoi(GetNumericString()) 
+                                num2, err2 = strconv.Atoi(Parser.GetNumericString()) 
                             } else {
-                                Ungetch()
+                                Parser.Ungetch()
                             }
                                 
                             if err1 == nil && err2 == nil {
@@ -1490,9 +1493,9 @@ func compileFile(fileName string) {
                                     if len(patName) > 0 {
                                     } else {
                                         if idx < 0 {
-                                            t := GetString()
+                                            t := Parser.GetString()
                                             if t == "=" {
-                                                lst, err := utils.GetList()
+                                                lst, err := Parser.GetList()
                                                 if err == nil {
                                                     if inRange(lst.MainPart,
                                                                currSong.Target.GetMinVolume(),
@@ -1547,9 +1550,9 @@ func compileFile(fileName string) {
                                     if len(patName) > 0 {
                                     } else {
                                         if idx < 0 {
-                                            t := GetString()
+                                            t := Parser.GetString()
                                             if t == "=" {
-                                                lst, err := utils.GetList()
+                                                lst, err := Parser.GetList()
                                                 if err == nil {
                                                     if inRange(lst.MainPart, 0, 15) &&
                                                        inRange(lst.LoopedPart, 0, 15) {
@@ -1598,7 +1601,7 @@ func compileFile(fileName string) {
                                 } else if num >= 0 && num <= 15 {
                                     for _, chn := range currSong.Channels {
                                         if chn.Active {
-                                            chn.CurrentCutoff.Val = float64(num)
+                                            chn.CurrentCutoff.Val = num
                                             chn.CurrentCutoff.Typ = defs.CT_FRAMES
                                             /*s = note_length(i, currentLength[i])
                                             if s[1] != currentNoteFrames[i][1] then
@@ -1611,7 +1614,7 @@ func compileFile(fileName string) {
                                 } else if num < 0 && num >= -15 {
                                     for _, chn := range currSong.Channels {
                                         if chn.Active {
-                                            chn.CurrentCutoff.Val = -float64(num)
+                                            chn.CurrentCutoff.Val = -num
                                             chn.CurrentCutoff.Typ = defs.CT_NEG_FRAMES
                                             /*s = note_length(i, currentLength[i])
                                             if s[1] != currentNoteFrames[i][1] then
@@ -1642,9 +1645,9 @@ func compileFile(fileName string) {
                 for _, chn := range currSong.Channels {
                     chn.WriteNote(true)
                 }
-                s := GetStringInRange(ALPHANUM)
-                SkipWhitespace()
-                m := Getch()
+                s := Parser.GetStringInRange(ALPHANUM)
+                Parser.SkipWhitespace()
+                m := Parser.Getch()
                 if len(s) > 0 {
                     pattern = &MmlPattern{}
                     if m == '(' {
@@ -1654,11 +1657,11 @@ func compileFile(fileName string) {
                             if currSong.Channels[len(currSong.Channels)-1].Active {
                                 ERROR("Pattern invokation found inside pattern")
                             } else {
-                                t := GetStringUntil(")")
+                                t := Parser.GetStringUntil(")")
                                 if len(t) > 0 {
                                 }
-                                SkipWhitespace()
-                                n := Getch()
+                                Parser.SkipWhitespace()
+                                n := Parser.Getch()
                                 if n != ')' {
                                     ERROR("Expected ), got " + string(byte(n)))
                                 }
@@ -1717,9 +1720,9 @@ func compileFile(fileName string) {
             // Macro definition/invokation
             } else if c == '$' {
                 writeAllPendingNotes(true)
-                s := GetStringInRange(ALPHANUM)
-                SkipWhitespace()
-                m := Getch()
+                s := Parser.GetStringInRange(ALPHANUM)
+                Parser.SkipWhitespace()
+                m := Parser.Getch()
                 t := ""
                 if len(s) > 0 {
                     // ToDo: macro := []int{}
@@ -1729,11 +1732,11 @@ func compileFile(fileName string) {
                             l := 1
                             // Read default parameters
                             for {
-                                t = GetStringUntil(",)\t\r\n ")
+                                t = Parser.GetStringUntil(",)\t\r\n ")
                                 // ToDo: fix
                                 //macro = append(macro, {2, t})
-                                SkipWhitespace()
-                                n = Getch()
+                                Parser.SkipWhitespace()
+                                n = Parser.Getch()
                                 if n == -1 || n == ')' {
                                     break
                                 }
@@ -1743,13 +1746,13 @@ func compileFile(fileName string) {
                         } else {
                             // Macro invokation
                             for {
-                                t = GetStringUntil(",)\t\r\n ")
+                                t = Parser.GetStringUntil(",)\t\r\n ")
                                 if len(t) > 0 {
                                     // ToDo: fix
                                     //macro = append(macro, t)
                                 }
-                                SkipWhitespace()
-                                n = Getch()
+                                Parser.SkipWhitespace()
+                                n = Parser.Getch()
                                 if n == -1 || n == ')' {
                                     break
                                 }
@@ -1794,8 +1797,8 @@ func compileFile(fileName string) {
                     }
 
                     if n == 2 {                     
-                        SkipWhitespace()
-                        m = Getch()
+                        Parser.SkipWhitespace()
+                        m = Parser.Getch()
                     }
                     
                     // Macro definition
@@ -1804,9 +1807,9 @@ func compileFile(fileName string) {
                         if idx < 0 {
                             if currSong.GetNumActiveChannels() == 0 {
                                 for n != '}' {
-                                    n = Getch()
+                                    n = Parser.Getch()
                                     if n == '%' {
-                                        t = GetNumericString()
+                                        t = Parser.GetNumericString()
                                         _, err := strconv.Atoi(t)
                                         if err == nil {
                                             // ToDo: fix
@@ -1814,14 +1817,14 @@ func compileFile(fileName string) {
                                         } else {
                                             ERROR("Syntax error: " + t)
                                         }
-                                        n = Getch()
+                                        n = Parser.Getch()
                                         if n != '%' {
                                             ERROR("Missing %%")
                                         }
                                     } else if n == '}' || n == -1 {
                                         break
                                     } else if n == '\n' {
-                                        LineNum++
+                                        Parser.LineNum++
                                     } else if n != '\r' {
                                         // ToDo: fix
                                         //macro = append(macro, {0, n})
@@ -1847,9 +1850,9 @@ func compileFile(fileName string) {
             // Callback
             } else if c == '!' {
                 writeAllPendingNotes(true)
-                s := GetStringUntil("(\t\r\n ")
-                SkipWhitespace()
-                n := Getch()
+                s := Parser.GetStringUntil("(\t\r\n ")
+                Parser.SkipWhitespace()
+                n := Parser.Getch()
                 if n == '(' {
                     idx := -1
                     for i, cb := range callbacks {
@@ -1863,7 +1866,7 @@ func compileFile(fileName string) {
                         idx = len(callbacks) - 1
                     }
 
-                    t := GetStringUntil(")\t\r\n ")
+                    t := Parser.GetStringUntil(")\t\r\n ")
                     num, err := strconv.Atoi(t)
                     if err == nil {
                         if num == 0 {
@@ -1924,7 +1927,7 @@ func compileFile(fileName string) {
                     } else {
                         ERROR("Bad callback frequency: " + s)
                     }
-                    n = Getch()
+                    n = Parser.Getch()
                     if n != ')' {
                         ERROR("Expected ): " + string(byte(n)))
                     }
@@ -1935,20 +1938,20 @@ func compileFile(fileName string) {
             // Multiline comment
             } else if c == '/' {
                 writeAllPendingNotes(true)
-                m := Getch()
+                m := Parser.Getch()
                 if m == '*' {
                     n := 0
                     for n != -1 {
-                        n = Getch()
+                        n = Parser.Getch()
                         if n == '*' {
-                            m = Getch()
+                            m = Parser.Getch()
                             if m == '/' {
                                 break
                             } else {
-                                Ungetch()
+                                Parser.Ungetch()
                             }
                         } else if n == '\n' {
-                            LineNum++
+                            Parser.LineNum++
                         }
                     }
                 } else {
@@ -2013,7 +2016,7 @@ func compileFile(fileName string) {
             // End of a [..|..]<num> loop
             } else if c == ']' {
                 writeAllPendingNotes(true)
-                t := GetNumericString()
+                t := Parser.GetNumericString()
                 loopCount, err := strconv.Atoi(t)
                 for _, chn := range currSong.Channels {
                     if chn.Active {
@@ -2104,7 +2107,7 @@ func compileFile(fileName string) {
                 
             } else if c == 'k' {
                 writeAllPendingNotes(true)
-                s := GetNumericString()
+                s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
                     if currSong.GetNumActiveChannels() == 0 {
@@ -2127,7 +2130,7 @@ func compileFile(fileName string) {
                         
             } else if c == 'l' {
                 writeAllPendingNotes(true)
-                s := GetNumericString()
+                s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
                     if currSong.GetNumActiveChannels() == 0 {
@@ -2151,7 +2154,7 @@ func compileFile(fileName string) {
             // Set octave
             } else if c == 'o' {
                 writeAllPendingNotes(false)
-                s := GetNumericString()
+                s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
                     if currSong.GetNumActiveChannels() == 0 {
@@ -2195,7 +2198,7 @@ func compileFile(fileName string) {
             // Set cutoff
             } else if c == 'q' {
                 writeAllPendingNotes(true)
-                s := GetNumericString()
+                s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
                     if currSong.GetNumActiveChannels() == 0 {
@@ -2203,7 +2206,7 @@ func compileFile(fileName string) {
                     } else if num >= 0 && num <= 8 {
                         for _, chn := range currSong.Channels {
                             if chn.Active {
-                                chn.CurrentCutoff.Val = float64(num)
+                                chn.CurrentCutoff.Val = num
                                 chn.CurrentCutoff.Typ = defs.CT_NORMAL
                                 active, cutoff, _ := chn.NoteLength(chn.CurrentLength)
                                 if active != chn.CurrentNoteFrames.Active {
@@ -2216,7 +2219,7 @@ func compileFile(fileName string) {
                     } else if num < 0 && num >= -8 {
                         for _, chn := range currSong.Channels {
                             if chn.Active {
-                                chn.CurrentCutoff.Val = -float64(num)
+                                chn.CurrentCutoff.Val = -num
                                 chn.CurrentCutoff.Typ = defs.CT_NEG
                                 active, cutoff, _ := chn.NoteLength(chn.CurrentLength)
                                 if active != chn.CurrentNoteFrames.Active {
@@ -2236,7 +2239,7 @@ func compileFile(fileName string) {
             // Set tempo
             } else if c == 't' {
                 writeAllPendingNotes(true)
-                s := GetNumericString()
+                s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
                     if currSong.GetNumActiveChannels() == 0 {
@@ -2264,16 +2267,16 @@ func compileFile(fileName string) {
                 err := error(nil)
                 s := ""
                 
-                m := Getch()
+                m := Parser.Getch()
                 if m == '+' {
                     volType = defs.CMD_VOLUP
-                    if Getch() == '+' {
+                    if Parser.Getch() == '+' {
                         volType = defs.CMD_VOLUPC
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                     }
                     volDelta = 1
-                    s = GetNumericString()
+                    s = Parser.GetNumericString()
                     if len(s) > 0 {
                         num, err = strconv.Atoi(s)
                         if err == nil {
@@ -2282,13 +2285,13 @@ func compileFile(fileName string) {
                     }
                 } else if m == '-' {
                     volType = defs.CMD_VOLDN
-                    if Getch() == '-' {
+                    if Parser.Getch() == '-' {
                         volType = defs.CMD_VOLDNC
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                     }
                     //l = 1   Needed?
-                    s = GetNumericString()
+                    s = Parser.GetNumericString()
                     if len(s) > 0 {
                         num, err = strconv.Atoi(s)
                         if err == nil {
@@ -2296,8 +2299,8 @@ func compileFile(fileName string) {
                         }
                     }
                 } else {
-                    Ungetch()
-                    s = GetNumericString()
+                    Parser.Ungetch()
+                    s = Parser.GetNumericString()
                     if len(s) > 0 {
                         num, err = strconv.Atoi(s)
                     } else {
@@ -2358,9 +2361,9 @@ func compileFile(fileName string) {
                 writeAllPendingNotes(true)
                 n := 0
                 for n != -1 {
-                    n = Getch()
+                    n = Parser.Getch()
                     if n == '\n' {
-                        LineNum++
+                        Parser.LineNum++
                         break
                     } else if n == '\r' {
                         break
@@ -2391,7 +2394,7 @@ func compileFile(fileName string) {
                 for n != -1 {
                     if defs.NoteIndex(n) >= 0 {
                         if extraChars > 0 && !slur {
-                            Ungetch()
+                            Parser.Ungetch()
                             break
                         }
                         note = defs.NoteIndex(n)
@@ -2426,14 +2429,14 @@ func compileFile(fileName string) {
                         }
                         hasDot = true
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         break
                     }
 
                     if (defs.NoteIndex(n) >= 0 && n != 'r' && n != 's') || (extraChars > 0 && note != -1 && slur) {
                         flatSharp = 0
                         frames = -1
-                        m := Getch()
+                        m := Parser.Getch()
                         if m == '+' {
                             flatSharp = 1
                             if defs.NoteVal(note + flatSharp) != -2 {
@@ -2445,7 +2448,7 @@ func compileFile(fileName string) {
                                 ERROR("Bad note: " + string(byte(n)) + "-")
                             }
                         } else {
-                            Ungetch()
+                            Parser.Ungetch()
                         }
                     } else if n == 'r' || n == 's' {
                         flatSharp = 0
@@ -2460,7 +2463,7 @@ func compileFile(fileName string) {
                     }
 
                     if defs.NoteIndex(n) >= 0 || tie {
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         if len(s) > 0 {
                             noteLen, err := strconv.Atoi(s)
                             if err == nil {
@@ -2483,9 +2486,9 @@ func compileFile(fileName string) {
                         ERROR("Expected a length")
                     }
 
-                    tieOff = false
+                    tieOff  = false
                     slurOff = false
-                    dotOff = false
+                    dotOff  = false
                     
                     numChannels := 0
                     for _, chn := range currSong.Channels {
@@ -2557,7 +2560,7 @@ func compileFile(fileName string) {
                         ERROR("Trying to play a note with no active channels")
                     }
 
-                    n = Getch()
+                    n = Parser.Getch()
                     extraChars++
                 }
                 tie = false
@@ -2585,7 +2588,7 @@ func compileFile(fileName string) {
                 
             } else if c == '}' {
                 writeAllPendingNotes(true)
-                s := GetNumericString()
+                s := Parser.GetNumericString()
                 tupleLen := -1.0
                 if len(s) > 0 {
                     num, err := strconv.Atoi(s)
@@ -2632,21 +2635,21 @@ func compileFile(fileName string) {
                 writeAllPendingNotes(true)
                 
                 if c == 'A' {
-                    m := Getch()
+                    m := Parser.Getch()
                     s := string(byte(m))
-                    s += string(byte(Getch()))
-                    s += string(byte(Getch()))
+                    s += string(byte(Parser.Getch()))
+                    s += string(byte(Parser.Getch()))
                     
                     if s == "DSR" {
                         characterHandled = true
-                        Ungetch()
+                        Parser.Ungetch()
                         num := 0
                         err := error(nil)
-                        m = Getch()
+                        m = Parser.Getch()
                         if m == '(' {
                             // Implicit ADSR declaration
-                            utils.SetListDelimiters("()")
-                            lst, err := utils.GetList()
+                            Parser.SetListDelimiters("()")
+                            lst, err := Parser.GetList()
                             if err == nil {
                                 if len(lst.LoopedPart) == 0 {
                                     if len(lst.MainPart) == currSong.Target.GetAdsrLen() {
@@ -2668,7 +2671,7 @@ func compileFile(fileName string) {
                             implicitAdsrId++
                         } else {
                             // Use a previously declared ADSR
-                            s = GetNumericString()
+                            s = Parser.GetNumericString()
                             num, err = strconv.Atoi(s)
                         }
                         
@@ -2694,9 +2697,9 @@ func compileFile(fileName string) {
                             ERROR("Expected a number: " + s)
                         }
                     } else if m == 'M' {
-                        Ungetch()
-                        Ungetch()
-                        s = GetNumericString()
+                        Parser.Ungetch()
+                        Parser.Ungetch()
+                        s = Parser.GetNumericString()
                         if len(s) > 0 {
                             characterHandled = true
                             num, err := strconv.Atoi(s)
@@ -2714,19 +2717,19 @@ func compileFile(fileName string) {
                                 ERROR("Bad AM: " + s)
                             }
                         } else {
-                            Ungetch()
+                            Parser.Ungetch()
                             assertIsChannelName(c)
                         }                       
                     } else {
-                        Ungetch()
-                        Ungetch()
-                        Ungetch()
+                        Parser.Ungetch()
+                        Parser.Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
 
 
                 } else if c == 'C' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'S' {
                         characterHandled = true
                         num, idx, err := assertEffectIdExistsAndChannelsActive("CS", effects.PanMacros)
@@ -2744,8 +2747,8 @@ func compileFile(fileName string) {
                                 WARNING("Unsupported command for this target: CS")
                             }
                         } else {
-                            m = Getch()
-                            t := string(byte(m)) + string(byte(Getch()))
+                            m = Parser.Getch()
+                            t := string(byte(m)) + string(byte(Parser.Getch()))
                             if t == "OF" {
                                 if currSong.Target.SupportsPan() {
                                     applyCmdOnAllActive("CS", []int{defs.CMD_PANMAC, 0})
@@ -2755,16 +2758,16 @@ func compileFile(fileName string) {
                             }
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
                 
                 } else if c == 'D' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == '-' || IsNumeric(m) {
                         characterHandled = true
-                        Ungetch()
-                        s := GetNumericString()
+                        Parser.Ungetch()
+                        s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             if currSong.GetNumActiveChannels() == 0 {
@@ -2802,16 +2805,16 @@ func compileFile(fileName string) {
                             ERROR("Expected a number: " + s)
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }                       
 
                 } else if c == 'K' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == '-' || IsNumeric(m) {
                         characterHandled = true
-                        Ungetch()
-                        s := GetNumericString()
+                        Parser.Ungetch()
+                        s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             if currSong.GetNumActiveChannels() == 0 {
@@ -2827,12 +2830,12 @@ func compileFile(fileName string) {
                             ERROR("Expected a number: " + s)
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }       
                     
                 } else if c == 'E' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'N' {
                         characterHandled = true
                         num, idx, err := assertEffectIdExistsAndChannelsActive("EN", effects.Arpeggios)
@@ -2879,15 +2882,15 @@ func compileFile(fileName string) {
                         }
 
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
 
                 // FM feedback select
                 } else if c == 'F' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'B' {
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         if len(s) > 0 {
                             characterHandled = true
                             num, err := strconv.Atoi(s)
@@ -2905,9 +2908,9 @@ func compileFile(fileName string) {
                                 ERROR("Bad feedback value: " +  s)
                             }
                         } else {
-                            m = Getch()
+                            m = Parser.Getch()
                             if m == 'M' {
-                                s = GetNumericString()
+                                s = Parser.GetNumericString()
                                 if len(s) > 0 {
                                     characterHandled = true
                                     num, err := strconv.Atoi(s)
@@ -2941,20 +2944,20 @@ func compileFile(fileName string) {
                                         ERROR("Bad feedback value:" + s)
                                     }
                                 } else {
-                                    Ungetch()
-                                    Ungetch()
+                                    Parser.Ungetch()
+                                    Parser.Ungetch()
                                     assertIsChannelName(c)
                                 }
                             } else {
-                                Ungetch()
-                                Ungetch()
+                                Parser.Ungetch()
+                                Parser.Ungetch()
                                 assertIsChannelName(c)
                             }
                         }
 
                     } else if m == 'T' {
                         characterHandled = true
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             idx := -1
@@ -2980,8 +2983,8 @@ func compileFile(fileName string) {
                                 ERROR("Undefined macro: FT" + s)
                             }
                         } else {
-                            m = Getch()
-                            t := string(byte(m)) + string(byte(Getch()))
+                            m = Parser.Getch()
+                            t := string(byte(m)) + string(byte(Parser.Getch()))
                             if t == "OF" {
                                 for _, chn := range currSong.Channels {
                                     if chn.Active {
@@ -2995,7 +2998,7 @@ func compileFile(fileName string) {
                             }
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }                   
 
@@ -3026,7 +3029,7 @@ func compileFile(fileName string) {
         
                 // Vibrato select                       
                 } else if c == 'M' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'P' {
                         characterHandled = true
                         num, idx, err := assertEffectIdExistsAndChannelsActive("MP", effects.Vibratos)
@@ -3044,7 +3047,7 @@ func compileFile(fileName string) {
                             assertDisablingEffect("MP", defs.CMD_VIBMAC);
                         }
                     } else if m == 'F' {
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         if len(s) > 0 {
                             characterHandled = true
                             num, err := strconv.Atoi(s)
@@ -3079,13 +3082,13 @@ func compileFile(fileName string) {
                                 ERROR("Bad MF: " + s)
                             }
                         } else {
-                            Ungetch()
+                            Parser.Ungetch()
                             assertIsChannelName(c)
                         }
                     } else if m == 'O' {
-                        m = Getch()
+                        m = Parser.Getch()
                         if m == 'D' {
-                            s := GetNumericString()
+                            s := Parser.GetNumericString()
                             if len(s) > 0 {
                                 characterHandled = true
                                 num, err := strconv.Atoi(s)
@@ -3109,8 +3112,8 @@ func compileFile(fileName string) {
                                     ERROR("Bad MOD: " + s)
                                 }
                             } else {
-                                m = Getch()
-                                t := string(byte(m)) + string(byte(Getch()))
+                                m = Parser.Getch()
+                                t := string(byte(m)) + string(byte(Parser.Getch()))
                                 if t == "OF" {
                                     characterHandled = true
                                     for _, chn := range currSong.Channels {
@@ -3121,22 +3124,22 @@ func compileFile(fileName string) {
                                         }
                                     }
                                 } else {
-                                    Ungetch()
-                                    Ungetch()
-                                    Ungetch()
-                                    Ungetch()
+                                    Parser.Ungetch()
+                                    Parser.Ungetch()
+                                    Parser.Ungetch()
+                                    Parser.Ungetch()
                                     assertIsChannelName(c)
                                 }
                             }
                         } else {
-                            Ungetch()
-                            Ungetch()
+                            Parser.Ungetch()
+                            Parser.Ungetch()
                             assertIsChannelName(c)
                         }
                     } else if IsNumeric(m) {
                         characterHandled = true
-                        Ungetch()
-                        s := GetNumericString()
+                        Parser.Ungetch()
+                        s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             if currSong.GetNumActiveChannels() == 0 {
@@ -3150,15 +3153,15 @@ func compileFile(fileName string) {
                             ERROR("Bad mode:" + s)
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
 
                 // FM operator select
                 } else if c == 'O' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'P' && !lastWasChannelSelect {
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         if len(s) > 0 {
                             characterHandled = true
                             num, err := strconv.Atoi(s)
@@ -3176,20 +3179,20 @@ func compileFile(fileName string) {
                                 ERROR("Bad OP: " + s)
                             }
                         } else {
-                            Ungetch()
+                            Parser.Ungetch()
                             assertIsChannelName(c)
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
 
                 // Portamento select
                 } else if c == 'P' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'T' {
                         characterHandled = true
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             idx := effects.Portamentos.FindKey(num)
@@ -3202,8 +3205,8 @@ func compileFile(fileName string) {
                                 ERROR("Undefined macro: PT" + s)
                             }
                         } else {
-                            m = Getch()
-                            t := string(byte(m)) + string(byte(Getch()))
+                            m = Parser.Getch()
+                            t := string(byte(m)) + string(byte(Parser.Getch()))
                             if t == "OF" {
                                 // TODO: deactivate portamento
                             } else {
@@ -3211,19 +3214,19 @@ func compileFile(fileName string) {
                             }
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
 
                 // Rate scale / Ring modulation
                 } else if c == 'R' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'I' {
-                        s := string(byte(Getch()))
-                        s += string(byte(Getch()))
+                        s := string(byte(Parser.Getch()))
+                        s += string(byte(Parser.Getch()))
                         if s == "NG" {
                             characterHandled = true
-                            s = GetNumericString()
+                            s = Parser.GetNumericString()
                             num, err := strconv.Atoi(s)
                             if err == nil {
                                 if currSong.GetNumActiveChannels() == 0 {
@@ -3245,15 +3248,15 @@ func compileFile(fileName string) {
                                 ERROR("Syntax error: RING" + s)
                             }
                         } else {
-                            Ungetch()
-                            Ungetch()
-                            Ungetch()
+                            Parser.Ungetch()
+                            Parser.Ungetch()
+                            Parser.Ungetch()
                             assertIsChannelName(c)
                         }
                         
                     } else if m == 'S' && !lastWasChannelSelect {
                         characterHandled = true
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             if currSong.GetNumActiveChannels() == 0 {
@@ -3267,19 +3270,19 @@ func compileFile(fileName string) {
                             ERROR("Syntax error: RS" + s)
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
 
                 // SSG-EG mode / Hard sync
                 } else if c == 'S' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'Y' {
-                        s := string(byte(Getch()))
-                        s += string(byte(Getch()))
+                        s := string(byte(Parser.Getch()))
+                        s += string(byte(Parser.Getch()))
                         if s == "NC" {
                             characterHandled = true
-                            s = GetNumericString()
+                            s = Parser.GetNumericString()
                             num, err := strconv.Atoi(s)
                             if err == nil {
                                 if currSong.GetNumActiveChannels() == 0 {
@@ -3301,18 +3304,18 @@ func compileFile(fileName string) {
                                 ERROR("Syntax error: SYNC" + s)
                             }
                         } else {
-                            Ungetch()
-                            Ungetch()
-                            Ungetch()
+                            Parser.Ungetch()
+                            Parser.Ungetch()
+                            Parser.Ungetch()
                             assertIsChannelName(c)
                         }
                     
                     } else if m == 'S' {
                         s := string(byte(m))
-                        s += string(byte(Getch()))
+                        s += string(byte(Parser.Getch()))
                         if s == "SG" {
                             characterHandled = true
-                            s = GetNumericString()
+                            s = Parser.GetNumericString()
                             num, err := strconv.Atoi(s)
                             if err == nil {
                                 if currSong.GetNumActiveChannels() == 0 {
@@ -3323,8 +3326,8 @@ func compileFile(fileName string) {
                                     ERROR("SSG out of range: " + s)
                                 }
                             } else {
-                                m = Getch()
-                                t := string(byte(m)) + string(byte(Getch()))
+                                m = Parser.Getch()
+                                t := string(byte(m)) + string(byte(Parser.Getch()))
                                 if t == "OF" {
                                     for _, chn := range currSong.Channels {
                                         if chn.Active {
@@ -3341,22 +3344,22 @@ func compileFile(fileName string) {
                             }
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
 
                 } else if c == 'W' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'T' {
                         characterHandled = true
                         isWTM := false
-                        m = Getch()
+                        m = Parser.Getch()
                         if m == 'M' {
                             isWTM = true
                         } else {
-                            Ungetch()
+                            Parser.Ungetch()
                         }
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             if !isWTM {
@@ -3401,8 +3404,8 @@ func compileFile(fileName string) {
                                 }
                             }
                         } else {
-                            m = Getch()
-                            t := string(byte(m)) + string(byte(Getch()))
+                            m = Parser.Getch()
+                            t := string(byte(m)) + string(byte(Parser.Getch()))
                             if t == "OF" {
                                 for _, chn := range currSong.Channels {
                                     if chn.Active {
@@ -3418,14 +3421,14 @@ func compileFile(fileName string) {
                             }
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
 
                 // Noise speed
                 } else if c == 'n' {
                     characterHandled = true
-                    s := GetNumericString()
+                    s := Parser.GetNumericString()
                     num, err := strconv.Atoi(s)
                     if err == nil && inRange(num, 0, 63) {
                         if currSong.GetNumActiveChannels() == 0 {
@@ -3451,10 +3454,10 @@ func compileFile(fileName string) {
                     }
                     
                 } else if c == 'p' {
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == 'w' {
                         characterHandled = true
-                        s := GetNumericString()
+                        s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil && inRange(num, 0, 15) {
                             if currSong.GetNumActiveChannels() == 0 {
@@ -3470,34 +3473,34 @@ func compileFile(fileName string) {
                             ERROR("Bad pw: " + s)
                         }
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                         assertIsChannelName(c)
                     }
                 
                 } else if c == 'w' {
                     wrType := defs.CMD_WRMEM
-                    m := Getch()
+                    m := Parser.Getch()
                     if m == '(' {
                         wrType = defs.CMD_WRPORT
                     } else {
-                        Ungetch()
+                        Parser.Ungetch()
                     }
-                    s := GetNumericString()
+                    s := Parser.GetNumericString()
                     if len(s) > 0 {
                         addr, err := strconv.Atoi(s)
                         if err == nil {
                             if inRange(addr, 0, 0xFFFF) {
-                                m = Getch()
+                                m = Parser.Getch()
                                 if wrType == defs.CMD_WRPORT {
                                     if m != ')' {
                                         ERROR("Expected ')'")
                                     }
-                                    m = Getch()
+                                    m = Parser.Getch()
                                 }
                                 if m != ',' {
                                     ERROR("Expected ','")
                                 }
-                                s = GetNumericString()
+                                s = Parser.GetNumericString()
                                 if len(s) == 0 {
                                     ERROR("Missing second argument for w")
                                 }
