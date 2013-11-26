@@ -406,6 +406,14 @@ func handleMetaCommand() {
                 ERROR("ELSE with no matching IFDEF")
             }
 
+        case "ENDIF":
+            if dontCompile.Len() > 1 {
+                _ = dontCompile.Pop()
+                _ = hasElse.Pop()
+            } else {
+                ERROR("ENDIF with no matching IFDEF")
+            }
+                    
         case "TITLE":
             CurrSong.Title = Parser.GetStringUntil("\r\n")
 
