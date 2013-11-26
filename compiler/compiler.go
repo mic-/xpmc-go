@@ -120,8 +120,8 @@ func NewIntStack() *IntStack {
 
                     
 
-var fileData []byte
-var fileDataPos int
+//var fileData []byte
+//var fileDataPos int
 var dontCompile *IntStack
 var hasElse *BoolStack
 var pattern *MmlPattern
@@ -144,10 +144,10 @@ func getEffectFrequency() int {
     
     retVal = 0
     
-    SkipWhitespace()
-    n = Getch()
+    Parser.SkipWhitespace()
+    n = Parser.Getch()
     if n == '(' {
-        t := GetStringUntil(")\t\r\n ")
+        t := Parser.GetStringUntil(")\t\r\n ")
         if t == "EVERY-FRAME" {
             retVal = 0
         } else if t == "EVERY-NOTE" {
@@ -156,11 +156,11 @@ func getEffectFrequency() int {
             ERROR("Unsupported effect frequency: " + t)
         }
         
-        if Getch() != ')' {
+        if Parser.Getch() != ')' {
             ERROR("Syntax error: expected )")
         }
     } else {
-        Ungetch()
+        Parser.Ungetch()
     }
     
     return retVal
@@ -269,19 +269,19 @@ func writeAllPendingNotes(forceOctChange bool) {
 // how the ops should be interpreted.
 // Returns 1 if the expression is true, otherwise 0
 func evalIfdefExpr(polarity int) int {
-    s := GetStringUntil("&|\r\n")
+    s := Parser.GetStringUntil("&|\r\n")
     expr := isDefined(s)
     for {
-        s = GetStringInRange("&|")
+        s = Parser.GetStringInRange("&|")
         if s == "&" {
-            s = GetStringUntil("&|\r\n")
+            s = Parser.GetStringUntil("&|\r\n")
             if polarity == POLARITY_POSITIVE {
                 expr = expr & isDefined(s)
             } else {
                 expr = expr | isDefined(s)
             }
         } else if s == "|" {
-            s = GetStringUntil("&|\r\n")
+            s = Parser.GetStringUntil("&|\r\n")
             if polarity == POLARITY_POSITIVE {
                 expr = expr | isDefined(s)
             } else {
@@ -299,7 +299,7 @@ func evalIfdefExpr(polarity int) int {
 // Handle commands starting with '#', i.e. a meta command 
 func handleMetaCommand() {
     if dontCompile.Peek() != 0 {
-        s := GetString()
+        s := Parser.GetString()
         switch s {
         case "IFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
@@ -356,7 +356,7 @@ func handleMetaCommand() {
             chn.WriteNote(true)
         }
 
-        cmd := GetString()
+        cmd := Parser.GetString()
 
         switch cmd {
         case "IFDEF":
@@ -372,7 +372,7 @@ func handleMetaCommand() {
         case "ELSIFDEF":
             if dontCompile.Len() > 1 {
                 if !hasElse.Peek() {
-                    _ = GetStringUntil("\r\n")
+                    _ = Parser.GetStringUntil("\r\n")
                     _ = dontCompile.Pop()
                     // Getting here means that the current IFDEF/ELSIFDEF was true,
                     // so whatever is in subsequent ELSIFDEF/ELSE clauses should not
@@ -400,28 +400,28 @@ func handleMetaCommand() {
             }
 
         case "TITLE":
-            currSong.Title = GetStringUntil("\r\n")
+            currSong.Title = Parser.GetStringUntil("\r\n")
 
         case "TUNE":
             currSong.TuneSmsPitch = true
 
         case "COMPOSER":
-            currSong.Composer = GetStringUntil("\r\n")
+            currSong.Composer = Parser.GetStringUntil("\r\n")
 
         case "PROGRAMER","PROGRAMMER":
-            currSong.Programmer = GetStringUntil("\r\n")
+            currSong.Programmer = Parser.GetStringUntil("\r\n")
 
         case "GAME":
-            currSong.Game = GetStringUntil("\r\n")
+            currSong.Game = Parser.GetStringUntil("\r\n")
 
         case "ALBUM":
-            currSong.Album = GetStringUntil("\r\n")
+            currSong.Album = Parser.GetStringUntil("\r\n")
 
         case "ERROR":
-            SkipWhitespace()
-            if Getch() == '"' {
-                s := GetStringUntil("\"")
-                if Getch() == '"' {
+            Parser.SkipWhitespace()
+            if Parser.Getch() == '"' {
+                s := Parser.GetStringUntil("\"")
+                if Parser.Getch() == '"' {
                     ERROR(s)
                 } else {
                     ERROR("Malformed #ERROR, missing ending \"")
@@ -431,10 +431,10 @@ func handleMetaCommand() {
             }
 
         case "WARNING":
-            SkipWhitespace()
-            if Getch() == '"' {
-                s := GetStringUntil("\"")
-                if Getch() == '"' {
+            Parser.SkipWhitespace()
+            if Parser.Getch() == '"' {
+                s := Parser.GetStringUntil("\"")
+                if Parser.Getch() == '"' {
                     WARNING(s)
                 } else {
                     ERROR("Malformed #WARNING, missing ending \"")
@@ -444,10 +444,10 @@ func handleMetaCommand() {
             }
                     
         case "INCLUDE":
-            SkipWhitespace()
-            if Getch() == '"' {
-                s := GetStringUntil("\"")
-                if Getch() == '"' {
+            Parser.SkipWhitespace()
+            if Parser.Getch() == '"' {
+                s := Parser.GetStringUntil("\"")
+                if Parser.Getch() == '"' {
                     if len(s) > 0 {
                         if !strings.ContainsRune(s, ':') && s[0] != '\\' {
                             s = workDir + s
@@ -470,7 +470,7 @@ func handleMetaCommand() {
             timing.UpdateFreq = 60.0
 
         case "SONG":
-            s := GetString()
+            s := Parser.GetString()
             num, err := strconv.ParseInt(s, UserDefinedBase, 0)
             if err == nil {
                 if num > 1 && num < 100 {
@@ -516,7 +516,7 @@ func handleMetaCommand() {
             }
 
         case "BASE":
-            s := GetString()
+            s := Parser.GetString()
             newBase, err := strconv.ParseInt(s, UserDefinedBase, 0)
             if err == nil {
                 if newBase == 10 || newBase == 16 {
@@ -529,7 +529,7 @@ func handleMetaCommand() {
             }
 
         case "UNIFORM-VOLUME":
-            s := GetString()
+            s := Parser.GetString()
             vol, err := strconv.Atoi(s)
             if err == nil {
                 if vol > 1 {
@@ -547,7 +547,7 @@ func handleMetaCommand() {
             }
 
         case "GB-VOLUME-CONTROL":
-            s := GetString()
+            s := Parser.GetString()
             ctl, err := strconv.Atoi(s)
             if err == nil {
                 if ctl == 1 {
@@ -562,7 +562,7 @@ func handleMetaCommand() {
             }
 
         case "GB-NOISE":
-            s := GetString()
+            s := Parser.GetString()
             val, err := strconv.Atoi(s)
             if err == nil {
                 if val == 1 {
@@ -583,7 +583,7 @@ func handleMetaCommand() {
             }
 
         case "EN-REV":
-            s := GetString()
+            s := Parser.GetString()
             rev, err := strconv.Atoi(s)
             if err == nil {
                 if rev == 1 {
@@ -602,7 +602,7 @@ func handleMetaCommand() {
             }
 
         case "OCTAVE-REV":
-            s := GetString()
+            s := Parser.GetString()
             rev, err := strconv.Atoi(s)
             if err == nil {
                 if rev == 1 {
@@ -617,7 +617,7 @@ func handleMetaCommand() {
 
         case "AUTO-BANKSWITCH":
             WARNING("Unsupported command: AUTO-BANKSWITCH")
-            _ = GetString() 
+            _ = Parser.GetString() 
 
         default:
             ERROR("Unknown command: " + cmd)
@@ -631,9 +631,9 @@ func handleDutyMacDef(num int) {
     idx := effects.DutyMacros.FindKey(num) 
     if currSong.GetNumActiveChannels() == 0 {
         if idx < 0 {
-            t := GetString()
+            t := Parser.GetString()
             if t == "=" {
-                lst, err := utils.GetList()
+                lst, err := Parser.GetList()
                 if err == nil {
                     if len(lst.MainPart) != 0 || len(lst.LoopedPart) != 0 {
                         effects.DutyMacros.Append(num, lst)
@@ -685,9 +685,9 @@ func handlePanMacDef(cmd string) {
         idx := effects.PanMacros.FindKey(num)
         if idx < 0 {
             // ..no. Get the '=' sign and then the list of values
-            t := GetString()
+            t := Parser.GetString()
             if t == "=" {
-                lst, err := utils.GetList()
+                lst, err := Parser.GetList()
                 if err == nil {
                     // The list must contain at least one value
                     if !lst.IsEmpty() {

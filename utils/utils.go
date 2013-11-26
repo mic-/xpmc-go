@@ -17,16 +17,13 @@ import (
     "strings"
 )
 
-var LineNum int
-var ShortFileName string
-var fileData []byte
-var fileDataPos int
-var UserDefinedBase int
-
-var allowFloats, wtListOk bool
-var currentBase int
-var listDelimiter string
-
+type ParserState struct
+    LineNum int
+    ShortFileName string
+    fileData []byte
+    fileDataPos int
+    UserDefinedBase int
+}
 
 type ParamList struct {
     MainPart []int
@@ -34,19 +31,64 @@ type ParamList struct {
 }
 
 
-func Init() {
-    LineNum = 1
-    UserDefinedBase = 10
+type ParserStateStack struct {
+    data *list.List
 }
+
+func (s *ParserStateStack) Push(e ParserState) {
+    _ = s.data.PushBack(e)
+}
+
+func (s *ParserStateStack) Pop() ParserState {
+    e := s.data.Back()
+    return s.data.Remove(e).(ParserState)
+}
+
+func (s *ParserStateStack) Peek() ParserState {
+    e := s.data.Back()
+    return e.Value.(ParserState)
+}
+
+func (s *ParserStateStack) Len() int {
+    return s.data.Len()
+}
+
+func NewParserStateStack() *ParserStateStack {
+    return &ParserStateStack{list.New()}
+}
+
+func (s *ParserState) Init() {
+    s.LineNum = 1
+    s.UserDefinedBase = 10
+}
+
+func NewParserState() *ParserState {
+    s := &ParserStateStack{list.New()}
+    s.Init()
+    return s
+}
+
+// Global variables
+
+var Parser *ParserState
+var OldParsers *ParserStateStack
+
+// Local variables
+
+var allowFloats, wtListOk bool
+var currentBase int
+var listDelimiter string
 
 // Compiler messages
 
 func ERROR(msg string) {
-    fmt.Printf("%s@%d, Error: %s\n", ShortFileName, LineNum, msg)
+    fmt.Printf("%s@%d, Error: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
+    // ToDo: abort program
 }
 
 func WARNING(msg string) {
-    fmt.Printf("%s@%d, Warning: %s\n", ShortFileName, LineNum, msg)
+    fmt.Printf("%s@%d, Warning: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
+    // ToDo: abort programs if warning are errors
 }
 
 func INFO(msg string) {
@@ -54,11 +96,11 @@ func INFO(msg string) {
 }
 
 
-func Getch() int {
+func (p *ParserState) Getch() int {
     c := -1
-    if fileDataPos < len(fileData) {
-        c = int(fileData[fileDataPos])
-        fileDataPos++
+    if p.fileDataPos < len(p.fileData) {
+        c = int(p.fileData[p.fileDataPos])
+        p.fileDataPos++
     }
     
     return c
@@ -66,9 +108,9 @@ func Getch() int {
 
 
 // Unget the last read character  
-func Ungetch() {
-    if fileDataPos > 0 {
-        fileDataPos--
+func (p *ParserState) Ungetch() {
+    if p.fileDataPos > 0 {
+        p.fileDataPos--
     }
 }
 
@@ -79,34 +121,34 @@ func IsNumeric(c int) bool {
 
 
 // Consume whitespace
-func SkipWhitespace() {
+func (p *ParserState) SkipWhitespace() {
     c := 0
     
     for c != -1 {
-        c = Getch()
+        c = p.Getch()
         if c == ' ' || c == '\t' || c == 13 || c == 10 {
             if c == 10 {
-                LineNum++
+                p.LineNum++
             }
         } else {
             break
         }
     }
     
-    Ungetch()
+    p.Ungetch()
 }
 
 
 // Read a string (anything but whitespace or EOF)
-func GetString() string {
+func (p *ParserState) GetString() string {
     var c int
     
-    SkipWhitespace()
+    p.SkipWhitespace()
     
     s := ""
     c = 0
     for c != -1 {
-        c = Getch()
+        c = p.Getch()
         if c == -1 || c == ' ' || c == '\t' || c == 13 || c == 10 {
             break
         } else {
@@ -114,29 +156,29 @@ func GetString() string {
         }
     }
     
-    Ungetch()
+    p.Ungetch()
     
     return s
 }
 
 
 // Read a string of characters that belong to the set specified in validChars
-func GetStringInRange(validChars string) string {
+func (p *ParserState) GetStringInRange(validChars string) string {
     var c int
     
-    SkipWhitespace()
+    p.SkipWhitespace()
 
     s := ""
     c = 0
     for c != -1 {
-        c = Getch()
+        c = p.Getch()
         if !strings.ContainsRune(validChars, rune(c)) {
             break
         }
         s += string(byte(c))
     }
     
-    Ungetch()
+    p.Ungetch()
     
     return s
 }

@@ -73,33 +73,33 @@ func NewLoopStack() *LoopStack {
 
 
 type Channel struct {
-    Name string             // The channel's name ("A", "B", "C", etc)
-    Num int                 // The channel's number (0, 1, 2, etc)
-    Frames float64          // The total number of frames used by this channel given the current refresh rate
+    Name string             	// The channel's name ("A", "B", "C", etc)
+    Num int                 	// The channel's number (0, 1, 2, etc)
+    Ticks int			// The total number of ticks (32nd notes) used by this channel
+    Frames float64          	// The total number of frames used by this channel given the current refresh rate
     LoopFrames float64
     LoopPoint int
-    Ticks int
     LastSetLength float64
-    CurrentTempo int        // The channel's tempo, in BPM
+    CurrentTempo int        	// The channel's tempo, in BPM
     CurrentNote Note
-    CurrentOctave int       // The currently set octave for this channel
-    CurrentVolume int       // The currently set volume for this channel
+    CurrentOctave int       	// The currently set octave for this channel
+    CurrentVolume int       	// The currently set volume for this channel
     Tuple struct {
         Cmds []Note
         HasData bool
         Active bool
     }
-    CurrentLength float64   // Length in 32nd notes
+    CurrentLength float64   	// Length in 32nd notes
     CurrentNoteFrames struct {
         Active, Cutoff float64
     }
     CurrentCutoff struct {
         Typ int
-        Val float64
+        Val int			// Length in 32nd notes
     }
     PendingOctChange int
-    HasAnyNote bool         // Wheter any notes have been added on this channel
-    Active bool             // Is this channel currently active?
+    HasAnyNote bool         	// Whether any notes have been added on this channel
+    Active bool             	// Is this channel currently active?
     Cmds []int
     UsesEffect map[string]bool
     Loops *LoopStack
