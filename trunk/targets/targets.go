@@ -12,6 +12,7 @@ package targets
 import (
     "fmt"
     "../specs"
+    "../utils"
     //"../timing"
 )
 
@@ -256,15 +257,11 @@ func (t *Target) SupportsWaveTable() bool {
 }
 
 
-func DefineSymbol(sym string, val int) {
-}
-
-
 /* Atari 8-bit (XL/XE etc) *
  ***************************/
 
 func (t *TargetAt8) Init() {
-    DefineSymbol("AT8", 1)
+    utils.DefineSymbol("AT8", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsPokey)      // A..D
     
@@ -284,8 +281,8 @@ func (t *TargetAt8) Init() {
  *******************/
 
 func (t *TargetGBC) Init() {
-    DefineSymbol("DMG", 1)
-    DefineSymbol("GBC", 1)
+    utils.DefineSymbol("DMG", 1)
+    utils.DefineSymbol("GBC", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsGBAPU)      // A..D
 
@@ -305,8 +302,8 @@ func (t *TargetGBC) Init() {
  ****************************/
 
 func (t *TargetGen) Init() {
-    DefineSymbol("GEN", 1)
-    DefineSymbol("SMD", 1)
+    utils.DefineSymbol("GEN", 1)
+    utils.DefineSymbol("SMD", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsYM2612)     // E..J
@@ -333,7 +330,7 @@ func (t *TargetGen) Init() {
  ******************************/
 
 func (t *TargetKSS) Init() {
-    DefineSymbol("KSS", 1)
+    utils.DefineSymbol("KSS", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsAY_3_8910)  // E..G
@@ -360,7 +357,7 @@ func (t *TargetKSS) Init() {
  *****************/
 
 func (t *TargetNES) Init() {
-    DefineSymbol("NES", 1)       
+    utils.DefineSymbol("NES", 1)       
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.Specs2A03)       // A..E
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 5, specs.SpecsVRC6)       // F..H
@@ -379,7 +376,7 @@ func (t *TargetNES) Init() {
  *************************/
 
 func (t *TargetNGP) Init() {
-    DefineSymbol("NGP", 1)
+    utils.DefineSymbol("NGP", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsT6W28)      // A..D
     
@@ -396,7 +393,7 @@ func (t *TargetNGP) Init() {
  *****************/
 
 func (t *TargetSGG) Init() {
-    DefineSymbol("SGG", 1)
+    utils.DefineSymbol("SGG", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
     
@@ -413,7 +410,7 @@ func (t *TargetSGG) Init() {
  **********************/
 
 func (t *TargetSMS) Init() {
-    DefineSymbol("SMS", 1)       
+    utils.DefineSymbol("SMS", 1)       
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsYM2413)     // E..M

@@ -32,6 +32,7 @@ type Song struct {
 func NewSong(targetId int) *Song {
     s := &Song{}
     s.Target = targets.NewTarget(targetId)
+    s.Target.Init()
     chnSpecs := s.Target.GetChannelSpecs()
     for i, _ := range chnSpecs.Duty {
         chn := channel.NewChannel()
