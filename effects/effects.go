@@ -62,6 +62,10 @@ func (m *EffectMap) IsEmpty(key int) bool {
     return true
 }
 
+func NewEffectMap() *EffectMap {
+    e := &EffectMap{}
+    return e
+}
 
 var Arpeggios *EffectMap
 var Vibratos *EffectMap
@@ -78,3 +82,22 @@ var Portamentos *EffectMap
 var Waveforms *EffectMap
 var WaveformMacros *EffectMap
 var PCMs *EffectMap
+
+
+func Init() {
+    Arpeggios = NewEffectMap()
+    Vibratos = NewEffectMap()
+    VolumeMacros = NewEffectMap()
+    DutyMacros = NewEffectMap()
+    PanMacros = NewEffectMap()
+    PitchMacros = NewEffectMap()
+    PulseMacros = NewEffectMap()
+    FeedbackMacros = NewEffectMap()
+    MODs = NewEffectMap()
+    ADSRs = NewEffectMap()
+    Filters = NewEffectMap()
+    Portamentos = NewEffectMap()
+    Waveforms = NewEffectMap()
+    WaveformMacros = NewEffectMap()
+    PCMs = NewEffectMap()
+}
