@@ -649,7 +649,7 @@ func handleDutyMacDef(num int) {
                         effects.DutyMacros.Append(num, lst)
                         effects.DutyMacros.PutInt(num, getEffectFrequency())
                     } else {
-                        ERROR("Empty list")
+                        ERROR("Empty list for @")
                     }
                 } else {
                     ERROR("Syntax error, unable to parse list")
@@ -717,7 +717,7 @@ func handlePanMacDef(cmd string) {
                             ERROR("Value of out range (allowed: -63-63): " + lst.Format())
                         }
                     } else {
-                        ERROR("Empty list")
+                        ERROR("Empty list for CS")
                     }
                 } else {
                     ERROR("Bad CS: " + t)
@@ -752,7 +752,7 @@ func handleArpeggioDef(cmd string) {
                             ERROR("Value of out range (allowed: -63-63): " + lst.Format())
                         }
                     } else {
-                        ERROR("Empty list")
+                        ERROR("Empty list for EN")
                     }
                 } else {
                     ERROR("Bad EN: " + t)
@@ -875,7 +875,7 @@ func handleFeedbackMacDef(cmd string) {
                             ERROR("Value of out range (allowed: 0-7): " + lst.Format())
                         }
                     } else {
-                        ERROR("Empty list")
+                        ERROR("Empty list for FBM")
                     }
                 } else {
                     ERROR("Bad FBM: " + t)
@@ -1029,7 +1029,7 @@ func CompileFile(fileName string) {
         
         c2 := c
         
-        if c == 10 {
+        if c == '\n' {
             Parser.LineNum++
         }
         

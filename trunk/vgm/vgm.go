@@ -144,12 +144,24 @@ type LastChannelSettings struct {
 
 func NewVgmChannel(num int) *VgmChannel {
 	return &VgmChannel{
-		0,0,0,0,0,0,0,0,0,0,0,0,0,
-		NewVolSlideEffect(),
-		NewArpeggioEffect(ENMAC),
-		NewArpeggioEffect(EN2MAC),
-		NewFreqSlideEffect(),
-		NewVibratoEffect(),
+		DataPtr: 0,
+		DataPos: 0,
+		Delay: 0,
+		Note: 0,
+		NoteOffs: 0,
+		Octave: 0,
+		Duty: 0,
+		Freq: 0,
+		FreqOffs: 0,
+		FreqOffsLatch: 0,
+		Volume: 0,
+		VolOffs: 0,
+		VolOffsLatch: 0,
+		VolMac: NewVolSlideEffect(),
+		ArpMac: NewArpeggioEffect(ENMAC),
+		Arp2Mac: NewArpeggioEffect(EN2MAC),
+		EpMac: NewFreqSlideEffect(),
+		MpMac: NewVibratoEffect(),
 		NewDutyEffect(),
 		NewFeedbackEffect(),
 		NewPanningEffect()
@@ -359,7 +371,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
 	vgmData = {0x56, 0x67, 0x6D, 0x20,	// "Vgm "
 		       0, 0, 0, 0,				// EOF offset, filled in later
 		       0x50, 0x01, 0, 0}		// VGM version (1.50)
-	if psg then
+	if psg {
 		vgmData &= int_to_bytes(machineSpeed)
 	} else {
 		vgmData &= int_to_bytes(0)
@@ -1463,14 +1475,14 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
 					} // end for freqChange != 2
 				} else {
 					// Update effects as needed
-					c.VolMac.Step(&c, VGM_STEP_FRAME)
-					c.ArpMac.Step(&c, VGM_STEP_FRAME)
+					c.VolMac.Step( &c, VGM_STEP_FRAME)
+					c.ArpMac.Step( &c, VGM_STEP_FRAME)
 					c.Arp2Mac.Step(&c, VGM_STEP_FRAME)
-					c.EpMac.Step(&c, VGM_STEP_FRAME)
-					c.MpMac.Step(&c, VGM_STEP_FRAME)
+					c.EpMac.Step(  &c, VGM_STEP_FRAME)
+					c.MpMac.Step(  &c, VGM_STEP_FRAME)
 					c.DutyMac.Step(&c, VGM_STEP_FRAME)
-					c.FbkMac.Step(&c, VGM_STEP_FRAME)
-					c.PanMac.Step(&c, VGM_STEP_FRAME)
+					c.FbkMac.Step( &c, VGM_STEP_FRAME)
+					c.PanMac.Step( &c, VGM_STEP_FRAME)
 									
 					if channel[i][CHN_MPMAC][1] then
 						if and_bits(channel[i][CHN_MPMAC][1], #80) = VGM_STEP_FRAME then

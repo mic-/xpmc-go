@@ -11,7 +11,7 @@ var ShortestDelay struct {
 	Lo, Hi int
 }
 var LongestDelay int
-var SupportedLengths []int
+var SupportedLengths = []int{32, 24, 16, 12, 8, 6, 4, 3, 2, 1}
 
 
 // Update the current minimum and maximum delay.
