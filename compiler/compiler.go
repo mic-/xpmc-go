@@ -244,11 +244,6 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
 }
 
 
-func isDefined(sym string) int {
-    return 0
-}
-
-
 func abs(x int) int {
     if x < 0 {
         return -x
@@ -277,22 +272,22 @@ func writeAllPendingNotes(forceOctChange bool) {
 // Returns 1 if the expression is true, otherwise 0
 func evalIfdefExpr(polarity int) int {
     s := Parser.GetStringUntil("&|\r\n")
-    expr := isDefined(s)
+    expr := IsDefined(s)
     for {
         s = Parser.GetStringInRange("&|")
         if s == "&" {
             s = Parser.GetStringUntil("&|\r\n")
             if polarity == POLARITY_POSITIVE {
-                expr = expr & isDefined(s)
+                expr = expr & IsDefined(s)
             } else {
-                expr = expr | isDefined(s)
+                expr = expr | IsDefined(s)
             }
         } else if s == "|" {
             s = Parser.GetStringUntil("&|\r\n")
             if polarity == POLARITY_POSITIVE {
-                expr = expr | isDefined(s)
+                expr = expr | IsDefined(s)
             } else {
-                expr = expr & isDefined(s)
+                expr = expr & IsDefined(s)
             }
         } else {
             break

@@ -13,6 +13,7 @@ package utils
 import (
     "errors"
     "fmt"
+    "os"
     "strconv"
     "strings"
     "container/list"
@@ -73,6 +74,7 @@ func (s *ParserState) Init(fileName string) error {
     s.wtListOk = false
     s.allowFloats = false
     s.ShortFileName = ""    // ToDo: set actual short filename
+    s.listDelimiter = "{}"
     return err
 }
 
@@ -89,12 +91,13 @@ var OldParsers *ParserStateStack
 
 // Local variables
 
+var definedSymbols map[string]bool
 
 // Compiler messages
 
 func ERROR(msg string) {
     fmt.Printf("%s@%d, Error: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
-    // ToDo: abort program
+    os.Exit(1)
 }
 
 func WARNING(msg string) {
@@ -106,6 +109,20 @@ func INFO(msg string) {
     fmt.Printf("Info: %s\n", msg)
 }
 
+
+func DefineSymbol(sym string, val int) {
+    if definedSymbols == nil {
+        definedSymbols = map[string]bool{}
+    }
+    definedSymbols[sym] = true
+}
+
+func IsDefined(sym string) int {
+    if (definedSymbols[sym]) {
+        return 1
+    }
+    return 0
+}
 
 func (p *ParserState) Getch() int {
     c := -1
@@ -343,6 +360,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
             
             if len(t) > 0 {
                 num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
+            //fmt.Printf("List contains %d\n", num)
                 if e == nil {
                     p.SkipWhitespace()
                     c = p.Getch()
