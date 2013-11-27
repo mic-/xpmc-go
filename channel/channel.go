@@ -95,7 +95,7 @@ type Channel struct {
     }
     CurrentCutoff struct {
         Typ int
-        Val int         // Length in 32nd notes
+        Val int         
     }
     PendingOctChange int
     HasAnyNote bool             // Whether any notes have been added on this channel
@@ -110,8 +110,12 @@ type Channel struct {
 func NewChannel() *Channel {
     chn := &Channel{}
     chn.LoopPoint = -1
+    chn.CurrentTempo = 125
     chn.UsesEffect = map[string]bool{}
     chn.Loops = NewLoopStack()
+    chn.CurrentCutoff.Typ = defs.CT_NORMAL
+    chn.CurrentCutoff.Val = 8
+    // Note: some fields are initialized by song.NewSong()
     return chn
 }
 
@@ -261,15 +265,16 @@ func (chn *Channel) NoteLength(len float64) (frames, cutoffFrames, scaling float
     
     if timing.UseFractionalDelays {
         scaling = 256.0
-        length32 = int((frames / 8) * scaling)  // frames per 32nd note, scaled by 256
+        length32 = int((frames / 8.0) * scaling)  // frames per 32nd note, scaled by 256
         frames = math.Floor(float64(length32) * len)
         
         if (chn.CurrentCutoff.Typ == defs.CT_FRAMES ||
             chn.CurrentCutoff.Typ == defs.CT_NEG_FRAMES) {
             cutoffFrames = math.Min(float64(chn.CurrentCutoff.Val) * scaling, frames)
         } else {
-            cutoffFrames = (frames * (8 - float64(chn.CurrentCutoff.Val))) / 8
+            cutoffFrames = (frames * (8.0 - float64(chn.CurrentCutoff.Val))) / 8.0
         }
+        
         frames = math.Floor(frames) - math.Floor(cutoffFrames)
         if (frames < 0) {
             utils.ERROR("Note has negative length")

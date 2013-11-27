@@ -48,6 +48,7 @@ func showHelp(what string) {
 
 func main() {
     timing.UpdateFreq = 60.0
+    timing.UseFractionalDelays = true
     //c.WriteLength()
     //compiler.WARNING("foobar")
     
