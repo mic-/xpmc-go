@@ -25,6 +25,17 @@ func (m *EffectMap) FindKey(key int) int {
     return utils.PositionOfInt(m.keys, key)
 }
 
+func (m *EffectMap) GetKeys() []int {
+    return m.keys
+}
+
+func (m *EffectMap) GetKeyAt(pos int) int {
+    if pos < len(m.keys) {
+        return m.keys[pos]
+    }
+    return -1
+}
+
 func (m *EffectMap) Append(key int, lst *utils.ParamList) {
     m.keys = append(m.keys, key)
     m.data = append(m.data, lst)
@@ -47,6 +58,14 @@ func (m *EffectMap) GetInt(key int) int {
     return 0
 }
 
+func (m *EffectMap) IsReferenced(key int) bool {
+    pos := m.FindKey(key)
+    if (pos != -1) {
+        return (m.refCount[pos] > 0)
+    }
+    return false
+}
+
 func (m *EffectMap) AddRef(key int) {
     pos := m.FindKey(key)
     if (pos != -1) {
@@ -60,6 +79,10 @@ func (m *EffectMap) IsEmpty(key int) bool {
         return m.data[pos].IsEmpty()
     }
     return true
+}
+
+func (m *EffectMap) Len() int {
+    return len(m.keys)
 }
 
 func NewEffectMap() *EffectMap {
