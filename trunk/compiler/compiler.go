@@ -134,6 +134,8 @@ func Init() {
     dontCompile.Push(0)
     hasElse.Push(false)
     
+    lastWasChannelSelect = false
+    
     effects.Init()
 }
 
@@ -2155,6 +2157,7 @@ func CompileFile(fileName string) {
                             if chn.Active {
                                 chn.CurrentLength = 32.0 / float64(num)
                                 chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff, _ = chn.NoteLength(chn.CurrentLength)
+                                fmt.Printf("The new length is %d. %f active frames, %f cutoff frames\n", num, chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff)
                                 chn.AddCmd([]int{defs.CMD_LEN})
                                 chn.WriteLength()
                             }
@@ -2260,8 +2263,10 @@ func CompileFile(fileName string) {
                     if CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set tempo with no active channels")
                     } else if inRange(num, 0, CurrSong.Target.GetMaxTempo()) {
+                    	fmt.Printf("New tempo: %d\n", num)
                         for _, chn := range CurrSong.Channels {
                             if chn.Active {
+                            	fmt.Printf("Setting tempo on channel %s\n", chn.Name)
                                 chn.CurrentTempo = num
                             }
                         }
@@ -3544,12 +3549,12 @@ func CompileFile(fileName string) {
                 }
                 
                 if !characterHandled {
-                    if !lastWasChannelSelect {
-                        for _, chn := range CurrSong.Channels {
-                            chn.Active = false
-                            if chn.GetName() == string(byte(c)) {
-                                chn.Active = true
-                            }
+                    for _, chn := range CurrSong.Channels {
+                        if !lastWasChannelSelect {
+	                    chn.Active = false
+	                }
+                        if chn.GetName() == string(byte(c)) {
+                            chn.Active = true
                         }
                     }
                 }
