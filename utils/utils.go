@@ -347,7 +347,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
     pipeOk  := true             // Ok to read a |
     gotPipe := false
     endOk   := false            // Not ok to read a }
-    concatTo := []int{}   	
+    concatTo := []int{}     
     
     p.SkipWhitespace()
     
@@ -356,7 +356,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
     if byte(c) == p.listDelimiter[0] {
         for {
             p.SkipWhitespace()
-            //set_numeric_base(UserDefinedBase)
+            p.SetNumericBase(p.UserDefinedBase)
             t := p.GetNumericString()
             
             if len(t) > 0 {
@@ -496,7 +496,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                     endOk   = false
                 } else if c == '|' {
                     if pipeOk && !gotPipe {
-                    	lst.MainPart = append(lst.MainPart, concatTo...)
+                        lst.MainPart = append(lst.MainPart, concatTo...)
                         concatTo = []int{}
                         commaOk = false
                         pipeOk  = false
@@ -507,11 +507,11 @@ func (p *ParserState) GetList() (*ParamList,error) {
                     }
                 } else if byte(c) == p.listDelimiter[1] {
                     if endOk {
-                    	if gotPipe {
-                    	    lst.LoopedPart = append(lst.LoopedPart, concatTo...)
-                    	} else {
-                    	    lst.MainPart = append(lst.MainPart, concatTo...)
-                    	}
+                        if gotPipe {
+                            lst.LoopedPart = append(lst.LoopedPart, concatTo...)
+                        } else {
+                            lst.MainPart = append(lst.MainPart, concatTo...)
+                        }
                         err = nil
                         break
                     } else {

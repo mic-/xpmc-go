@@ -111,6 +111,7 @@ func NewChannel() *Channel {
     chn := &Channel{}
     chn.LoopPoint = -1
     chn.CurrentTempo = 125
+    chn.CurrentOctave = 4
     chn.UsesEffect = map[string]bool{}
     chn.Loops = NewLoopStack()
     chn.CurrentCutoff.Typ = defs.CT_NORMAL

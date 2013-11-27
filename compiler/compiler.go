@@ -529,10 +529,10 @@ func handleMetaCommand() {
 
         case "BASE":
             s := Parser.GetString()
-            newBase, err := strconv.ParseInt(s, Parser.UserDefinedBase, 0)
+            newBase, err := strconv.ParseInt(s, 10, 0) //Parser.UserDefinedBase, 0)
             if err == nil {
                 if newBase == 10 || newBase == 16 {
-                    userDefinedBase = int(newBase)
+                    Parser.UserDefinedBase = int(newBase)
                 } else {
                     WARNING(cmd +": Expected 10 or 16, got: " + s)
                 }
@@ -1226,7 +1226,8 @@ func CompileFile(fileName string) {
                                                                    CurrSong.Target.GetMinWavSample(),
                                                                    CurrSong.Target.GetMaxWavSample()) {
                                                             if len(lst.MainPart) < CurrSong.Target.GetMinWavLength() {
-                                                                WARNING("Padding waveform with zeroes")
+                                                                WARNING(fmt.Sprintf("Padding waveform with zeroes (current length: %d, needs to be at least %d)",
+                                                                    len(lst.MainPart), CurrSong.Target.GetMinWavLength()))
                                                                 //ToDo: fix:  lst.MainPart &= repeat(0, minWavLength - length(t[2]))
                                                             } else if len(lst.MainPart) > CurrSong.Target.GetMaxWavLength() {
                                                                 WARNING("Truncating waveform")
@@ -2263,10 +2264,10 @@ func CompileFile(fileName string) {
                     if CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set tempo with no active channels")
                     } else if inRange(num, 0, CurrSong.Target.GetMaxTempo()) {
-                    	fmt.Printf("New tempo: %d\n", num)
+                        fmt.Printf("New tempo: %d\n", num)
                         for _, chn := range CurrSong.Channels {
                             if chn.Active {
-                            	fmt.Printf("Setting tempo on channel %s\n", chn.Name)
+                                fmt.Printf("Setting tempo on channel %s\n", chn.Name)
                                 chn.CurrentTempo = num
                             }
                         }
@@ -3551,8 +3552,8 @@ func CompileFile(fileName string) {
                 if !characterHandled {
                     for _, chn := range CurrSong.Channels {
                         if !lastWasChannelSelect {
-	                    chn.Active = false
-	                }
+                        chn.Active = false
+                    }
                         if chn.GetName() == string(byte(c)) {
                             chn.Active = true
                         }
