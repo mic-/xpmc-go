@@ -3575,5 +3575,6 @@ func CompileFile(fileName string) {
                 
     }
     
+    writeAllPendingNotes(true)
     Parser = OldParsers.Pop()
 }

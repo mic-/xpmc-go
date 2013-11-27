@@ -46,6 +46,41 @@ func showHelp(what string) {
 }
 
 
+/*integer effectsRemoved
+effectsRemoved = 0
+func removeUnusedEffects(effectMap *effects.EffectMap, effectCmd int)
+    integer n
+    n = 1
+    
+    pos := 0
+    for pos < effectMap.Len() {
+        key := effectMap.GetKeyAt(pos)
+        if !effectMap.IsReferenced(key) {     
+            for i = 1 to length(songs) do
+                if sequence(songs[i]) then
+                    for j, chn := range songs[i].Channels {
+                        for k = 1 to length(songs[i][j]) do
+                            if songs[i][j][k] == effectCmd {
+                                if (songs[i][j][k + 1] & 0x7F) > pos {
+                                    songs[i][j][k + 1] = ((songs[i][j][k + 1] & 0x7F) - 1) | (songs[i][j][k + 1] & 0x80)
+                                }
+                            }
+                        end for
+                    }
+                end if
+            end for
+            tbl[ASSOC_KEY]   = substr2(tbl[ASSOC_KEY],   1, n-1) & substr2(tbl[ASSOC_KEY],   n+1, length(tbl[ASSOC_KEY]))
+            tbl[ASSOC_DATA]  = substr2(tbl[ASSOC_DATA],  1, n-1) & substr2(tbl[ASSOC_DATA],  n+1, length(tbl[ASSOC_DATA]))
+            tbl[ASSOC_REF]   = substr2(tbl[ASSOC_REF],   1, n-1) & substr2(tbl[ASSOC_REF],   n+1, length(tbl[ASSOC_REF]))
+            tbl[ASSOC_EXTRA] = substr2(tbl[ASSOC_EXTRA], 1, n-1) & substr2(tbl[ASSOC_EXTRA], n+1, length(tbl[ASSOC_EXTRA]))
+            effectsRemoved += 1
+        } else {
+            pos += 1
+        }
+    }
+}    */
+
+
 func main() {
     timing.UpdateFreq = 60.0
     timing.UseFractionalDelays = true
