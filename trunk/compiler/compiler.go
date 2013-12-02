@@ -48,12 +48,17 @@ type MmlPattern struct {
 }
 
 type MmlPatternMap struct {
+    keys [] string
     data []*MmlPattern
 }
 
 func (m *MmlPatternMap) FindKey(key string) int {
-    // ToDo: implement
-    return -1
+    return utils.PositionOfString(m.keys, key)
+}
+
+func (m *MmlPatternMap) Append(key string, pat *MmlPattern) {
+    m.keys = append(m.keys, key)
+    m.data = append(m.data, pat)
 }
 
 func (m *MmlPatternMap) HasAnyNote(key string) bool {
@@ -63,7 +68,6 @@ func (m *MmlPatternMap) HasAnyNote(key string) bool {
     }
     return false
 }
-
 
 type BoolStack struct {
     data *list.List
@@ -122,7 +126,7 @@ func NewIntStack() *IntStack {
 var dontCompile *IntStack
 var hasElse *BoolStack
 var pattern *MmlPattern
-var patterns *MmlPatternMap
+var patterns *MmlPatternMap = &MmlPatternMap{}
 var keepChannelsActive bool
 var callbacks []string
 
@@ -139,28 +143,20 @@ func Init() {
     effects.Init()
 }
 
-func Verbose(flag bool) {
-    // ToDo: implement
-}
-
-func WarningsAreErrors(flag bool) {
-    // ToDo: implement
-}
-
 
 func getEffectFrequency() int {
     var n, retVal int
     
-    retVal = 0
+    retVal = defs.EFFECT_STEP_EVERY_FRAME
     
     Parser.SkipWhitespace()
     n = Parser.Getch()
     if n == '(' {
         t := Parser.GetStringUntil(")\t\r\n ")
         if t == "EVERY-FRAME" {
-            retVal = 0
+            retVal = defs.EFFECT_STEP_EVERY_FRAME
         } else if t == "EVERY-NOTE" {
-            retVal = 1
+            retVal = defs.EFFECT_STEP_EVERY_NOTE
         } else {
             ERROR("Unsupported effect frequency: " + t)
         }
@@ -736,41 +732,6 @@ func handlePanMacDef(cmd string) {
 }
 
 
-// Handle definitions of arpeggio macros ("@EN<xy> = {...}")
-func handleArpeggioDef(cmd string) {
-    num, err := strconv.Atoi(cmd[2:])
-    if err == nil {
-        idx := effects.Arpeggios.FindKey(num)
-        if idx < 0 {
-            t := Parser.GetString()
-            if t == "=" {
-                lst, err := Parser.GetList()
-                if err == nil {
-                    if len(lst.MainPart) != 0 || len(lst.LoopedPart) != 0 {
-                        if inRange(lst.MainPart, -63, 63) && inRange(lst.LoopedPart, -63, 63) {
-                            effects.Arpeggios.Append(num, lst)
-                            effects.Arpeggios.PutInt(num, getEffectFrequency())
-                        } else {
-                            ERROR("Value of out range (allowed: -63-63): " + lst.Format())
-                        }
-                    } else {
-                        ERROR("Empty list for EN")
-                    }
-                } else {
-                    ERROR("Bad EN: " + t)
-                }
-            } else {
-                ERROR("Expected '='")
-            }
-        } else {
-            ERROR("Redefinition of @" + cmd)
-        }
-    } else {
-        ERROR("Syntax error: @" + cmd)
-    }   
-}
-
-
 // Handle definitions of pitch macros ("@EP<xy> = {...}")
 func handlePitchMacDef(cmd string) {
     num, err := strconv.Atoi(cmd[2:])
@@ -894,39 +855,33 @@ func handleFeedbackMacDef(cmd string) {
 }
 
 
-func handleVibratoMacDef(cmd string) {
-    num, err := strconv.Atoi(cmd[2:])
+    
+func handleEffectDefinition(effName string, mmlString string, effMap *effects.EffectMap, pred func(*ParamList) bool) {
+    num, err := strconv.Atoi(mmlString[len(effName):])
     if err == nil {
-        idx := effects.Vibratos.FindKey(num)
+        idx := effMap.FindKey(num)
         if idx < 0 {
             t := Parser.GetString()
             if t == "=" {
                 lst, err := Parser.GetList()
                 if err == nil {
-                    if len(lst.MainPart) == 3 && len(lst.LoopedPart) == 0 {
-                        if inRange(lst.MainPart, []int{0, 1, 0}, []int{127, 127, 63}) {
-                            effects.Vibratos.Append(num, lst)
-                            effects.Vibratos.PutInt(num, getEffectFrequency())
-                        } else {
-                            ERROR("Value of out range: " + lst.Format())
-                        }
-                    } else {
-                        ERROR("Bad MP: " + lst.Format())
+                    if pred(lst) {
+                        effMap.Append(num, lst)
+                        effMap.PutInt(num, getEffectFrequency())
                     }
                 } else {
-                    ERROR("Bad MP: " + lst.Format())
+                    ERROR("Bad " + effName +": " + lst.Format())
                 }
             } else {
                 ERROR("Expected '='")
             }
         } else {
-            ERROR("Redefinition of @" + cmd)
+            ERROR("Redefinition of @" + mmlString)
         }
     } else {
-        ERROR("Syntax error: @" + cmd)
+        ERROR("Syntax error: @" + mmlString)
     }                       
 }
-
 
 
 func applyCmdOnAllActive(cmdName string, cmd []int) {
@@ -1031,7 +986,7 @@ func CompileFile(fileName string) {
         
         c2 := c
         
-        if c == '\n' {
+        if c == 10 {
             Parser.LineNum++
         }
         
@@ -1111,16 +1066,40 @@ func CompileFile(fileName string) {
                             
                         // Arpeggio definition
                         } else if strings.HasPrefix(s, "EN") {
-                            handleArpeggioDef(s)                    
-
+                            //handleArpeggioDef(s)                    
+                            handleEffectDefinition("EN", s, effects.Arpeggios, func(parm *ParamList) bool {
+                                    if len(parm.MainPart) != 0 || len(parm.LoopedPart) != 0 {
+                                        if inRange(parm.MainPart, -63, 63) && inRange(parm.LoopedPart, -63, 63) {
+                                            return true;
+                                        } else {
+                                            ERROR("Value of out range (allowed: -63-63): " + parm.Format())
+                                        }
+                                    } else {
+                                        ERROR("Empty list for EN")
+                                    }
+                                    return false
+                                })
+                    
                         // Feedback macro definition
                         } else if strings.HasPrefix(s, "FBM") {
                             handleFeedbackMacDef(s)
                             
                         // Vibrato definition
                         } else if strings.HasPrefix(s, "MP") {
-                            handleVibratoMacDef(s)
-
+                            //handleVibratoMacDef(s)
+                            handleEffectDefinition("MP", s, effects.Vibratos, func(parm *ParamList) bool {
+                                    if len(parm.MainPart) == 3 && len(parm.LoopedPart) == 0 {
+                                        if inRange(parm.MainPart, []int{0, 1, 0}, []int{127, 127, 63}) {
+                                            return true
+                                        } else {
+                                            ERROR("Value of out range: " + parm.Format())
+                                        }
+                                    } else {
+                                        ERROR("Bad MP: " + parm.Format())
+                                    }
+                                    return false
+                                })
+                                
                         // Amplitude/frequency modulator
                         } else if strings.HasPrefix(s, "MOD") {
                             handleModMacDef(s)                  
@@ -1841,7 +1820,7 @@ func CompileFile(fileName string) {
                                         }
                                     } else if n == '}' || n == -1 {
                                         break
-                                    } else if n == '\n' {
+                                    } else if n == 10 {
                                         Parser.LineNum++
                                     } else if n != '\r' {
                                         // ToDo: fix
@@ -1968,7 +1947,7 @@ func CompileFile(fileName string) {
                             } else {
                                 Parser.Ungetch()
                             }
-                        } else if n == '\n' {
+                        } else if n == 10 {
                             Parser.LineNum++
                         }
                     }
@@ -2383,7 +2362,7 @@ func CompileFile(fileName string) {
                 n := 0
                 for n != -1 {
                     n = Parser.Getch()
-                    if n == '\n' {
+                    if n == 10 {
                         Parser.LineNum++
                         break
                     } else if n == '\r' {
@@ -2626,6 +2605,7 @@ func CompileFile(fileName string) {
                 if tupleLen == -1 {
                     if len(patName) > 0 {
                         CurrSong.Channels[len(CurrSong.Channels)-1].AddCmd([]int{defs.CMD_RTS})
+                        patterns.Append(patName, pattern)
                         /*patterns[1] = append(patterns[1], patName)
                         patterns[2] = append(patterns[2], songs[songNum][length(songs[songNum])])
                         patterns[3] &= hasAnyNote[length(supportedChannels)]
@@ -3561,7 +3541,7 @@ func CompileFile(fileName string) {
                 }
             } else if strings.ContainsRune("\t\r\n ", rune(c)) {
                 for _, chn := range CurrSong.Channels {
-                    chn.WriteNote(c == '\n')
+                    chn.WriteNote(c == 10)
                 }
             } else {
                 if c == '%' {

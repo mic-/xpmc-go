@@ -84,9 +84,6 @@ func removeUnusedEffects(effectMap *effects.EffectMap, effectCmd int)
 func main() {
     timing.UpdateFreq = 60.0
     timing.UseFractionalDelays = true
-    //c.WriteLength()
-    //compiler.WARNING("foobar")
-    
 
     if timing.UseFractionalDelays {
         timing.SupportedLengths = defs.EXTENDED_LENGTHS()
@@ -94,17 +91,17 @@ func main() {
     
     utils.OldParsers = utils.NewParserStateStack()
     
-    compiler.Verbose(false)
-    compiler.WarningsAreErrors(false)
+    utils.Verbose(false)
+    utils.WarningsAreErrors(false)
     target = targets.TARGET_UNKNOWN
 
     for i, arg := range os.Args {
         if i >= 1 {
             if arg[0] == '-' {
                 if arg == "-v" {
-                    compiler.Verbose(true);
+                    utils.Verbose(true);
                 } else if arg == "-w" {
-                    compiler.WarningsAreErrors(true);
+                    utils.WarningsAreErrors(true);
                 } else if arg == "-h" || arg == "-help" {
                     showHelp("")
                     return
