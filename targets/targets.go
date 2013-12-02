@@ -4,7 +4,7 @@
  * Part of XPMC.
  * Contains data/functions describing different output targets.
  *
- * /Mic, 2012
+ * /Mic, 2012-2013
  */
  
 package targets
@@ -23,7 +23,7 @@ const (
     TARGET_GBA = 3      // Gameboy Advance
     TARGET_NDS = 4      // Nintendo DS
     TARGET_GBC = 5      // Gameboy Color (and DMG) 
-    TARGET_SMD = 6      // SEGA Megadrive 
+    TARGET_SMD = 6      // SEGA Megadrive / Genesis
     TARGET_SAT = 7      // SEGA Saturn
     TARGET_XGS = 8      // XGameStation Micro Edition
     TARGET_SGG = 9      // SEGA Game Gear 
@@ -31,11 +31,11 @@ const (
     TARGET_X68 = 11     // X68000
     TARGET_AST = 12     // Atari ST
     TARGET_C64 = 13     // Commodore 64 
-    TARGET_PCE = 14     // NEC PC Engine / TurboGrafx 16
+    TARGET_PCE = 14     // NEC PC-Engine / TurboGrafx 16
     TARGET_ZXS = 15     // ZX Spectrum
     TARGET_PC4 = 16     // PC 4k synth
     TARGET_CLV = 17     // ColecoVision 
-    TARGET_KSS = 18
+    TARGET_KSS = 18     // KSS (MSX music rips)
     TARGET_CPC = 19     // Amstrad CPC 
     TARGET_AT8 = 20     // Atari 8-bit (XL/XE etc)
     TARGET_MSX = 21     // MSX
@@ -49,24 +49,24 @@ const (
 
 
 type ITarget interface {
-    GetAdsrLen() int
-    GetAdsrMax() int
+    GetAdsrLen() int        // Number of parameters used for ADSR envelopes on this target
+    GetAdsrMax() int        // Max value for ADSR parameters on this target
     GetChannelSpecs() *specs.Specs
     GetChannelNames() string
-    GetID() int
-    GetMaxLoopDepth() int
+    GetID() int             // The ID of this target (one of the TARGET_* constants)
+    GetMaxLoopDepth() int   // Max nesting of [] loops on this target
     GetMaxTempo() int
     GetMaxVolume() int
-    GetMaxWavLength() int
-    GetMaxWavSample() int
+    GetMaxWavLength() int   // Max length of WT samples on this target
+    GetMaxWavSample() int   // Max amplitude for WT samples on this target
     GetMinVolume() int
     GetMinWavLength() int
     GetMinWavSample() int
     Init()
     Output(outputVgm int)
     SupportsPAL() bool
-    SupportsPan() bool
-    SupportsPCM() bool
+    SupportsPan() bool      // Whether this target supports panning effects (CS)
+    SupportsPCM() bool      // Whether this target supports one-shot PCM samples (XPCM)
     SupportsWaveTable() bool
 }
 
@@ -264,9 +264,7 @@ func (t *TargetAt8) Init() {
     utils.DefineSymbol("AT8", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsPokey)      // A..D
-    
-    //activeChannels    = repeat(0, length(supportedChannels))
-    
+      
     t.ID                = TARGET_AT8
     t.MaxTempo          = 300
     t.MinVolume         = 0
@@ -297,6 +295,9 @@ func (t *TargetGBC) Init() {
     t.MaxWavSample      = 15
 }
 
+func (t *TargetGBC) Output(outputVgm int) {
+    fmt.Printf("TargetGBC.Output\n")
+}
 
 /* Sega Genesis / Megadrive *
  ****************************/
@@ -307,8 +308,6 @@ func (t *TargetGen) Init() {
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsYM2612)     // E..J
-
-    //activeChannels        = repeat(0, length(supportedChannels))
 
     t.ID                = TARGET_SMD
     t.MaxTempo          = 300

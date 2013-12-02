@@ -5,7 +5,6 @@ import (
     "os"
     "./compiler"
     "./defs"
-    "./song"
     "./targets"
     "./timing"
     "./utils"
@@ -113,9 +112,12 @@ func main() {
                     fmt.Printf("Error: No target platform specified.\nRun the compiler with the -h option to see a list of targets.")
                     return
                 }
-                compiler.Init()
-                compiler.CurrSong = song.NewSong(target)
+                compiler.Init(target)
+                if i < len(os.Args)-1 {
+                }
                 compiler.CompileFile(arg);
+                compiler.CurrSong.Target.Output(0)
+                
                 return
             }
         }
