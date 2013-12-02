@@ -91,6 +91,8 @@ var OldParsers *ParserStateStack
 
 // Local variables
 
+var warningsAreErrors bool = false
+var verboseMode bool = false
 var definedSymbols map[string]bool
 
 // Compiler messages
@@ -102,13 +104,26 @@ func ERROR(msg string) {
 
 func WARNING(msg string) {
     fmt.Printf("%s@%d, Warning: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
-    // ToDo: abort programs if warning are errors
+    if warningsAreErrors {
+        os.Exit(1)
+    }
 }
 
 func INFO(msg string) {
-    fmt.Printf("Info: %s\n", msg)
+    if verboseMode {
+        fmt.Printf("Info: %s\n", msg)
+    }
 }
 
+func Verbose(flag bool) {
+    verboseMode = flag
+}
+
+func WarningsAreErrors(flag bool) {
+    warningsAreErrors = flag
+}
+
+////////
 
 func DefineSymbol(sym string, val int) {
     if definedSymbols == nil {
@@ -123,6 +138,8 @@ func IsDefined(sym string) int {
     }
     return 0
 }
+
+////////
 
 func (p *ParserState) Getch() int {
     c := -1
@@ -154,8 +171,8 @@ func (p *ParserState) SkipWhitespace() {
     
     for c != -1 {
         c = p.Getch()
-        if c == ' ' || c == '\t' || c == 13 || c == '\n' {
-            if c == '\n' {
+        if c == ' ' || c == '\t' || c == 13 || c == 10 {
+            if c == 10 {
                 p.LineNum++
             }
         } else {
@@ -177,7 +194,7 @@ func (p *ParserState) GetString() string {
     c = 0
     for c != -1 {
         c = p.Getch()
-        if c == -1 || c == ' ' || c == '\t' || c == 13 || c == '\n' {
+        if c == -1 || c == ' ' || c == '\t' || c == 13 || c == 10 {
             break
         } else {
             s += string(byte(c))
@@ -646,6 +663,16 @@ func (p *ParserState) SetListDelimiters(delim string) {
 func PositionOfInt(x []int, i int) int {
     for j, _ := range x {
         if x[j] == i {
+            return j
+        }
+    }
+    return -1
+}
+
+// Return the position of s within x 
+func PositionOfString(x []string, s string) int {
+    for j, _ := range x {
+        if x[j] == s {
             return j
         }
     }
