@@ -5,7 +5,7 @@
  * Contains utility functions and other miscellaneous functions
  * and variables.
  *
- * /Mic, 2012
+ * /Mic, 2012-2013
  */
  
 package utils
@@ -23,6 +23,7 @@ import (
 type ParserState struct {
     LineNum int
     ShortFileName string
+    WorkDir string
     fileData []byte
     fileDataPos int
     UserDefinedBase int
@@ -73,7 +74,15 @@ func (s *ParserState) Init(fileName string) error {
     s.currentBase = 10
     s.wtListOk = false
     s.allowFloats = false
-    s.ShortFileName = ""    // ToDo: set actual short filename
+    
+    s.WorkDir = ""
+    lastSlash := strings.LastIndexAny(fileName, "\\/")
+    if lastSlash >= 0 {
+        s.WorkDir = fileName[:lastSlash]
+        s.ShortFileName = fileName[lastSlash+1:]
+    } else {
+        s.ShortFileName = fileName
+    }
     s.listDelimiter = "{}"
     return err
 }
@@ -681,8 +690,27 @@ func PositionOfString(x []string, s string) int {
 
 
 func (lst *ParamList) Format() string {
-    // ToDo: implement
-    return ""
+    str := "{"
+    
+    for i, x := range lst.MainPart {
+        str += fmt.Sprintf("%d", x)
+        if i < len(lst.MainPart)-1 {
+            str += " "
+        }
+    }
+    
+    if len(lst.LoopedPart) > 0 {
+        str += " | "
+        for i, x := range lst.LoopedPart {
+            str += fmt.Sprintf("%d", x)
+            if i < len(lst.LoopedPart)-1 {
+                str += " "
+            }
+        }
+    }
+
+    str += "}"
+    return str
 }
 
 

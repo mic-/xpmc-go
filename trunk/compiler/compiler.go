@@ -29,6 +29,7 @@ const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrtsuvwxyz
 
 
 var CurrSong *song.Song
+var Songs map[int]*song.Song
 var SongNum uint
 var userDefinedBase int
 var implicitAdsrId int
@@ -131,7 +132,11 @@ var keepChannelsActive bool
 var callbacks []string
 
 
-func Init() {
+func Init(target int) {
+    Songs = map[int]*song.Song{}
+    CurrSong = song.NewSong(target)
+    Songs[1] = CurrSong
+    
     dontCompile = NewIntStack()
     hasElse = NewBoolStack()
     
@@ -1068,7 +1073,7 @@ func CompileFile(fileName string) {
                         } else if strings.HasPrefix(s, "EN") {
                             //handleArpeggioDef(s)                    
                             handleEffectDefinition("EN", s, effects.Arpeggios, func(parm *ParamList) bool {
-                                    if len(parm.MainPart) != 0 || len(parm.LoopedPart) != 0 {
+                                    if !parm.IsEmpty() {
                                         if inRange(parm.MainPart, -63, 63) && inRange(parm.LoopedPart, -63, 63) {
                                             return true;
                                         } else {
@@ -1138,40 +1143,31 @@ func CompileFile(fileName string) {
                             
                         // Pitch macro definition
                         } else if strings.HasPrefix(s, "EP") {
-                            handlePitchMacDef(s)    
-
+                            //handlePitchMacDef(s)    
+                            handleEffectDefinition("EP", s, effects.PitchMacros, func(parm *ParamList) bool {
+                                    if !parm.IsEmpty() {
+                                        return true
+                                    } else {
+                                        ERROR("Empty list for EP")
+                                    }
+                                    return false
+                                })
+                                
                         // Portamento definition
                         } else if strings.HasPrefix(s, "PT") {
-                            num, err := strconv.Atoi(s[2:])
-                            if err == nil {
-                                idx := effects.Portamentos.FindKey(num)
-                                if idx < 0 {
-                                    t := Parser.GetString()
-                                    if t == "=" {
-                                        lst, err := Parser.GetList()
-                                        if err == nil {
-                                            if len(lst.MainPart) == 2 && len(lst.LoopedPart) == 0 {
-                                                if inRange(lst.MainPart, []int{0, 1}, []int{127, 127}) {
-                                                    effects.Portamentos.Append(num, lst)
-                                                } else {
-                                                    ERROR("Value out of range: " + lst.Format())
-                                                }
-                                            } else {
-                                                ERROR("Bad PT: " + lst.Format())
-                                            }
+                            handleEffectDefinition("PT", s, effects.Portamentos, func(parm *ParamList) bool {
+                                    if len(parm.MainPart) == 2 && len(parm.LoopedPart) == 0 {
+                                        if inRange(parm.MainPart, []int{0, 1}, []int{127, 127}) {
+                                            return true
                                         } else {
-                                            ERROR("Bad PT: " + t)
+                                            ERROR("Value of out range: " + parm.Format())
                                         }
                                     } else {
-                                        ERROR("Expected '='")
+                                        ERROR("Bad PT: " + parm.Format())
                                     }
-                                } else {
-                                    ERROR("Redefinition of @" + s)
-                                }
-                            } else {
-                                ERROR("Syntax error: @" + s)
-                            }       
-
+                                    return false
+                                })
+                                
                         // Waveform definition (@WT / @WTM)
                         } else if strings.HasPrefix(s, "WT") {
                             num := 0
