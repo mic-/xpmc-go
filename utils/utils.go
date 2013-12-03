@@ -82,6 +82,9 @@ func (s *ParserState) Init(fileName string) error {
         s.ShortFileName = fileName[lastSlash+1:]
     } else {
         s.ShortFileName = fileName
+        s.WorkDir, _ = os.Getwd()
+        s.WorkDir += string(os.PathSeparator)
+        fmt.Printf("WorkDir = " + s.WorkDir + "\n")
     }
     s.listDelimiter = "{}"
     return err
