@@ -55,7 +55,6 @@ func (song *Song) GetNumActiveChannels() (numActive int) {
     return
 }
 
-
-func (song *Song) GetChannelType(channelNum int) int {
-    return song.Target.GetChannelSpecs().ID  //[channelNum]
+func (song *Song) GetChannelType(chn int) int {
+    return song.Channels[chn].GetChipID()
 }
