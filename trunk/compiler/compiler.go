@@ -1341,9 +1341,7 @@ func CompileFile(fileName string) {
                                             }
                                         }
                                     }
-                                } /*else {
-                                    compiler.ERROR("Bad tone envelope:", s)
-                                }*/
+                                } 
                             } else {
                                 ERROR("Bad tone envelope: " + s)
                             }
@@ -1472,7 +1470,7 @@ func CompileFile(fileName string) {
                                         for _, chn := range CurrSong.Channels {
                                             if chn.Active {
                                                 if !effects.VolumeMacros.IsEmpty(num) {
-                                                    if effects.VolumeMacros.GetInt(num) == 0 {
+                                                    if effects.VolumeMacros.GetInt(num) == defs.EFFECT_STEP_EVERY_FRAME {
                                                         chn.AddCmd([]int{defs.CMD_VOLMAC, idx})
                                                     } else {
                                                         chn.AddCmd([]int{defs.CMD_VOLMAC, idx | 0x80})
@@ -1971,7 +1969,9 @@ func CompileFile(fileName string) {
                         if elem.StartPos != 0 {
                             if err == nil {
                                 if loopCount > 0 {
+                                    // Set the value for CMD_LOPCNT
                                     chn.Cmds[elem.StartPos - 1] = loopCount
+                                    
                                     chn.AddCmd([]int{defs.CMD_DJNZ, (elem.StartPos & 0xFF), (elem.StartPos / 0x100)})
                                     if elem.Skip1Ticks == -1 {
                                         chn.Ticks += (chn.Ticks - elem.StartTicks) * (loopCount - 1)
@@ -3009,8 +3009,8 @@ func CompileFile(fileName string) {
                                     } else {
                                         for _, chn := range CurrSong.Channels {
                                             if chn.Active {
-                                                if chn.SupportsFM() || CurrSong.Target.GetID() == targets.TARGET_AT8 {
-                                                    if CurrSong.Target.GetID() == targets.TARGET_AT8 {
+                                                if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_POKEY {
+                                                    if chn.GetChipID() == specs.CHIP_POKEY {
                                                         if num == 0 {           // 15 kHz
                                                             num = 1
                                                         } else if num == 1 {    // 64 kHz
@@ -3050,7 +3050,7 @@ func CompileFile(fileName string) {
                                     } else if idx >= 0 {
                                         for _, chn := range CurrSong.Channels {
                                             if chn.Active {
-                                                if chn.SupportsFM() || CurrSong.Target.GetID() == targets.TARGET_PCE {
+                                                if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_HUC6280 {
                                                     chn.AddCmd([]int{defs.CMD_MODMAC, idx + 1})
                                                     effects.MODs.AddRef(num)
                                                 }
@@ -3069,7 +3069,7 @@ func CompileFile(fileName string) {
                                     characterHandled = true
                                     for _, chn := range CurrSong.Channels {
                                         if chn.Active {
-                                            if chn.SupportsFM() || CurrSong.Target.GetID() == targets.TARGET_PCE {
+                                            if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_HUC6280 {
                                                 chn.AddCmd([]int{defs.CMD_MODMAC, 0})
                                             }
                                         }

@@ -714,6 +714,19 @@ func (lst *ParamList) Format() string {
 }
 
 
+func (lst *ParamList) MoveToStart() {
+    // ToDo: implement
+}
+
+func (lst *ParamList) Step() {
+    // ToDo: implement
+}
+
+func (lst *ParamList) Peek() int {
+    // ToDo: implement
+    return 0
+}
+
 func (lst *ParamList) IsEmpty() bool {
     return len(lst.MainPart) == 0 && len(lst.LoopedPart) == 0
 }
