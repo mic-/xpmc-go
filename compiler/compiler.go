@@ -1329,7 +1329,7 @@ func CompileFile(fileName string) {
                                                         } else {
                                                             num1 = 8
                                                         }
-                                                    case specs.CHIP_AY_3_8910, specs.CHIP_YM2413:
+                                                    case specs.CHIP_YM2413: //specs.CHIP_AY_3_8910
                                                         num1 = abs(num1)
                                                     }
                                                     chn.AddCmd([]int{defs.CMD_HWTE, num1})
@@ -1359,8 +1359,8 @@ func CompileFile(fileName string) {
                                 } else if inRange(num, 0, 65535) {
                                     for _, chn := range CurrSong.Channels {
                                         if chn.Active {
-                                            switch CurrSong.Target.GetID() {
-                                            case targets.TARGET_AST, targets.TARGET_KSS, targets.TARGET_CPC:
+                                            switch chn.GetChipID() {
+                                            case specs.CHIP_AY_3_8910:
                                                 num ^= 0xFFFF
                                                 chn.AddCmd([]int{defs.CMD_HWES, (num & 0xFF), (num / 0x100)})
                                             default:
@@ -1399,10 +1399,10 @@ func CompileFile(fileName string) {
                                         if chn.Active {
                                             if chn.SupportsHwVolEnv() != 0 {
                                                 if inRange(num, -chn.SupportsHwVolEnv(), chn.SupportsHwVolEnv()) {
-                                                    switch CurrSong.Target.GetID() {
-                                                    case targets.TARGET_SMS, targets.TARGET_KSS:
+                                                    switch chn.GetChipID() {
+                                                    case specs.CHIP_YM2413:
                                                         num = abs(num) ^ chn.SupportsHwVolEnv()
-                                                    case targets.TARGET_SFC:
+                                                    case specs.CHIP_SPC:
                                                         if num == -2 {
                                                             num =  0xA0
                                                         } else if num == -1 {
@@ -1412,6 +1412,8 @@ func CompileFile(fileName string) {
                                                         } else if num == 2 {
                                                             num = 0xE0
                                                         }
+                                                    case specs.CHIP_AY_3_8910:
+                                                        num = abs(num)
                                                     }
                                                     chn.AddCmd([]int{defs.CMD_HWVE, num | m})
                                                 } else {
