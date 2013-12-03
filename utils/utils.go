@@ -730,3 +730,24 @@ func (lst *ParamList) Peek() int {
 func (lst *ParamList) IsEmpty() bool {
     return len(lst.MainPart) == 0 && len(lst.LoopedPart) == 0
 }
+
+func (lst *ParamList) Equal(comparedTo *ParamList) bool {
+    if len(lst.MainPart) != len(comparedTo.MainPart) ||
+       len(lst.LoopedPart) != len(comparedTo.LoopedPart) {
+        return false
+    }
+    
+    for i, elem := range lst.MainPart {
+        if elem != comparedTo.MainPart[i] {
+            return false
+        }
+    }
+    
+    for i, elem := range lst.LoopedPart {
+        if elem != comparedTo.LoopedPart[i] {
+            return false
+        }
+    }
+    
+    return true
+}

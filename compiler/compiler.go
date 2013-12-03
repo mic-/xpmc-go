@@ -2601,11 +2601,19 @@ func CompileFile(fileName string) {
                             // Implicit ADSR declaration
                             Parser.SetListDelimiters("()")
                             lst, err := Parser.GetList()
+                            key := -1
                             if err == nil {
                                 if len(lst.LoopedPart) == 0 {
                                     if len(lst.MainPart) == CurrSong.Target.GetAdsrLen() {
                                         if inRange(lst.MainPart, 0, CurrSong.Target.GetAdsrMax()) {
-                                            effects.ADSRs.Append(implicitAdsrId, lst)
+                                            key = effects.ADSRs.GetKeyFor(lst)
+                                            if key == -1 {
+                                                effects.ADSRs.Append(implicitAdsrId, lst)
+                                                num = implicitAdsrId
+                                                implicitAdsrId++
+                                            } else {
+                                                num = key
+                                            }
                                         } else {
                                             ERROR("ADSR parameters out of range: " + lst.Format())
                                         }
@@ -2618,8 +2626,8 @@ func CompileFile(fileName string) {
                             } else {
                                 ERROR("Bad ADSR: Unable to parse parameter list")
                             }
-                            num = implicitAdsrId
-                            implicitAdsrId++
+                            //num = implicitAdsrId
+                            //implicitAdsrId++
                         } else {
                             // Use a previously declared ADSR
                             s = Parser.GetNumericString()
