@@ -10,6 +10,7 @@ import (
     "../defs"
     "../effects"
     "../song"
+    "../specs"
     "../targets"
     "../timing"
     "../utils"
@@ -737,33 +738,6 @@ func handlePanMacDef(cmd string) {
 }
 
 
-// Handle definitions of pitch macros ("@EP<xy> = {...}")
-func handlePitchMacDef(cmd string) {
-    num, err := strconv.Atoi(cmd[2:])
-    if err == nil {
-        idx := effects.PitchMacros.FindKey(num) 
-        if idx < 0 {
-            t := Parser.GetString()
-            if t == "=" {
-                lst, err := Parser.GetList()
-                if err == nil {
-                    effects.PitchMacros.Append(num, lst)
-                    effects.PitchMacros.PutInt(num, getEffectFrequency())
-                } else {
-                    ERROR("Bad EP: " + t)
-                }
-            } else {
-                ERROR("Expected '='")
-            }
-        } else {
-            ERROR("Redefinition of @" + cmd)
-        }
-    } else {
-        ERROR("Syntax error: @" + cmd)
-    }   
-}
-
-
 // Handle definitions of modulation macros ("@MOD<xy> = {...}")
 func handleModMacDef(cmd string) {
     num, err := strconv.Atoi(cmd[3:])
@@ -807,46 +781,14 @@ func handleModMacDef(cmd string) {
                             }
                         } else {
                             ERROR("Bad MOD, expected 2 parameters: " + lst.Format())
-                        }                                           
+                        }
+                    case targets.TARGET_KSS:
+                        // ToDo: allow both 3-parameter and 6-parameter versions
                     default:
                         effects.MODs.Append(num, &utils.ParamList{})
                     }
                 } else {
                     ERROR("Bad MOD: " + t)
-                }
-            } else {
-                ERROR("Expected '='")
-            }
-        } else {
-            ERROR("Redefinition of @" + cmd)
-        }
-    } else {
-        ERROR("Syntax error: @" + cmd)
-    }   
-}
-
-
-func handleFeedbackMacDef(cmd string) {
-    num, err := strconv.Atoi(cmd[3:])
-    if err == nil {
-        idx := effects.FeedbackMacros.FindKey(num)
-        if idx < 0 {
-            t := Parser.GetString()
-            if t == "=" {
-                lst, err := Parser.GetList()
-                if err == nil {
-                    if len(lst.MainPart) != 0 || len(lst.LoopedPart) != 0 {
-                        if inRange(lst.MainPart, 0, 7) && inRange(lst.LoopedPart, 0, 7) {
-                            effects.FeedbackMacros.Append(num, lst)
-                            effects.FeedbackMacros.PutInt(num, getEffectFrequency())
-                        } else {
-                            ERROR("Value of out range (allowed: 0-7): " + lst.Format())
-                        }
-                    } else {
-                        ERROR("Empty list for FBM")
-                    }
-                } else {
-                    ERROR("Bad FBM: " + t)
                 }
             } else {
                 ERROR("Expected '='")
@@ -1071,7 +1013,6 @@ func CompileFile(fileName string) {
                             
                         // Arpeggio definition
                         } else if strings.HasPrefix(s, "EN") {
-                            //handleArpeggioDef(s)                    
                             handleEffectDefinition("EN", s, effects.Arpeggios, func(parm *ParamList) bool {
                                     if !parm.IsEmpty() {
                                         if inRange(parm.MainPart, -63, 63) && inRange(parm.LoopedPart, -63, 63) {
@@ -1087,11 +1028,21 @@ func CompileFile(fileName string) {
                     
                         // Feedback macro definition
                         } else if strings.HasPrefix(s, "FBM") {
-                            handleFeedbackMacDef(s)
-                            
+                            handleEffectDefinition("FBM", s, effects.FeedbackMacros, func(parm *ParamList) bool {
+                                    if !parm.IsEmpty() {
+                                        if inRange(parm.MainPart, 0, 7) && inRange(parm.LoopedPart, 0, 7) {
+                                            return true;
+                                        } else {
+                                            ERROR("Value of out range (allowed: 0-7): " + parm.Format())
+                                        }
+                                    } else {
+                                        ERROR("Empty list for FBM")
+                                    }
+                                    return false
+                                })
+                                                      
                         // Vibrato definition
                         } else if strings.HasPrefix(s, "MP") {
-                            //handleVibratoMacDef(s)
                             handleEffectDefinition("MP", s, effects.Vibratos, func(parm *ParamList) bool {
                                     if len(parm.MainPart) == 3 && len(parm.LoopedPart) == 0 {
                                         if inRange(parm.MainPart, []int{0, 1, 0}, []int{127, 127, 63}) {
@@ -1203,7 +1154,8 @@ func CompileFile(fileName string) {
                                                             if len(lst.MainPart) < CurrSong.Target.GetMinWavLength() {
                                                                 WARNING(fmt.Sprintf("Padding waveform with zeroes (current length: %d, needs to be at least %d)",
                                                                     len(lst.MainPart), CurrSong.Target.GetMinWavLength()))
-                                                                //ToDo: fix:  lst.MainPart &= repeat(0, minWavLength - length(t[2]))
+                                                                lst.MainPart = append(lst.MainPart, make([]int, CurrSong.Target.GetMinWavLength() - len(lst.MainPart))...)
+                                                            
                                                             } else if len(lst.MainPart) > CurrSong.Target.GetMaxWavLength() {
                                                                 WARNING("Truncating waveform")
                                                                 lst.MainPart = lst.MainPart[0:CurrSong.Target.GetMaxWavLength()]
@@ -1368,8 +1320,8 @@ func CompileFile(fileName string) {
                                         if chn.Active {
                                             if chn.SupportsHwToneEnv() != 0 {
                                                 if inRange(num1, -chn.SupportsHwToneEnv(), chn.SupportsHwToneEnv()) {
-                                                    switch CurrSong.Target.GetID() {
-                                                    case targets.TARGET_GBC: 
+                                                    switch chn.GetChipID() {
+                                                    case specs.CHIP_GBAPU: 
                                                         if num1 < 0 {
                                                             num1 = ((abs(num1) - 1) ^ 7) * 16 + 8 + (num2 & 7)
                                                         } else if num1 > 0 {
@@ -1377,7 +1329,7 @@ func CompileFile(fileName string) {
                                                         } else {
                                                             num1 = 8
                                                         }
-                                                    case targets.TARGET_AST, targets.TARGET_KSS, targets.TARGET_SMS, targets.TARGET_CPC:
+                                                    case specs.CHIP_AY_3_8910, specs.CHIP_YM2413:
                                                         num1 = abs(num1)
                                                     }
                                                     chn.AddCmd([]int{defs.CMD_HWTE, num1})

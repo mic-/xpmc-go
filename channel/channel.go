@@ -120,6 +120,13 @@ func NewChannel() *Channel {
     return chn
 }
 
+func (chn *Channel) GetChipID() int {
+    if len(chn.ChannelSpecs.IDs) > 0 {
+        return chn.ChannelSpecs.IDs[chn.Num]
+    }
+    return specs.CHIP_UNKNOWN
+}
+
 func (chn *Channel) SupportsADSR() bool {
     if len(chn.ChannelSpecs.ADSR) > 0 {
         if chn.ChannelSpecs.ADSR[chn.Num] != 0 {

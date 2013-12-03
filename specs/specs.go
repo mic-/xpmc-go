@@ -5,12 +5,10 @@
  * Contains data/functions for dealing with the specifications
  * of different sound chips.
  *
- * /Mic, 2012
+ * /Mic, 2012-2013
  */
  
 package specs
-
-//import "../defs"
 
 const (
 	CHIP_SN76489	= 1
@@ -31,6 +29,7 @@ const (
 	CHIP_VRC6		= 16
 	CHIP_N106		= 17
 	CHIP_T6W28		= 18
+    CHIP_UNKNOWN    = 99
 )
 
 
@@ -56,7 +55,8 @@ type Specs struct {
 	MaxOct []int		// Max octave
 	MaxVol []int		// Max volume
 	MinNote []int		// Lowest playable note
-	ID int				// Identifier
+	ID int  			// Identifier
+    IDs []int           
 	Name string
 }
 
@@ -381,9 +381,14 @@ func SetChannelSpecs(dest *Specs, firstPhysChan int, firstLogicalChan int, s Spe
 	insertspec(&dest.MaxOct,    firstLogicalChan, s.MaxOct[firstPhysChan:])
 	insertspec(&dest.MaxVol,    firstLogicalChan, s.MaxVol[firstPhysChan:])
 	insertspec(&dest.MinNote,   firstLogicalChan, s.MinNote[firstPhysChan:])
-	/*insertspec(&dest.ID,        firstLogicalChan, s.ID[firstPhysChan:])
 	
-	if len(SupportedChannels) < len(ChannelSpecs.Duty) {
+    tempIDs := make([]int, len(s.FM[firstPhysChan:]))
+    for i, _ := range tempIDs {
+        tempIDs[i] = s.ID
+    }
+    insertspec(&dest.IDs,       firstLogicalChan, tempIDs)
+	
+	/*if len(SupportedChannels) < len(ChannelSpecs.Duty) {
 		s = supportedChannels
 		for i = length(s) + 1 to length(supportsDutyChange) do
 			supportedChannels &= 'A' + i - 1
