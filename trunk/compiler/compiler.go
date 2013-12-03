@@ -259,9 +259,10 @@ func abs(x int) int {
 func writeAllPendingNotes(forceOctChange bool) {
     w := &sync.WaitGroup{}
     for _, chn := range CurrSong.Channels {
+        chnCopy := chn
         w.Add(1)
         go func() {
-            chn.WriteNote(forceOctChange)
+            chnCopy.WriteNote(forceOctChange)
             w.Done()
         }()
     }
@@ -673,7 +674,7 @@ func handleDutyMacDef(num int) {
                     if !chn.Tuple.Active {
                         chn.AddCmd([]int{defs.CMD_DUTY | num})
                     } else {
-                        chn.Tuple.Cmds = append(chn.Tuple.Cmds, channel.Note{0xFFFF, float64(defs.CMD_DUTY | num), true})
+                        chn.Tuple.Cmds = append(chn.Tuple.Cmds, channel.Note{Num: 0xFFFF, Frames: float64(defs.CMD_DUTY | num), HasData: true})
                     }
                 } else {
                     if chn.SupportsDutyChange() == -1 {
@@ -843,10 +844,11 @@ func handleEffectDefinition(effName string, mmlString string, effMap *effects.Ef
 func applyCmdOnAllActive(cmdName string, cmd []int) {
     w := &sync.WaitGroup{}
     for _, chn := range CurrSong.Channels {
+        chnCopy := chn
         w.Add(1)
         go func() {
-            if chn.Active {
-                chn.AddCmd(cmd)
+            if chnCopy.Active {
+                chnCopy.AddCmd(cmd)
             }
             w.Done()
         }()
@@ -2124,9 +2126,9 @@ func CompileFile(fileName string) {
                                     if !chn.Tuple.Active {
                                         chn.AddCmd([]int{defs.CMD_OCTAVE | chn.CurrentOctave})
                                     } else {
-                                        chn.Tuple.Cmds = append(chn.Tuple.Cmds, channel.Note{defs.NON_NOTE_TUPLE_CMD,
-                                                                                             float64(defs.CMD_OCTAVE | chn.CurrentOctave),
-                                                                                             true})
+                                        chn.Tuple.Cmds = append(chn.Tuple.Cmds, channel.Note{Num: defs.NON_NOTE_TUPLE_CMD,
+                                                                                             Frames: float64(defs.CMD_OCTAVE | chn.CurrentOctave),
+                                                                                             HasData: true})
                                     }
                                     if chn.Loops.Len() > 0 {
                                         pElem := chn.Loops.Peek()
@@ -2464,13 +2466,13 @@ func CompileFile(fileName string) {
                             }
                             if extraChars == 0 {
                                 if n != 'r' && n != 's' {
-                                    chn.CurrentNote = channel.Note{(chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp - 1,
-                                                                   float64(frames),
-                                                                   true}
+                                    chn.CurrentNote = channel.Note{Num: (chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp - 1,
+                                                                   Frames: float64(frames),
+                                                                   HasData: true}
                                 } else if n == 'r' {
-                                    chn.CurrentNote = channel.Note{defs.Rest, float64(frames), true}
+                                    chn.CurrentNote = channel.Note{Num: defs.Rest, Frames: float64(frames), HasData: true}
                                 } else {
-                                    chn.CurrentNote = channel.Note{defs.Rest2, float64(frames), true}
+                                    chn.CurrentNote = channel.Note{Num: defs.Rest2, Frames: float64(frames), HasData: true}
                                 }
                                 chn.LastSetLength = frames
                             } else {
