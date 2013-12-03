@@ -813,8 +813,17 @@ func handleEffectDefinition(effName string, mmlString string, effMap *effects.Ef
                 lst, err := Parser.GetList()
                 if err == nil {
                     if pred(lst) {
-                        effMap.Append(num, lst)
-                        effMap.PutInt(num, getEffectFrequency())
+                        freq := getEffectFrequency()
+                        key := effMap.GetKeyFor(lst)
+                        if key == -1 {
+                           effMap.Append(num, lst)
+                           effMap.PutInt(num, freq)
+                        } else { /*if freq != effMap.GetInt(key) {*/
+                            // ToDo: handle the case when we've got an existing identical effect. The references to the new
+                            // effects needs to be converted to refer to the old effect.
+                           effMap.Append(num, lst)
+                           effMap.PutInt(num, freq)
+                        }
                     }
                 } else {
                     ERROR("Bad " + effName +": " + lst.Format())
