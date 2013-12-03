@@ -36,6 +36,18 @@ func (m *EffectMap) GetKeyAt(pos int) int {
     return -1
 }
 
+/* Checks if an effect with the given parameter list already exists, and if so
+ * returns its key
+ */
+func (m *EffectMap) GetKeyFor(lst *utils.ParamList) int {
+    for i, key := range m.keys {
+        if lst.Equal(m.data[i]) {
+            return key
+        }
+    }
+    return -1
+}
+
 func (m *EffectMap) Append(key int, lst *utils.ParamList) {
     m.keys = append(m.keys, key)
     m.data = append(m.data, lst)
