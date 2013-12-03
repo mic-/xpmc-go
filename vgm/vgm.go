@@ -181,33 +181,35 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
     } else {
         oct1 = OCTAVE1
     }
-    freqTbl = {0, 0, 0, 0}
-
+    
     // Set up the frequency table for the PSG
     factor = 2.0
-    freqTbl[1] = repeat(0, 12 * 6)
+    sn76489FreqTable := make([]int, 12*6)
     for i = 2; i <= 7; i++ {
         for n = 1; n <= 12; n++ {
-            freqTbl[1][(i - 2) * 12 + n] = int(math.Floor(song.target.GetMachineSpeed() / (oct1[n] * factor * 32)))
+            sn76489FreqTable[(i - 2) * 12 + n] = int(math.Floor(song.target.GetMachineSpeed() / (oct1[n] * factor * 32)))
         }
         factor += factor
     }
 
     // Set up the frequency table for the YM2413
+    ym2413FreqTable := []int{}
     if ym2413 {
         oct1 = OCTAVE1
-        freqTbl[2] = repeat(0, 12)
+        ym2413FreqTable = repeat(0, 12)
         for n = 1; n <= 12; n++ {
-            freqTbl[2][n] = floor((oct1[n] * power(2, 18) / 50000))
+            ym2413FreqTable[n] = floor((oct1[n] * power(2, 18) / 50000))
         }
     }
     
+    ym2612FreqTable := []int{}
     if ym2612 {
-        freqTbl[3] = {649, 688, 729, 772, 818, 867, 918, 973, 1031, 1092, 1157, 1226}
+        ym2612FreqTable = {649, 688, 729, 772, 818, 867, 918, 973, 1031, 1092, 1157, 1226}
     }
 
+    ym2151FreqTable := []int{}
     if ym2151 {
-        freqTbl[4] = {14,0,1,2,4,5,6,8,9,10,12,13}
+        ym2151FreqTable = {14,0,1,2,4,5,6,8,9,10,12,13}
     }
 
 
@@ -416,15 +418,15 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
         for i, c := range vgmChannels {
             c.Num = i
             if !c.Done {
-                freqChange = 0
-                volChange = 0
+                c.FreqChange = 0
+                c.VolChange = 0
                 c.Delay -= 0x100
 
                 // Check if the whole part of the delay has reached 0
                 if (c.Delay & 0xFFFF00) == 0 {
                     iterations[2] = 0
                     // Repeat until a note command has been read
-                    for freqChange != 2 {
+                    for c.FreqChange != NEW_NOTE {
                         if c.Pattern >= 0 {
                             cmd = patterns[2][channel[i][CHN_PATTERN]][channel[i][CHN_DATAPOS]]
                         } else {
@@ -476,7 +478,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 if vol & 0x80 {
                                     vol -= 0x100
                                 }
-                                if len(c.Volume.Op) {
+                                if len(c.Volume.Op) > 0 {
                                     if c.Operator != 0 {
                                         c.Volume.Op[c.Operator - 1] += vol
                                     } else {
@@ -488,7 +490,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                     c.Volume.Vol += vol
                                 }
                                 c.VolMac.Disable()
-                                volChange = 1
+                                c.VolChange = 1
                                 
                             } else if cmd == defs.CMD_VOLUPC {
                             } else if cmd == defs.CMD_VOLDNC {
@@ -497,7 +499,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 // If the previous note was a rest we need to trigger
                                 // a volume change since the channel is currently muted.
                                 if c.Note == defs.CMD_REST {
-                                    volChange = 1
+                                    c.VolChange = 1
                                 }
 
                                 // Note number is stored in low 4 bits of the command byte.
@@ -535,23 +537,23 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 // The note can only be heard if the whole part of the delay
                                 // is greater than zero.
                                 if c.Delay > 0xFF {
-                                    freqChange = 2
+                                    c.FreqChange = NEW_NOTE
                                 }
 
                                 if c.Note < defs.CMD_REST {
-                                    c.VolMac.Step(&c,  VGM_STEP_NOTE)
-                                    c.ArpMac.Step(&c,  VGM_STEP_NOTE)
-                                    c.Arp2Mac.Step(&c, VGM_STEP_NOTE)
-                                    c.EpMac.Step(&c,   VGM_STEP_NOTE)
-                                    c.MpMac.Step(&c,   VGM_STEP_NOTE)
-                                    c.DutyMac.Step(&c, VGM_STEP_NOTE)
-                                    c.FbkMac.Step(&c,  VGM_STEP_NOTE)
-                                    c.PanMac.Step(&c,  VGM_STEP_NOTE)
+                                    c.VolMac.Step(&c,  EFFECT_STEP_EVERY_NOTE)
+                                    c.ArpMac.Step(&c,  EFFECT_STEP_EVERY_NOTE)
+                                    c.Arp2Mac.Step(&c, EFFECT_STEP_EVERY_NOTE)
+                                    c.EpMac.Step(&c,   EFFECT_STEP_EVERY_NOTE)
+                                    c.MpMac.Step(&c,   EFFECT_STEP_EVERY_NOTE)
+                                    c.DutyMac.Step(&c, EFFECT_STEP_EVERY_NOTE)
+                                    c.FbkMac.Step(&c,  EFFECT_STEP_EVERY_NOTE)
+                                    c.PanMac.Step(&c,  EFFECT_STEP_EVERY_NOTE)
 
 
                                     // Reset vibrato
                                     if channel[i][CHN_MPMAC][1] then
-                                        if and_bits(channel[i][CHN_MPMAC][1], #80) = VGM_STEP_NOTE then
+                                        if and_bits(channel[i][CHN_MPMAC][1], #80) == EFFECT_STEP_EVERY_NOTE then
                                             if channel[i][CHN_MPMAC][3] = 0 then
                                                 channel[i][9] = channel[i][10]
                                                 channel[i][10] = -channel[i][10]
@@ -693,9 +695,9 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                                 R_YM2151_DT_MUL + (c.Operator - 1)*8 + song.target.ChipChannel(c.Num, specs.CHIP_YM2151),
                                                 c.Detune * 0x10 + c.Mult}
                                 else
-                                    for j = 0 to 3 do
+                                    for op := 0; op < 4; op++ {
                                         vgmData &= {VGM_CMD_W_YM2151,
-                                                R_YM2151_DT_MUL + j*8 + song.target.ChipChannel(c.Num, specs.CHIP_YM2151),
+                                                R_YM2151_DT_MUL + op*8 + song.target.ChipChannel(c.Num, specs.CHIP_YM2151),
                                                 c.Detune * 0x10 + c.Mult}
                                     }
                                 }
@@ -722,8 +724,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                     vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_DAC_EN, 0x00}
                                 }
                             case specs.CHIP_YM2151:
-                                if song.target.ChipChannel(c.Num, specs.CHIP_YM2612) == 7 &&
-                                   c.Mode == 0 {
+                                if song.target.ChipChannel(c.Num, specs.CHIP_YM2612) == 7 && c.Mode == 0 {
                                     vgmData &= {VGM_CMD_W_YM2151, R_YM2151_NOISE, 0x00}
                                 }
                             }
@@ -763,7 +764,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 if c.Pattern >= 0 {
                                     channel[i][25] = adsrs[2][patterns[2][channel[i][CHN_PATTERN]][channel[i][CHN_DATAPOS]]][2]
                                 else
-                                    c.ADSR = song.GetChannelData(c.Num, c.DataPos)
+                                    c.ADSR = song.GetChannelData(c.Num, c.DataPos) // ToDo: use the channeldata as an index into ADSRs?
                                 }
                                 if c.Operator == 0 || c.Operator == 1 {
                                     vgmData &= {VGM_CMD_W_YM2413, R_YM2413_ATK_DEC+YM1413_MODULATOR, channel[i][25][1]}
@@ -800,21 +801,21 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                                 R_YM2612_EG_SR + (c.Operator - 1)*4 + (cc % 3),
                                                 channel[i][25][4]}
                                 } else {
-                                    for j := 0; j < 4; j++ {
+                                    for op := 0; op < 4; op++ {
                                         vgmData &= {VGM_CMD_W_YM2612L + (cc / 3),
-                                                    R_YM2612_EG_ATK + j*4 + (cc % 3),
+                                                    R_YM2612_EG_ATK + op*4 + (cc % 3),
                                                     channel[i][25][1] + c.RateScale}
                                         
                                         vgmData &= {VGM_CMD_W_YM2612L + (cc / 3),
-                                                    R_YM2612_EG_DEC1 + j*4 + (cc % 3),
+                                                    R_YM2612_EG_DEC1 + op*4 + (cc % 3),
                                                     channel[i][25][2]}
                                         
                                         vgmData &= {VGM_CMD_W_YM2612L + (cc / 3),
-                                                    R_YM2612_EG_DEC2 + j*4 + (cc % 3),
+                                                    R_YM2612_EG_DEC2 + op*4 + (cc % 3),
                                                     channel[i][25][3]}
                                         
                                         vgmData &= {VGM_CMD_W_YM2612L + (cc / 3),
-                                                    R_YM2612_EG_SR + j*4 + (cc % 3),
+                                                    R_YM2612_EG_SR + op*4 + (cc % 3),
                                                     channel[i][25][4]}
                                     }
                                 }
@@ -942,7 +943,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                             }
                             // An explicit volume set command overrides any ongoing volume effect macro
                             c.VolMac.Disable()
-                            volChange = 1
+                            c.VolChange = 1
 
                         } else if cmd == defs.CMD_VOLMAC {
                             c.DataPos++
@@ -962,7 +963,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 c.Volume.Vol = c.VolMac.Params.Peek()
                             }
                             //channel[i][CHN_VOLUME] = channel[i][CHN_VOLMAC][3][3]
-                            volChange = 1
+                            c.VolChange = 1
 
                         } else if cmd == defs.CMD_PANMAC {
                             c.DataPos++
@@ -1026,7 +1027,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 vgmData &= {VGM_CMD_W_YM2151,
                                             R_YM2151_CONN_FB + i - 1,
                                             and_bits(#C0, channel[i][22][2]) + c.Duty + c.Feedback}
-                            end if
+                            }
 
                         } else if cmd == defs.CMD_ARPMAC {
                             c.DataPos++
@@ -1038,7 +1039,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                             c.ArpMac.MoveToStart()
                             c.Duty = c.ArpMac.Peek()
                             c.Arp2Mac.Disable()
-                            freqChange = 1
+                            c.FreqChange = NEW_EFFECT_VALUE
 
                         } else if cmd == defs.CMD_DUTMAC {
                             c.DataPos++
@@ -1064,7 +1065,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 c.Transpose = patterns[2][channel[i][CHN_PATTERN]][channel[i][CHN_DATAPOS]]
                             } else {
                                 c.Transpose = song.GetChannelData(c.Num, c.DataPos)
-                            end if
+                            }
                         
                         } else if cmd == defs.CMD_DETUNE {
                             c.DataPos++
@@ -1208,7 +1209,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                             }
                             channel[i][CHN_EN2MAC][3] = step_list(arpeggios[2][and_bits(channel[i][CHN_EN2MAC][1], #7F)], {1, 2})
                             c.ArpMac.Disable()
-                            freqChange = 1
+                            c.FreqChange = NEW_EFFECT_VALUE
 
                         } else if cmd == defs.CMD_SWPMAC {
                             c.DataPos++
@@ -1220,11 +1221,11 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                             if channel[i][17][1] then
                                 channel[i][17][3] = step_list(pitchMacros[2][and_bits(channel[i][CHN_EPMAC][1], #7F)], {1, 2})
                                 c.FreqOffs = 0
-                                freqChange = 1
-                            else
+                                c.FreqChange = NEW_EFFECT_VALUE
+                            } else {
                                 c.FreqOffs = 0
-                                freqChange = 1
-                            end if  
+                                c.FreqChange = NEW_EFFECT_VALUE
+                            }
 
                         } else if cmd == defs.CMD_VIBMAC {
                             c.DataPos++
@@ -1237,9 +1238,9 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 channel[i][CHN_MPMAC][3] = vibratos[2][and_bits(channel[i][CHN_MPMAC][1], #7F)][2][1]
                                 c.FreqOffs = 0
                                 channel[i][10] = vibratos[2][and_bits(channel[i][CHN_MPMAC][1], #7F)][2][3]
-                                freqChange = 1
+                                c.FreqChange = NEW_EFFECT_VALUE
                             } else {
-                                freqChange = 1
+                                c.FreqChange = NEW_EFFECT_VALUE
                                 c.FreqOffs = 0
                             }
 
@@ -1255,7 +1256,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                             if sum(channelLooped) = nChannels then
                                 loopPos = cmdPos[i][channel[i][CHN_DATAPOS] + 1]
                                 channelDone = repeat(1, nChannels)
-                                freqChange = 2
+                                c.FreqChange = NEW_NOTE
                             }
 
                         } else if cmd == defs.CMD_J1 {
@@ -1306,7 +1307,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                         } else if cmd == defs.CMD_END {
                             c.Note = cmd
                             c.Done = true
-                            freqChange = 2
+                            c.FreqChange = NEW_NOTE
 
                         }
 
@@ -1362,7 +1363,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 //lastChannelSetting[i] = {-1, 0, lastChannelSetting[i][3]}
                             } else if i = 11 && c.Mode == 1 {
                                 rhythm = rhythm & 20 
-                                vgmData &= {VGM_CMD_W_YM2413, #0E, rhythm}
+                                vgmData &= {VGM_CMD_W_YM2413, 0x0E, rhythm}
                             } else if i = 12 && c.Mode == 1 {
                                 //rhythm = and_bits(rhythm, #36)
                                 //vgmData &= {#51, #0E, rhythm}
@@ -1374,7 +1375,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                             if c.Mode == 0 {
                                 vgmData &= {VGM_CMD_W_YM2612L,
                                             R_YM2612_KEYON,
-                                            i +floor((i - 5) / 3)- 5} 
+                                            i + floor((i - 5) / 3)- 5} 
                                 //lastChannelSetting[i] = {-1, lastChannelSetting[i][2], lastChannelSetting[i][3]}
                             } else if c.Mode == 2 and i = 10 then
                                 if currSettings.DacOn {
@@ -1392,16 +1393,16 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                         c.HasLooped = true
                     }
                 } else {    
-                    if freqChange != 0 && !c.Done {
+                    if c.FreqChange != 0 && !c.Done {
                         switch song.GetChannelType(c.Num) {
                         case specs.CHIP_SN76489:
                             if psg && c.Num < 3 {
                                 if c.Octave + c.Note + c.NoteOffs + c.Transpose < 0 {
-                                    c.Freq = freqTbl[1][1]
+                                    c.Freq = sn76489FreqTable[0]
                                 } else if c.Octave + c.Note + c.NoteOffs + c.Transpose > 71 {
-                                    c.Freq = freqTbl[1][72] 
+                                    c.Freq = sn76489FreqTable[71] 
                                 } else {
-                                    c.Freq = freqTbl[1][c.Octave + c.Note + c.NoteOffs + c.Transpose]
+                                    c.Freq = sn76489FreqTable[c.Octave + c.Note + c.NoteOffs + c.Transpose]
                                 }
                                 c.Freq -= c.FreqOffs + c.Detune
     
@@ -1422,7 +1423,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 vgmData &= {VGM_CMD_W_PSG, 0x60 | c.Duty | ((c.Note + c.NoteOffs + c.Transpose) & 3)}
                             }
                         case specs.CHIP_YM2413:
-                            if freqChange == 2 {
+                            if c.FreqChange == NEW_NOTE {
                                 // KEY_OFF
                                 vgmData &= {VGM_CMD_W_YM2413, R_YM2413_FHI_CTL + (i - 5), (c.Freq / 0x100)}
                             }
@@ -1447,14 +1448,14 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                             } else {
                                 f = (c.Octave + 1) * 12 + c.Note + c.NoteOffs + c.Transpose
                                 if f < 0 {
-                                    c.Freq = freqTbl[2][1]
+                                    c.Freq = ym2413FreqTable[0]
                                     fhi = 0
                                 } else if f > 95 {
-                                    c.Freq = freqTbl[2][12]
-                                    fhi = 7 * #200
+                                    c.Freq = ym2413FreqTable[11]
+                                    fhi = 7 * 0x200
                                 } else {
-                                    c.Freq = freqTbl[2][(f % 12)]
-                                    fhi = floor(f / 12) * #200
+                                    c.Freq = ym2413FreqTable[f % 12]
+                                    fhi = int(f / 12.0) * 0x200
                                 }
                                 c.Freq += c.FreqOffs + c.Detune
 
@@ -1474,7 +1475,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 //printf(1, "%02x to %02x\n", {floor(channel[i][8] / #100) + #30, #20 + (i - 5)})
                             }                           
                         case specs.CHIP_YM2612:
-                            if i = 10 and channel[i][CHN_MODE] = 2 then
+                            if i == 10 and c.Mode == 2 {
                                 // PCM mode
                                 pcmDelay = 0
                                 pcmDelayReload = 5
@@ -1499,7 +1500,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 }
                             } else {    
                                 // FM mode
-                                if freqChange == 2 {
+                                if c.FreqChange == NEW_NOTE {
                                     // KEY_OFF
                                     vgmData &= {VGM_CMD_W_YM2612L, 
                                                 R_YM2612_KEYON,
@@ -1507,11 +1508,11 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 }
                                 f = c.Octave * 12 + c.Note + c.NoteOffs + c.Transpose 
                                 if f < 0 {
-                                    c.Freq = freqTbl[3][1]
+                                    c.Freq = ym2612FreqTable[0]
                                 } else if f > 95 {
-                                    c.Freq = freqTbl[3][12] + 7 * 0x800
+                                    c.Freq = ym2612FreqTable[11] + 7 * 0x800
                                 } else {
-                                    c.Freq = freqTbl[3][(f % 12) + 1] + (f / 12) * 0x800
+                                    c.Freq = ym2612FreqTable[f % 12] + (f / 12) * 0x800
                                 }
                                 if c.Freq != currSettings.Freq {
                                     vgmData &= {VGM_CMD_W_YM2612L + floor((i - 5) / 3),
@@ -1524,25 +1525,25 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 }
                                 vgmData &= {VGM_CMD_W_YM2612L, 
                                             R_YM2612_KEYON,
-                                            0xF0 + i +floor((i - 5) / 3)- 5} 
+                                            0xF0 + i + floor((i - 5) / 3)- 5} 
                             }
                         case specs.CHIP_YM2151:
-                            if freqChange == 2 {
+                            if c.FreqChange == NEW_NOTE {
                                 // KEY_OFF
                                 vgmData &= {VGM_CMD_W_YM2151, R_YM2151_KEYON, i - 1}
                             }
                             f = (c.Octave + 1) * 12 + c.Note + c.NoteOffs + c.Transpose
                             if f < 0 {
-                                c.Freq = freqTbl[4][1]
+                                c.Freq = ym2151FreqTable[0]
                             } else if f > 95 {
-                                c.Freq = freqTbl[4][12] + 7 * 0x10
+                                c.Freq = ym2151FreqTable[11] + 7 * 0x10
                             } else {
-                                c.Freq = freqTbl[4][(f % 12)] + (f / 12) * 0x10
+                                c.Freq = ym2151FreqTable[f % 12] + (f / 12) * 0x10
                                 if (f % 12) == 0 {
                                     c.Freq -= 0x10
                                 }
                             }
-                            if i = 8 and channel[i][CHN_MODE] = 1 then
+                            if i == 8 && c.Mode == 1 {
                                 // Noise mode
                                 if c.Freq != currSettings.Freq {
                                     vgmData &= {VGM_CMD_W_YM2151,
@@ -1563,8 +1564,9 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                         }
                     }
                     
-                    if volChange != 0 {
-                        if channelType[i] = TYPE_SN76489 then
+                    if c.VolChange != 0 {
+                        switch song.GetChannelType(c.Num) {
+                         case specs.CHIP_SN76489:
                             vol = c.Volume.Vol + c.VolOffs
                             if vol != currSettings.Volume.Vol {
                                 if vol > 15 {
@@ -1576,7 +1578,8 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 vgmData &= {VGM_CMD_W_PSG, SN76489_VOL_DATA  | (vol ^ 15) | (c.Num * 0x20)}
                                 currSettings.Volume.Vol = vol
                             }
-                        elsif ym2413 and in_range(i, 5, 13) then
+                            
+                        case specs.CHIP_YM2413:
                             vol = c.Volume.Vol + c.VolOffs
                             if vol != currSettings.Volume.Vol {
                                 if vol > 15 {
@@ -1605,7 +1608,8 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                 //end if
                                 //lastChannelSetting[i][2] = vol
                             }
-                        elsif channelType[i] = TYPE_YM2612 then
+                            
+                        case specs.CHIP_YM2612:
                             for j := 0; j < 4; j++ {
                                 //if j = channel[i][CHN_OPER] or channel[i][CHN_OPER] = 0 then
                                     vol = c.Volume.Op[j] + c.VolOffs
@@ -1625,7 +1629,8 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                     }
                                 //end if
                             }
-                        elsif channelType[i] = TYPE_YM2151 then
+                            
+                        case specs.CHIP_YM2151:
                             for j := 0; j < 4; j++ {
                                 //if j = channel[i][CHN_OPER] or channel[i][CHN_OPER] = 0 then
                                     //? {i, j, channel[i][CHN_VOLUME][j]}
@@ -1656,8 +1661,8 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
             chnUpdateDelay = 735
         }
         
-        if ym2612 and channel[10][23] = 2 and pcmDelay >= 0 then
-            if pcmDelay > 0 and pcmDelay <= chnUpdateDelay then
+        if ym2612 && channel[10].Mode == 2 && pcmDelay >= 0 {
+            if pcmDelay > 0 && pcmDelay <= chnUpdateDelay {
                 if pcmDelay < 16 {
                     vgmData &= (0x70 | pcmDelay)
                 } else {
@@ -1685,9 +1690,9 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
         }
         
         if chnUpdateDelay == 882 {
-            vgmData &= #63
+            vgmData &= 0x63
         } else if chnUpdateDelay == 735 {
-            vgmData &= #62
+            vgmData &= 0x62
         } else if chnUpdateDelay > 0 {
             if chnUpdateDelay < 16 {
                 vgmData &= (0x70 | chnUpdateDelay)
@@ -1770,10 +1775,10 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
         close(outFile)
     }
 
-    if verbose then
+    if verbose {
         for i = 1 to nChannels do
             printf(1, "Song %d, Channel " & supportedChannels[i] & ": %d / %d ticks\n", {song, round2(songLen[song][i]), round2(songLoopLen[song][i])})
         end for
         printf(1,"VGM size: %d bytes + %d bytes GD3\nVGM length: %d / %d seconds\n", {length(vgmData), length(gd3), floor(totalWaits / 44100), floor(loopPos[2] / 44100)})
-    end if
-end procedure
+    }
+}

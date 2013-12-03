@@ -178,7 +178,7 @@ func (t *Target) GetAdsrMax() int {
 
 func (t *Target) GetChannelNames() string {
     names := ""
-    for i, _ := range t.ChannelSpecs.Duty {
+    for i := range t.ChannelSpecs.Duty {
         names += fmt.Sprintf("%c", 'A'+i)
     }
     return names
@@ -186,6 +186,18 @@ func (t *Target) GetChannelNames() string {
 
 func (t *Target) GetChannelSpecs() *specs.Specs {
     return &t.ChannelSpecs
+}
+
+/* Returns which of the specified chip's channels the given channel
+ * number corresponds to for this target.
+ */
+func (t *Target) ChipChannel(chn, chipId int) int {
+    for i, chnChipId := range t.ChannelSpecs.IDs {
+        if chipId == chnChipId {
+            return chn - i
+        }
+    }
+    return -1
 }
 
 func (t *Target) GetMaxTempo() int {
