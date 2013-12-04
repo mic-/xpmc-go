@@ -12,6 +12,7 @@ package targets
 import (
     "fmt"
     "os"
+    "time"
     "../specs"
     "../utils"
 )
@@ -311,11 +312,10 @@ func (t *TargetGBC) Output(outputVgm int) {
         utils.ERROR("Unable to open file: " + t.CompilerItf.GetShortFileName() + ".asm")
     }
 
-    /*s = date()
-    printf(outFile, "; Written by XPMC at %02d:%02d:%02d on " & WEEKDAYS[s[7]] & " " & MONTHS[s[2]] & " %d, %d." & {13, 10, 13, 10},
-           s[4..6] & {s[3], s[1] + 1900})
+    now := time.Now()
+    outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
 
-    numSongs = 0
+    /*numSongs = 0
     for i = 1 to length(songs) do
         if sequence(songs[i]) then
             numSongs += 1
@@ -336,19 +336,19 @@ func (t *TargetGBC) Output(outputVgm int) {
     ".BANK 0 SLOT 0\n" +
     ".ORGA $00\n\n")
     
-    /*puts(outFile,
-    ".db \"GBS\"" & CRLF &
-    ".db 1\t\t; Version" & CRLF &
-    sprintf(".db %d\t\t; Number of songs", numSongs) & CRLF &
-    ".db 1\t\t; Start song" & CRLF &
-    ".dw $0400\t; Load address" & CRLF &
-    ".dw $0400\t; Init address" & CRLF &
-    ".dw $0408\t; Play address" & CRLF &
-    ".dw $fffe\t; Stack pointer" & CRLF &
-    ".db 0" & CRLF &
-    ".db 0" & CRLF)
+    outFile.WriteString(
+    ".db \"GBS\"\n" +
+    ".db 1\t\t; Version\n" +
+    //sprintf(".db %d\t\t; Number of songs", numSongs) & CRLF &
+    ".db 1\t\t; Start song\n" +
+    ".dw $0400\t; Load address\n" +
+    ".dw $0400\t; Init address\n" +
+    ".dw $0408\t; Play address\n" +
+    ".dw $fffe\t; Stack pointer\n" +
+    ".db 0\n" +
+    ".db 0\n")
     
-    if length(songTitle) >= 32 then
+    /*if length(songTitle) >= 32 then
         puts(outFile, ".db \"" & songTitle[1..31] & "\", 0" & CRLF)
     else
         puts(outFile, ".db \"" & songTitle & "\"")
@@ -401,16 +401,16 @@ func (t *TargetGBC) Output(outputVgm int) {
                 printf(outFile, ".DEFINE XPMP_CHN%d_USES_%s" & CRLF, {i - 1, EFFECT_STRINGS[j]})
             end if
         end for
-    end for
+    end for*/
     
-    if gbNoise = 1 then
-        puts(outFile, ".DEFINE XPMP_ALT_GB_NOISE" & CRLF)
-    end if
-    if gbVolCtrl = 1 then
-        puts(outFile, ".DEFINE XPMP_ALT_GB_VOLCTRL" & CRLF)
-    end if
+    if t.CompilerItf.GetGbNoiseType() == 1 {
+        outFile.WriteString(".DEFINE XPMP_ALT_GB_NOISE\n")
+    }
+    if t.CompilerItf.GetGbVolCtrlType() == 1 {
+        outFile.WriteString(".DEFINE XPMP_ALT_GB_VOLCTRL\n")
+    }
     
-    tableSize  = output_wla_table("xpmp_dt_mac", dutyMacros,   1, 1, #80)
+    /*tableSize  = output_wla_table("xpmp_dt_mac", dutyMacros,   1, 1, #80)
     tableSize += output_wla_table("xpmp_v_mac",  volumeMacros, 1, 1, #80)
     tableSize += output_wla_table("xpmp_VS_mac", volumeSlides, 1, 1, #80)
     tableSize += output_wla_table("xpmp_EP_mac", pitchMacros,  1, 1, #80)
