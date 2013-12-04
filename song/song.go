@@ -11,13 +11,14 @@ package song
 import (
     "fmt"
     "../channel"
+    "../defs"
     "../targets"
 )
 
 
 type Song struct {
     Channels []*channel.Channel
-    Target targets.ITarget
+    Target defs.ITarget
     
     TuneSmsPitch bool
     
@@ -34,7 +35,7 @@ func NewSong(targetId int) *Song {
     s.Target = targets.NewTarget(targetId)
     s.Target.Init()
     chnSpecs := s.Target.GetChannelSpecs()
-    for i, _ := range chnSpecs.Duty {
+    for i, _ := range chnSpecs.GetDuty() {
         chn := channel.NewChannel()
         chn.Num = i
         chn.Name = fmt.Sprintf("%c", 'A'+i)

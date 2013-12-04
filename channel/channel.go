@@ -103,7 +103,7 @@ type Channel struct {
     Cmds []int
     UsesEffect map[string]bool
     Loops *LoopStack
-    ChannelSpecs *specs.Specs
+    ChannelSpecs defs.ISpecs
 }
 
 
@@ -121,15 +121,15 @@ func NewChannel() *Channel {
 }
 
 func (chn *Channel) GetChipID() int {
-    if len(chn.ChannelSpecs.IDs) > 0 {
-        return chn.ChannelSpecs.IDs[chn.Num]
+    if len(chn.ChannelSpecs.GetIDs()) > 0 {
+        return chn.ChannelSpecs.GetIDs()[chn.Num]
     }
     return specs.CHIP_UNKNOWN
 }
 
 func (chn *Channel) SupportsADSR() bool {
-    if len(chn.ChannelSpecs.ADSR) > 0 {
-        if chn.ChannelSpecs.ADSR[chn.Num] != 0 {
+    if len(chn.ChannelSpecs.GetADSR()) > 0 {
+        if chn.ChannelSpecs.GetADSR()[chn.Num] != 0 {
             return true
         }
     }
@@ -137,8 +137,8 @@ func (chn *Channel) SupportsADSR() bool {
 }
 
 func (chn *Channel) SupportsDetune() bool {
-    if len(chn.ChannelSpecs.Detune) > 0 {
-        if chn.ChannelSpecs.Detune[chn.Num] != 0 {
+    if len(chn.ChannelSpecs.GetDetune()) > 0 {
+        if chn.ChannelSpecs.GetDetune()[chn.Num] != 0 {
             return true
         }
     }
@@ -146,15 +146,15 @@ func (chn *Channel) SupportsDetune() bool {
 }
 
 func (chn *Channel) SupportsDutyChange() int {
-    if len(chn.ChannelSpecs.Duty) > 0 {
-        return chn.ChannelSpecs.Duty[chn.Num];
+    if len(chn.ChannelSpecs.GetDuty()) > 0 {
+        return chn.ChannelSpecs.GetDuty()[chn.Num];
     }
     return -1
 }
 
 func (chn *Channel) SupportsFilter() bool {
-    if len(chn.ChannelSpecs.Filter) > 0 {
-        if chn.ChannelSpecs.Filter[chn.Num] != 0 {
+    if len(chn.ChannelSpecs.GetFilter()) > 0 {
+        if chn.ChannelSpecs.GetFilter()[chn.Num] != 0 {
             return true
         }
     }
@@ -162,8 +162,8 @@ func (chn *Channel) SupportsFilter() bool {
 }
 
 func (chn *Channel) SupportsFM() bool {
-    if len(chn.ChannelSpecs.FM) > 0 {
-        if chn.ChannelSpecs.FM[chn.Num] != 0 {
+    if len(chn.ChannelSpecs.GetFM()) > 0 {
+        if chn.ChannelSpecs.GetFM()[chn.Num] != 0 {
             return true
         }
     }
@@ -171,8 +171,8 @@ func (chn *Channel) SupportsFM() bool {
 }
 
 func (chn *Channel) SupportsRingMod() bool {
-    if len(chn.ChannelSpecs.RingMod) > 0 {
-        if chn.ChannelSpecs.RingMod[chn.Num] != 0 {
+    if len(chn.ChannelSpecs.GetRingMod()) > 0 {
+        if chn.ChannelSpecs.GetRingMod()[chn.Num] != 0 {
             return true
         }
     }
@@ -180,8 +180,8 @@ func (chn *Channel) SupportsRingMod() bool {
 }
 
 func (chn *Channel) SupportsWaveTable() bool {
-    if len(chn.ChannelSpecs.WaveTable) > 0 {
-        if chn.ChannelSpecs.WaveTable[chn.Num] != 0 {
+    if len(chn.ChannelSpecs.GetWaveTable()) > 0 {
+        if chn.ChannelSpecs.GetWaveTable()[chn.Num] != 0 {
             return true
         }
     }
@@ -189,22 +189,22 @@ func (chn *Channel) SupportsWaveTable() bool {
 }
 
 func (chn *Channel) SupportsHwToneEnv() int {
-    if len(chn.ChannelSpecs.ToneEnv) > 0 {
-        return chn.ChannelSpecs.ToneEnv[chn.Num]
+    if len(chn.ChannelSpecs.GetToneEnv()) > 0 {
+        return chn.ChannelSpecs.GetToneEnv()[chn.Num]
     }
     return 0
 }
 
 func (chn *Channel) SupportsHwVolEnv() int {
-    if len(chn.ChannelSpecs.VolEnv) > 0 {
-        return chn.ChannelSpecs.VolEnv[chn.Num]
+    if len(chn.ChannelSpecs.GetVolEnv()) > 0 {
+        return chn.ChannelSpecs.GetVolEnv()[chn.Num]
     }
     return 0
 }
 
 func (chn *Channel) SupportsVolumeChange() int {
-    if len(chn.ChannelSpecs.VolChange) > 0 {
-        return chn.ChannelSpecs.VolChange[chn.Num]
+    if len(chn.ChannelSpecs.GetVolChange()) > 0 {
+        return chn.ChannelSpecs.GetVolChange()[chn.Num]
     }
     return 0
 }
@@ -215,29 +215,29 @@ func (chn *Channel) GetName() string {
 }
 
 func (chn *Channel) GetMaxOctave() int {
-    if len(chn.ChannelSpecs.MaxOct) > 0 {
-        return chn.ChannelSpecs.MaxOct[chn.Num]
+    if len(chn.ChannelSpecs.GetMaxOct()) > 0 {
+        return chn.ChannelSpecs.GetMaxOct()[chn.Num]
     }
     return 0
 }
 
 func (chn *Channel) GetMinOctave() int {
-    if len(chn.ChannelSpecs.MinOct) > 0 {
-        return chn.ChannelSpecs.MinOct[chn.Num]
+    if len(chn.ChannelSpecs.GetMinOct()) > 0 {
+        return chn.ChannelSpecs.GetMinOct()[chn.Num]
     }
     return 0
 }
 
 func (chn *Channel) GetMinNote() int {
-    if len(chn.ChannelSpecs.MinNote) > 0 {
-        return chn.ChannelSpecs.MinNote[chn.Num]
+    if len(chn.ChannelSpecs.GetMinNote()) > 0 {
+        return chn.ChannelSpecs.GetMinNote()[chn.Num]
     }
     return 0
 }
 
 func (chn *Channel) GetMaxVolume() int {
-    if len(chn.ChannelSpecs.MaxVol) > 0 {
-        return chn.ChannelSpecs.MaxVol[chn.Num]
+    if len(chn.ChannelSpecs.GetMaxVol()) > 0 {
+        return chn.ChannelSpecs.GetMaxVol()[chn.Num]
     }
     return 0
 }
@@ -248,14 +248,14 @@ func (chn *Channel) MachineVolLimit() int {
 }
 
 func (chn *Channel) SetMaxVolume(maxVol int) {
-    if len(chn.ChannelSpecs.MaxVol) > 0 {
-        chn.ChannelSpecs.MaxVol[chn.Num] = maxVol
+    if len(chn.ChannelSpecs.GetMaxVol()) > 0 {
+        chn.ChannelSpecs.GetMaxVol()[chn.Num] = maxVol
     }
 }
 
 func (chn *Channel) SetMaxOctave(maxOct int) {
-    if len(chn.ChannelSpecs.MaxOct) > 0 {
-        chn.ChannelSpecs.MaxOct[chn.Num] = maxOct
+    if len(chn.ChannelSpecs.GetMaxOct()) > 0 {
+        chn.ChannelSpecs.GetMaxOct()[chn.Num] = maxOct
     }
 }
 

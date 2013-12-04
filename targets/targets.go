@@ -16,6 +16,8 @@ import (
     "../utils"
 )
 
+import . "../defs"
+
 const (
     TARGET_UNKNOWN = 0
     TARGET_SMS = 1      // SEGA Master System 
@@ -48,28 +50,6 @@ const (
 )
 
 
-type ITarget interface {
-    GetAdsrLen() int        // Number of parameters used for ADSR envelopes on this target
-    GetAdsrMax() int        // Max value for ADSR parameters on this target
-    GetChannelSpecs() *specs.Specs
-    GetChannelNames() string
-    GetID() int             // The ID of this target (one of the TARGET_* constants)
-    GetMaxLoopDepth() int   // Max nesting of [] loops on this target
-    GetMaxTempo() int
-    GetMaxVolume() int
-    GetMaxWavLength() int   // Max length of WT samples on this target
-    GetMaxWavSample() int   // Max amplitude for WT samples on this target
-    GetMinVolume() int
-    GetMinWavLength() int
-    GetMinWavSample() int
-    Init()
-    Output(outputVgm int)
-    SupportsPAL() bool
-    SupportsPan() bool      // Whether this target supports panning effects (CS)
-    SupportsPCM() bool      // Whether this target supports one-shot PCM samples (XPCM)
-    SupportsWaveTable() bool
-}
-
 type Target struct {
     MaxTempo int
     MinVolume int
@@ -83,6 +63,7 @@ type Target struct {
     AdsrLen int
     AdsrMax int
     ChannelSpecs specs.Specs
+    CompilerItf ICompiler
     MachineSpeed int
     ID int
 }
@@ -184,7 +165,7 @@ func (t *Target) GetChannelNames() string {
     return names
 }
 
-func (t *Target) GetChannelSpecs() *specs.Specs {
+func (t *Target) GetChannelSpecs() ISpecs {
     return &t.ChannelSpecs
 }
 
@@ -314,9 +295,9 @@ func (t *TargetGBC) Output(outputVgm int) {
     integer f, tableSize, cbSize, songSize, wavSize, patSize, numSongs
     sequence closest,s*/
 
-    outFile, err := os.Create(compiler.ShortFileName + ".asm")
+    outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
     if err != nil {
-        utils.ERROR("Unable to open file: " + compiler.ShortFileName + ".asm")
+        utils.ERROR("Unable to open file: " + t.CompilerItf.GetShortFileName() + ".asm")
     }
 
     /*s = date()
