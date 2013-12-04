@@ -30,9 +30,9 @@ type Song struct {
 }
 
 
-func NewSong(targetId int) *Song {
+func NewSong(targetId int, icomp defs.ICompiler) *Song {
     s := &Song{}
-    s.Target = targets.NewTarget(targetId)
+    s.Target = targets.NewTarget(targetId, icomp)
     s.Target.Init()
     chnSpecs := s.Target.GetChannelSpecs()
     for i, _ := range chnSpecs.GetDuty() {

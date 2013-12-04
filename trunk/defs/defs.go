@@ -168,6 +168,7 @@ type ITarget interface {
     SupportsPan() bool      // Whether this target supports panning effects (CS)
     SupportsPCM() bool      // Whether this target supports one-shot PCM samples (XPCM)
     SupportsWaveTable() bool
+    SetCompilerItf(icomp ICompiler)
 }
 
 type ICompiler interface {
