@@ -68,6 +68,7 @@ func NewParserStateStack() *ParserStateStack {
 func (s *ParserState) Init(fileName string) error {
     var err error
     s.fileData, err = ioutil.ReadFile(fileName)
+    fmt.Printf("Parsing " + fileName + "\n")
     s.fileDataPos = 0
     s.LineNum = 1
     s.UserDefinedBase = 10

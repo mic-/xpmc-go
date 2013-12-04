@@ -101,22 +101,29 @@ type TargetSMS struct {
 }
 
 
-func NewTarget(tID int) ITarget {
+func NewTarget(tID int, icomp ICompiler) ITarget {
+    var t ITarget = ITarget(nil)
+    
     switch tID {
     case TARGET_AT8:
-        return &TargetAt8{}
+        t = &TargetAt8{}
     case TARGET_GBC:
-        return &TargetGBC{}
+        t = &TargetGBC{}
     case TARGET_SMD:
-        return &TargetGen{}
+        t = &TargetGen{}
     case TARGET_KSS:
-        return &TargetKSS{}
+        t = &TargetKSS{}
     case TARGET_SGG:
-        return &TargetSGG{}
+        t = &TargetSGG{}
     case TARGET_SMS:
-        return &TargetSMS{}
+        t = &TargetSMS{}
     }
-    return ITarget(nil)
+    
+    if t != nil {
+        t.SetCompilerItf(icomp)
+    }
+    
+    return t
 }
 
 func NameToID(targetName string) int {
@@ -143,6 +150,10 @@ func (t *Target) Init() {
 
 func (t *Target) Output(outputVgm int) {
     // Stub to fulfill the ITarget interface
+}
+
+func (t *Target) SetCompilerItf(icomp ICompiler) {
+    t.CompilerItf = icomp
 }
 
 func (t *Target) GetID() int {

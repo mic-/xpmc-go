@@ -147,7 +147,7 @@ func (comp *Compiler) Init(target int) {
     comp.patterns = &MmlPatternMap{}
     
     comp.Songs = map[int]*song.Song{}
-    comp.CurrSong = song.NewSong(target)
+    comp.CurrSong = song.NewSong(target, comp)
     comp.Songs[1] = comp.CurrSong
     
     comp.dontCompile = NewIntStack()
