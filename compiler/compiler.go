@@ -32,14 +32,16 @@ const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrtsuvwxyz
 var CurrSong *song.Song
 var Songs map[int]*song.Song
 var SongNum uint
-var userDefinedBase int
+var ShortFileName string
+
+//var userDefinedBase int
 var implicitAdsrId int
 var gbVolCtrl, gbNoise int
 var enRev, octaveRev int
 var patName string
 var slur, tie bool
 var lastWasChannelSelect bool
-var workDir string
+//var workDir string
 
 
 type MmlPattern struct {
@@ -465,7 +467,7 @@ func handleMetaCommand() {
                 if Parser.Getch() == '"' {
                     if len(s) > 0 {
                         if !strings.ContainsRune(s, ':') && s[0] != '\\' {
-                            s = workDir + s
+                            s = Parser.WorkDir + s
                         }
                         CompileFile(s)
                     }

@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     "os"
+    "strings"
     "./compiler"
     "./defs"
     "./targets"
@@ -114,9 +115,32 @@ func main() {
                     return
                 }
                 compiler.Init(target)
-                if i < len(os.Args)-1 {
+
+                inputFileName := arg
+                lastDot := strings.LastIndexAny(inputFileName, ".")
+                lastSlash := strings.LastIndexAny(inputFileName, "/\\")
+                
+                if lastDot >= 0 && lastSlash < 0 {
+                    compiler.ShortFileName = inputFileName[:lastDot]
+                } else {
+                    compiler.ShortFileName = inputFileName
+                    inputFileName += ".mml"
                 }
-                compiler.CompileFile(arg);
+
+                if i < len(os.Args)-1 {
+                    compiler.ShortFileName = os.Args[i + 1]
+                    lastDot = strings.LastIndexAny(os.Args[i + 1], ".")
+                    if lastDot >= 0 {
+                        compiler.ShortFileName = os.Args[i+1][:lastDot]
+                        //writeVGM = equal(lower(fileNames[2][n..length(fileNames[2])]), ".vgm")
+                        //writeVGM += equal(lower(fileNames[2][n..length(fileNames[2])]), ".vgz") * 2
+                        //writeWAV = equal(lower(fileNames[2][n..length(fileNames[2])]), ".wav")
+                    }
+                }
+                
+                fmt.Printf("compiler.SFN = " + compiler.ShortFileName + "\n")
+                
+                compiler.CompileFile(inputFileName);
                 compiler.CurrSong.Target.Output(0)
                 
                 return
