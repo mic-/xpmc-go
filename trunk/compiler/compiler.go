@@ -3,6 +3,7 @@ package compiler
 import (
     "container/list"
     "fmt"
+    "sort"
     "strconv"
     "strings"
     "sync"
@@ -148,6 +149,27 @@ func (comp *Compiler) GetGbVolCtrlType() int {
 
 func (comp *Compiler) GetGbNoiseType() int {
     return comp.gbNoise
+}
+
+func (comp *Compiler) GetNumSongs() int {
+    return len(comp.Songs)
+}
+
+func (comp *Compiler) GetSong(num int) defs.ISong {
+    return comp.Songs[num]
+}
+
+func (comp *Compiler) GetSongs() []defs.ISong {
+    songs := make([]defs.ISong, len(comp.Songs))
+    keys := []int{}
+    for key := range comp.Songs {
+        keys = append(keys, key)
+    }
+    sort.Ints(keys)
+    for i, key := range keys {
+        songs[i] = comp.Songs[key]
+    }
+    return songs
 }
 
 func (comp *Compiler) Init(target int) {

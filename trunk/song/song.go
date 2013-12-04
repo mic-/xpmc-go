@@ -45,6 +45,13 @@ func NewSong(targetId int, icomp defs.ICompiler) *Song {
     return s
 }
 
+func (song *Song) GetChannels() []defs.IChannel {
+    channels := make([]defs.IChannel, len(song.Channels))
+    for i, chn := range song.Channels {
+        channels[i] = chn
+    }
+    return channels
+}
 
 func (song *Song) GetNumActiveChannels() (numActive int) {
     numActive = 0
