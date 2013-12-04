@@ -122,6 +122,8 @@ func EXTENDED_LENGTHS() []int {
     return extendedLengths
 }
 
+var EFFECT_STRINGS [6]string = [6]string{"EN", "EN2", "EP", "MP", "DM", "PM"}
+
 const NON_NOTE_TUPLE_CMD = 0xFFFF
 
 var Rest, Rest2 int
@@ -171,8 +173,20 @@ type ITarget interface {
     SetCompilerItf(icomp ICompiler)
 }
 
+type ISong interface {
+    GetChannels() []IChannel
+}
+
+type IChannel interface {
+    GetNum() int
+    IsUsingEffect(effName string) bool
+}
+
 type ICompiler interface {
     GetShortFileName() string
     GetGbVolCtrlType() int
     GetGbNoiseType() int
+    GetNumSongs() int
+    GetSong(num int) ISong
+    GetSongs() []ISong
 }

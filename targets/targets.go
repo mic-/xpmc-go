@@ -393,15 +393,26 @@ func (t *TargetGBC) Output(outputVgm int) {
     end if
     if not usesEN[2] then
         puts(outFile, ".DEFINE XPMP_EN2MAC_NOT_USED" & CRLF)
-    end if
+    end if*/
 
-    for i = 1 to length(supportedChannels)-1 do
-        for j = 1 to length(usesEffect[i]) do
-            if usesEffect[i][j] then
-                printf(outFile, ".DEFINE XPMP_CHN%d_USES_%s" & CRLF, {i - 1, EFFECT_STRINGS[j]})
-            end if
-        end for
-    end for*/
+    songs := t.CompilerItf.GetSongs()
+    for _, effName := range EFFECT_STRINGS {
+        usesEffect := false
+        for _, sng := range songs {
+            channels := sng.GetChannels()
+            for _, chn := range channels {
+                if chn.IsUsingEffect(effName) {
+                    outFile.WriteString(fmt.Sprintf(".DEFINE XPMP_CHN%d_USES_", chn.GetNum()) + effName + "\n")
+                    usesEffect = true
+                    break
+                }
+            }
+            // ToDo: handle the case where the same effect is used by multiple songs, but on different channels
+            if usesEffect {
+                break
+            }
+        }
+    }
     
     if t.CompilerItf.GetGbNoiseType() == 1 {
         outFile.WriteString(".DEFINE XPMP_ALT_GB_NOISE\n")

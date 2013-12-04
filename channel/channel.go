@@ -120,6 +120,19 @@ func NewChannel() *Channel {
     return chn
 }
 
+/* IChannel interface *
+/**********************/
+
+func (chn *Channel) GetNum() int {
+    return chn.Num
+}
+
+func (chn *Channel) IsUsingEffect(effName string) bool {
+    return chn.UsesEffect[effName]
+}
+
+/*****/
+
 func (chn *Channel) GetChipID() int {
     if len(chn.ChannelSpecs.GetIDs()) > 0 {
         return chn.ChannelSpecs.GetIDs()[chn.Num]
