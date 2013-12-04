@@ -125,3 +125,51 @@ func EXTENDED_LENGTHS() []int {
 const NON_NOTE_TUPLE_CMD = 0xFFFF
 
 var Rest, Rest2 int
+
+/////////////
+
+type ISpecs interface {
+    GetDuty() []int    
+    GetVolChange() []int     
+    GetFM() []int            
+    GetADSR() []int          
+    GetFilter() []int        
+    GetRingMod() []int      
+    GetWaveTable() []int     
+    GetPCM() []int          
+    GetToneEnv() []int      
+    GetVolEnv() []int        
+    GetDetune() []int       
+    GetMinOct() []int     
+    GetMaxOct() []int      
+    GetMaxVol() []int       
+    GetMinNote() []int       
+    GetID() int             
+    GetIDs() []int           
+}
+
+type ITarget interface {
+    GetAdsrLen() int        // Number of parameters used for ADSR envelopes on this target
+    GetAdsrMax() int        // Max value for ADSR parameters on this target
+    GetChannelSpecs() ISpecs
+    GetChannelNames() string
+    GetID() int             // The ID of this target (one of the TARGET_* constants)
+    GetMaxLoopDepth() int   // Max nesting of [] loops on this target
+    GetMaxTempo() int
+    GetMaxVolume() int
+    GetMaxWavLength() int   // Max length of WT samples on this target
+    GetMaxWavSample() int   // Max amplitude for WT samples on this target
+    GetMinVolume() int
+    GetMinWavLength() int
+    GetMinWavSample() int
+    Init()
+    Output(outputVgm int)
+    SupportsPAL() bool
+    SupportsPan() bool      // Whether this target supports panning effects (CS)
+    SupportsPCM() bool      // Whether this target supports one-shot PCM samples (XPCM)
+    SupportsWaveTable() bool
+}
+
+type ICompiler interface {
+    GetShortFileName() string
+}

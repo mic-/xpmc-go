@@ -29,21 +29,6 @@ const (
 const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrtsuvwxyz"
 
 
-var CurrSong *song.Song
-var Songs map[int]*song.Song
-var SongNum uint
-var ShortFileName string
-
-//var userDefinedBase int
-var implicitAdsrId int
-var gbVolCtrl, gbNoise int
-var enRev, octaveRev int
-var patName string
-var slur, tie bool
-var lastWasChannelSelect bool
-//var workDir string
-
-
 type MmlPattern struct {
     Name string
     Cmds []int
@@ -127,32 +112,57 @@ func NewIntStack() *IntStack {
 }
 
                     
-var dontCompile *IntStack
-var hasElse *BoolStack
-var pattern *MmlPattern
-var patterns *MmlPatternMap = &MmlPatternMap{}
-var keepChannelsActive bool
-var callbacks []string
+type Compiler struct {
+    CurrSong *song.Song
+    Songs map[int]*song.Song
+    SongNum uint
+    ShortFileName string
+
+    //var userDefinedBase int
+    implicitAdsrId int
+    gbVolCtrl int
+    gbNoise int
+    enRev int
+    octaveRev int
+    patName string
+    slur bool
+    tie bool
+    lastWasChannelSelect bool
+    //var workDir string 
+
+    dontCompile *IntStack
+    hasElse *BoolStack
+    pattern *MmlPattern
+    patterns *MmlPatternMap
+    keepChannelsActive bool
+    callbacks []string
+}
+
+func (comp *Compiler) GetShortFileName() string {
+    return comp.ShortFileName
+}
 
 
-func Init(target int) {
-    Songs = map[int]*song.Song{}
-    CurrSong = song.NewSong(target)
-    Songs[1] = CurrSong
+func (comp *Compiler) Init(target int) {
+    comp.patterns = &MmlPatternMap{}
     
-    dontCompile = NewIntStack()
-    hasElse = NewBoolStack()
+    comp.Songs = map[int]*song.Song{}
+    comp.CurrSong = song.NewSong(target)
+    comp.Songs[1] = comp.CurrSong
     
-    dontCompile.Push(0)
-    hasElse.Push(false)
+    comp.dontCompile = NewIntStack()
+    comp.hasElse = NewBoolStack()
     
-    lastWasChannelSelect = false
+    comp.dontCompile.Push(0)
+    comp.hasElse.Push(false)
+    
+    comp.lastWasChannelSelect = false
     
     effects.Init()
 }
 
 
-func getEffectFrequency() int {
+func (comp *Compiler) getEffectFrequency() int {
     var n, retVal int
     
     retVal = defs.EFFECT_STEP_EVERY_FRAME
@@ -258,9 +268,9 @@ func abs(x int) int {
 }
 
 
-func writeAllPendingNotes(forceOctChange bool) {
+func (comp *Compiler) writeAllPendingNotes(forceOctChange bool) {
     w := &sync.WaitGroup{}
-    for _, chn := range CurrSong.Channels {
+    for _, chn := range comp.CurrSong.Channels {
         chnCopy := chn
         w.Add(1)
         go func() {
@@ -306,27 +316,27 @@ func evalIfdefExpr(polarity int) int {
 
 
 // Handle commands starting with '#', i.e. a meta command 
-func handleMetaCommand() {
-    if dontCompile.Peek() != 0 {
+func (comp *Compiler) handleMetaCommand() {
+    if comp.dontCompile.Peek() != 0 {
         s := Parser.GetString()
         switch s {
         case "IFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
-            dontCompile.Push((^expr) | dontCompile.Peek())
-            hasElse.Push(false)
+            comp.dontCompile.Push((^expr) | comp.dontCompile.Peek())
+            comp.hasElse.Push(false)
 
         case "IFNDEF":
             expr := evalIfdefExpr(POLARITY_NEGATIVE)
-            dontCompile.Push(expr | dontCompile.Peek())
-            hasElse.Push(false)             
+            comp.dontCompile.Push(expr | comp.dontCompile.Peek())
+            comp.hasElse.Push(false)             
 
         case "ELSIFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
-            if dontCompile.Len() > 1 {
-                if !hasElse.Peek() {
-                    if (dontCompile.Peek() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
-                        _ = dontCompile.Pop()
-                        dontCompile.Push((^expr) | dontCompile.Peek())
+            if comp.dontCompile.Len() > 1 {
+                if !comp.hasElse.Peek() {
+                    if (comp.dontCompile.Peek() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
+                        _ = comp.dontCompile.Pop()
+                        comp.dontCompile.Push((^expr) | comp.dontCompile.Peek())
                     }
                 } else {
                     ERROR("ELSIFDEF found after ELSE")
@@ -337,14 +347,14 @@ func handleMetaCommand() {
 
 
         case "ELSE":
-            if dontCompile.Len() > 1 {
-                if !hasElse.Peek() {
-                    if (dontCompile.Peek() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
-                        x := dontCompile.Pop()
-                        dontCompile.Push(x | dontCompile.Peek())
+            if comp.dontCompile.Len() > 1 {
+                if !comp.hasElse.Peek() {
+                    if (comp.dontCompile.Peek() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
+                        x := comp.dontCompile.Pop()
+                        comp.dontCompile.Push(x | comp.dontCompile.Peek())
                     }
-                    _ = hasElse.Pop()
-                    hasElse.Push(true)
+                    _ = comp.hasElse.Pop()
+                    comp.hasElse.Push(true)
                 } else {
                     ERROR("Only one ELSE allowed per IFDEF")
                 }
@@ -353,15 +363,15 @@ func handleMetaCommand() {
             }
 
         case "ENDIF":
-            if dontCompile.Len() > 1 {
-                _ = dontCompile.Pop()
-                _ = hasElse.Pop()
+            if comp.dontCompile.Len() > 1 {
+                _ = comp.dontCompile.Pop()
+                _ = comp.hasElse.Pop()
             } else {
                 ERROR("ENDIF with no matching IFDEF")
             }
         }
     } else {
-        for _, chn := range CurrSong.Channels {
+        for _, chn := range comp.CurrSong.Channels {
             chn.WriteNote(true)
         }
 
@@ -370,23 +380,23 @@ func handleMetaCommand() {
         switch cmd {
         case "IFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
-            dontCompile.Push((^expr) | dontCompile.Peek())
-            hasElse.Push(false)
+            comp.dontCompile.Push((^expr) | comp.dontCompile.Peek())
+            comp.hasElse.Push(false)
 
         case "IFNDEF":
             expr := evalIfdefExpr(POLARITY_NEGATIVE)
-            dontCompile.Push(expr | dontCompile.Peek())
-            hasElse.Push(false)
+            comp.dontCompile.Push(expr | comp.dontCompile.Peek())
+            comp.hasElse.Push(false)
 
         case "ELSIFDEF":
-            if dontCompile.Len() > 1 {
-                if !hasElse.Peek() {
+            if comp.dontCompile.Len() > 1 {
+                if !comp.hasElse.Peek() {
                     _ = Parser.GetStringUntil("\r\n")
-                    _ = dontCompile.Pop()
+                    _ = comp.dontCompile.Pop()
                     // Getting here means that the current IFDEF/ELSIFDEF was true,
                     // so whatever is in subsequent ELSIFDEF/ELSE clauses should not
                     // be compiled.
-                    dontCompile.Push(ELSIFDEF_TAKEN)
+                    comp.dontCompile.Push(ELSIFDEF_TAKEN)
                 } else {
                     ERROR("ELSIFDEF found after ELSE")
                 }
@@ -395,12 +405,12 @@ func handleMetaCommand() {
             }
 
         case "ELSE":
-            if dontCompile.Len() > 1 {
-                if !hasElse.Peek() {
-                    _ = dontCompile.Pop()
-                    dontCompile.Push(1)
-                    _ = hasElse.Pop()
-                    hasElse.Push(true)
+            if comp.dontCompile.Len() > 1 {
+                if !comp.hasElse.Peek() {
+                    _ = comp.dontCompile.Pop()
+                    comp.dontCompile.Push(1)
+                    _ = comp.hasElse.Pop()
+                    comp.hasElse.Push(true)
                 } else {
                     ERROR("Only one ELSE allowed per IFDEF")
                 }
@@ -409,30 +419,30 @@ func handleMetaCommand() {
             }
 
         case "ENDIF":
-            if dontCompile.Len() > 1 {
-                _ = dontCompile.Pop()
-                _ = hasElse.Pop()
+            if comp.dontCompile.Len() > 1 {
+                _ = comp.dontCompile.Pop()
+                _ = comp.hasElse.Pop()
             } else {
                 ERROR("ENDIF with no matching IFDEF")
             }
                     
         case "TITLE":
-            CurrSong.Title = Parser.GetStringUntil("\r\n")
+            comp.CurrSong.Title = Parser.GetStringUntil("\r\n")
 
         case "TUNE":
-            CurrSong.TuneSmsPitch = true
+            comp.CurrSong.TuneSmsPitch = true
 
         case "COMPOSER":
-            CurrSong.Composer = Parser.GetStringUntil("\r\n")
+            comp.CurrSong.Composer = Parser.GetStringUntil("\r\n")
 
         case "PROGRAMER","PROGRAMMER":
-            CurrSong.Programmer = Parser.GetStringUntil("\r\n")
+            comp.CurrSong.Programmer = Parser.GetStringUntil("\r\n")
 
         case "GAME":
-            CurrSong.Game = Parser.GetStringUntil("\r\n")
+            comp.CurrSong.Game = Parser.GetStringUntil("\r\n")
 
         case "ALBUM":
-            CurrSong.Album = Parser.GetStringUntil("\r\n")
+            comp.CurrSong.Album = Parser.GetStringUntil("\r\n")
 
         case "ERROR":
             Parser.SkipWhitespace()
@@ -469,7 +479,7 @@ func handleMetaCommand() {
                         if !strings.ContainsRune(s, ':') && s[0] != '\\' {
                             s = Parser.WorkDir + s
                         }
-                        CompileFile(s)
+                        comp.CompileFile(s)
                     }
                 } else {
                     ERROR("Malformed #INCLUDE, missing ending \"")
@@ -479,7 +489,7 @@ func handleMetaCommand() {
             }
 
         case "PAL":
-            if CurrSong.Target.SupportsPAL() {
+            if comp.CurrSong.Target.SupportsPAL() {
                 timing.UpdateFreq = 50.0
             }
 
@@ -550,7 +560,7 @@ func handleMetaCommand() {
             vol, err := strconv.Atoi(s)
             if err == nil {
                 if vol > 1 {
-                    for _, chn := range CurrSong.Channels {
+                    for _, chn := range comp.CurrSong.Channels {
                         chn.SetMaxVolume(vol)
                     }
                     if vol > 255 {
@@ -568,9 +578,9 @@ func handleMetaCommand() {
             ctl, err := strconv.Atoi(s)
             if err == nil {
                 if ctl == 1 {
-                    gbVolCtrl = 1
+                    comp.gbVolCtrl = 1
                 } else if ctl == 0 {
-                    gbVolCtrl = 0
+                    comp.gbVolCtrl = 0
                 } else {
                     WARNING(cmd + ": Expected 0 or 1, got: " + s)
                 }
@@ -583,14 +593,14 @@ func handleMetaCommand() {
             val, err := strconv.Atoi(s)
             if err == nil {
                 if val == 1 {
-                    gbNoise = 1
-                    if CurrSong.Target.GetID() == targets.TARGET_GBC {
-                        CurrSong.Channels[3].SetMaxOctave(5)
+                    comp.gbNoise = 1
+                    if comp.CurrSong.Target.GetID() == targets.TARGET_GBC {
+                        comp.CurrSong.Channels[3].SetMaxOctave(5)
                     }
                 } else if val == 0 {
-                    gbNoise = 0
-                    if CurrSong.Target.GetID() == targets.TARGET_GBC {
-                        CurrSong.Channels[3].SetMaxOctave(11)
+                    comp.gbNoise = 0
+                    if comp.CurrSong.Target.GetID() == targets.TARGET_GBC {
+                        comp.CurrSong.Channels[3].SetMaxOctave(11)
                     }
                 } else {
                     WARNING(cmd + ": Expected 0 or 1, defaulting to 0: " + s)
@@ -604,13 +614,13 @@ func handleMetaCommand() {
             rev, err := strconv.Atoi(s)
             if err == nil {
                 if rev == 1 {
-                    enRev = 1
-                    if CurrSong.Target.GetID() == targets.TARGET_C64 ||
-                       CurrSong.Target.GetID() == targets.TARGET_AT8 {
+                    comp.enRev = 1
+                    if comp.CurrSong.Target.GetID() == targets.TARGET_C64 ||
+                       comp.CurrSong.Target.GetID() == targets.TARGET_AT8 {
                         ERROR("#EN-REV 1 is not supported for this target")
                     }
                 } else if rev == 0 {
-                    enRev = 0
+                    comp.enRev = 0
                 } else {
                     WARNING(cmd + ": Expected 0 or 1, defaulting to 0: " + s)
                 }
@@ -623,7 +633,7 @@ func handleMetaCommand() {
             rev, err := strconv.Atoi(s)
             if err == nil {
                 if rev == 1 {
-                    octaveRev = -1
+                    comp.octaveRev = -1
                 } else if rev == 0 {
                 } else {
                     WARNING(cmd + ": Expected 0 or 1, defaulting to 0:" + s)
@@ -644,9 +654,9 @@ func handleMetaCommand() {
 
 
 
-func handleDutyMacDef(num int) {
+func (comp *Compiler) handleDutyMacDef(num int) {
     idx := effects.DutyMacros.FindKey(num) 
-    if CurrSong.GetNumActiveChannels() == 0 {
+    if comp.CurrSong.GetNumActiveChannels() == 0 {
         if idx < 0 {
             t := Parser.GetString()
             if t == "=" {
@@ -654,7 +664,7 @@ func handleDutyMacDef(num int) {
                 if err == nil {
                     if len(lst.MainPart) != 0 || len(lst.LoopedPart) != 0 {
                         effects.DutyMacros.Append(num, lst)
-                        effects.DutyMacros.PutInt(num, getEffectFrequency())
+                        effects.DutyMacros.PutInt(num, comp.getEffectFrequency())
                     } else {
                         ERROR("Empty list for @")
                     }
@@ -669,7 +679,7 @@ func handleDutyMacDef(num int) {
         }
     } else {
         numChannels := 0
-        for _, chn := range CurrSong.Channels {
+        for _, chn := range comp.CurrSong.Channels {
             if chn.Active {
                 numChannels++
                 if num >= 0 && num <= chn.SupportsDutyChange() {
@@ -695,7 +705,7 @@ func handleDutyMacDef(num int) {
 }
 
 // Handle definitions of panning macros ("@CS<xy> = {...}")
-func handlePanMacDef(cmd string) {
+func (comp *Compiler) handlePanMacDef(cmd string) {
     num, err := strconv.Atoi(cmd[2:])
     if err == nil {
         // Already defined?
@@ -713,13 +723,13 @@ func handlePanMacDef(cmd string) {
                         if (inRange(lst.MainPart, -63, 63) && inRange(lst.LoopedPart, -63, 63)) ||
                            (inRange(lst.MainPart, -127, 127) &&
                               inRange(lst.LoopedPart, -127, 127) &&
-                              CurrSong.Target.GetID() == targets.TARGET_SFC) ||
-                           CurrSong.Target.GetID() == targets.TARGET_PCE {
+                              comp.CurrSong.Target.GetID() == targets.TARGET_SFC) ||
+                           comp.CurrSong.Target.GetID() == targets.TARGET_PCE {
                             // Store this effect among the pan macros
                             effects.PanMacros.Append(num, lst)
                             // And store the effect frequency for this particular effect (whether it should
                             // be applied once per frame or once per note).
-                            effects.PanMacros.PutInt(num, getEffectFrequency())
+                            effects.PanMacros.PutInt(num, comp.getEffectFrequency())
                         } else {
                             ERROR("Value of out range (allowed: -63-63): " + lst.Format())
                         }
@@ -742,7 +752,7 @@ func handlePanMacDef(cmd string) {
 
 
 // Handle definitions of modulation macros ("@MOD<xy> = {...}")
-func handleModMacDef(cmd string) {
+func (comp *Compiler) handleModMacDef(cmd string) {
     num, err := strconv.Atoi(cmd[3:])
     if err == nil {
         idx := effects.MODs.FindKey(num)
@@ -751,7 +761,7 @@ func handleModMacDef(cmd string) {
             if t == "=" {
                 lst, err := Parser.GetList()
                 if err == nil {
-                    switch CurrSong.Target.GetID() {
+                    switch comp.CurrSong.Target.GetID() {
                     case targets.TARGET_SMD:
                         // 3 parameter version: Genesis/Megadrive (YM2612)
                         if len(lst.MainPart) == 3 && len(lst.LoopedPart) == 0 {
@@ -806,7 +816,7 @@ func handleModMacDef(cmd string) {
 
 
     
-func handleEffectDefinition(effName string, mmlString string, effMap *effects.EffectMap, pred func(*ParamList) bool) {
+func (comp *Compiler) handleEffectDefinition(effName string, mmlString string, effMap *effects.EffectMap, pred func(*ParamList) bool) {
     num, err := strconv.Atoi(mmlString[len(effName):])
     if err == nil {
         idx := effMap.FindKey(num)
@@ -816,7 +826,7 @@ func handleEffectDefinition(effName string, mmlString string, effMap *effects.Ef
                 lst, err := Parser.GetList()
                 if err == nil {
                     if pred(lst) {
-                        freq := getEffectFrequency()
+                        freq := comp.getEffectFrequency()
                         key := effMap.GetKeyFor(lst)
                         if key == -1 {
                            effMap.Append(num, lst)
@@ -843,9 +853,9 @@ func handleEffectDefinition(effName string, mmlString string, effMap *effects.Ef
 }
 
 
-func applyCmdOnAllActive(cmdName string, cmd []int) {
+func (comp *Compiler) applyCmdOnAllActive(cmdName string, cmd []int) {
     w := &sync.WaitGroup{}
-    for _, chn := range CurrSong.Channels {
+    for _, chn := range comp.CurrSong.Channels {
         chnCopy := chn
         w.Add(1)
         go func() {
@@ -859,8 +869,8 @@ func applyCmdOnAllActive(cmdName string, cmd []int) {
 }
 
 
-func applyCmdOnAllActiveFM(cmdName string, cmd []int) {
-    for _, chn := range CurrSong.Channels {
+func (comp *Compiler) applyCmdOnAllActiveFM(cmdName string, cmd []int) {
+    for _, chn := range comp.CurrSong.Channels {
         if chn.Active {
             if chn.SupportsFM() {
                 chn.AddCmd(cmd)
@@ -872,9 +882,9 @@ func applyCmdOnAllActiveFM(cmdName string, cmd []int) {
 }
 
 
-func applyEffectOnAllActiveSupported(cmdName string, cmd []int, pred func(*channel.Channel) bool,
+func (comp *Compiler) applyEffectOnAllActiveSupported(cmdName string, cmd []int, pred func(*channel.Channel) bool,
                                      effMap *effects.EffectMap, num int) {
-    for _, chn := range CurrSong.Channels {
+    for _, chn := range comp.CurrSong.Channels {
         if chn.Active {
             if pred(chn) {
                 chn.AddCmd(cmd)
@@ -890,20 +900,20 @@ func applyEffectOnAllActiveSupported(cmdName string, cmd []int, pred func(*chann
 /*
  * Generates an error if the rune in c isn't a valid channel name.
  */
-func assertIsChannelName(c int) {
-    if !strings.ContainsRune(CurrSong.Target.GetChannelNames(), rune(c)) {
+func (comp *Compiler) assertIsChannelName(c int) {
+    if !strings.ContainsRune(comp.CurrSong.Target.GetChannelNames(), rune(c)) {
         ERROR("Unexpected character: " + string(byte(c)))
     }
 }
 
 
-func assertEffectIdExistsAndChannelsActive(name string, eff *effects.EffectMap) (int, int, error) {
+func (comp *Compiler) assertEffectIdExistsAndChannelsActive(name string, eff *effects.EffectMap) (int, int, error) {
     s := Parser.GetNumericString()
     num, err := strconv.Atoi(s)
     idx := -1
     if err == nil {
         idx = eff.FindKey(num)
-        if CurrSong.GetNumActiveChannels() == 0 {
+        if comp.CurrSong.GetNumActiveChannels() == 0 {
             ERROR(name + " requires at least one active channel")
         } else if idx < 0 {
             ERROR("Undefined macro: " + name + s)
@@ -913,18 +923,18 @@ func assertEffectIdExistsAndChannelsActive(name string, eff *effects.EffectMap) 
 }
 
 
-func assertDisablingEffect(name string, cmd int) {
+func (comp *Compiler) assertDisablingEffect(name string, cmd int) {
     c := Parser.Getch()
     s := string(byte(c)) + string(byte(Parser.Getch()))
     if s == "OF" {
-        applyCmdOnAllActive(name, []int{cmd, 0})
+        comp.applyCmdOnAllActive(name, []int{cmd, 0})
     } else {
         ERROR("Syntax error: " + name + s)
     }
 }
 
 
-func CompileFile(fileName string) {
+func (comp *Compiler) CompileFile(fileName string) {
     var prevLine int
     var dotOff, tieOff, slurOff bool
     var parserCreationError error
@@ -951,10 +961,10 @@ func CompileFile(fileName string) {
         }
         
         if Parser.LineNum > prevLine {
-            if !keepChannelsActive {
-                for i, _ := range CurrSong.Channels {
-                    if i < len(CurrSong.Channels)-1 {
-                        CurrSong.Channels[i].Active = false
+            if !comp.keepChannelsActive {
+                for i, _ := range comp.CurrSong.Channels {
+                    if i < len(comp.CurrSong.Channels)-1 {
+                        comp.CurrSong.Channels[i].Active = false
                     }
                 }
             }
@@ -963,16 +973,16 @@ func CompileFile(fileName string) {
 
         /* Meta-commands */
         
-        if dontCompile.Peek() != 0 {
+        if comp.dontCompile.Peek() != 0 {
             if c == '#' {
-                handleMetaCommand()
+                comp.handleMetaCommand()
             } 
         } else {
             if c == '#' {
-                handleMetaCommand()
+                comp.handleMetaCommand()
 
             } else if c == '@' {
-                for _, chn := range CurrSong.Channels {
+                for _, chn := range comp.CurrSong.Channels {
                     chn.WriteNote(true)
                 }
                 m := Parser.Getch()
@@ -994,7 +1004,7 @@ func CompileFile(fileName string) {
                         if err == nil {
                             idx := effects.DutyMacros.FindKey(num) 
                             numChannels := 0
-                            for _, chn := range CurrSong.Channels {
+                            for _, chn := range comp.CurrSong.Channels {
                                 if chn.Active {
                                     numChannels++
                                     if chn.SupportsDutyChange() > 0 {
@@ -1018,15 +1028,15 @@ func CompileFile(fileName string) {
                         num, err := strconv.Atoi(s)
                         // Duty cycle macro definition
                         if err == nil {
-                            handleDutyMacDef(num)
+                            comp.handleDutyMacDef(num)
 
                         // Pan macro definition
                         } else if strings.HasPrefix(s, "CS") {
-                            handlePanMacDef(s)
+                            comp.handlePanMacDef(s)
                             
                         // Arpeggio definition
                         } else if strings.HasPrefix(s, "EN") {
-                            handleEffectDefinition("EN", s, effects.Arpeggios, func(parm *ParamList) bool {
+                            comp.handleEffectDefinition("EN", s, effects.Arpeggios, func(parm *ParamList) bool {
                                     if !parm.IsEmpty() {
                                         if inRange(parm.MainPart, -63, 63) && inRange(parm.LoopedPart, -63, 63) {
                                             return true;
@@ -1041,7 +1051,7 @@ func CompileFile(fileName string) {
                     
                         // Feedback macro definition
                         } else if strings.HasPrefix(s, "FBM") {
-                            handleEffectDefinition("FBM", s, effects.FeedbackMacros, func(parm *ParamList) bool {
+                            comp.handleEffectDefinition("FBM", s, effects.FeedbackMacros, func(parm *ParamList) bool {
                                     if !parm.IsEmpty() {
                                         if inRange(parm.MainPart, 0, 7) && inRange(parm.LoopedPart, 0, 7) {
                                             return true;
@@ -1056,7 +1066,7 @@ func CompileFile(fileName string) {
                                                       
                         // Vibrato definition
                         } else if strings.HasPrefix(s, "MP") {
-                            handleEffectDefinition("MP", s, effects.Vibratos, func(parm *ParamList) bool {
+                            comp.handleEffectDefinition("MP", s, effects.Vibratos, func(parm *ParamList) bool {
                                     if len(parm.MainPart) == 3 && len(parm.LoopedPart) == 0 {
                                         if inRange(parm.MainPart, []int{0, 1, 0}, []int{127, 127, 63}) {
                                             return true
@@ -1071,7 +1081,7 @@ func CompileFile(fileName string) {
                                 
                         // Amplitude/frequency modulator
                         } else if strings.HasPrefix(s, "MOD") {
-                            handleModMacDef(s)                  
+                            comp.handleModMacDef(s)                  
 
                         // Filter definition
                         } else if strings.HasPrefix(s, "FT") {
@@ -1083,7 +1093,7 @@ func CompileFile(fileName string) {
                                     if t == "=" {
                                         lst, err := Parser.GetList()
                                         if err == nil {
-                                            if CurrSong.Target.GetID() == targets.TARGET_C64 {
+                                            if comp.CurrSong.Target.GetID() == targets.TARGET_C64 {
                                                 if len(lst.MainPart) == 3 && len(lst.LoopedPart) == 0 {
                                                     if inRange(lst.MainPart, []int{0, 0, 0}, []int{3, 2047, 15}) {
                                                         effects.Filters.Append(num, lst)
@@ -1108,7 +1118,7 @@ func CompileFile(fileName string) {
                         // Pitch macro definition
                         } else if strings.HasPrefix(s, "EP") {
                             //handlePitchMacDef(s)    
-                            handleEffectDefinition("EP", s, effects.PitchMacros, func(parm *ParamList) bool {
+                            comp.handleEffectDefinition("EP", s, effects.PitchMacros, func(parm *ParamList) bool {
                                     if !parm.IsEmpty() {
                                         return true
                                     } else {
@@ -1119,7 +1129,7 @@ func CompileFile(fileName string) {
                                 
                         // Portamento definition
                         } else if strings.HasPrefix(s, "PT") {
-                            handleEffectDefinition("PT", s, effects.Portamentos, func(parm *ParamList) bool {
+                            comp.handleEffectDefinition("PT", s, effects.Portamentos, func(parm *ParamList) bool {
                                     if len(parm.MainPart) == 2 && len(parm.LoopedPart) == 0 {
                                         if inRange(parm.MainPart, []int{0, 1}, []int{127, 127}) {
                                             return true
@@ -1157,21 +1167,21 @@ func CompileFile(fileName string) {
                                             //ToDo: fix:  allow_wt_list()
                                         }
                                         lst, err := Parser.GetList()
-                                        if CurrSong.Target.SupportsWaveTable() {
+                                        if comp.CurrSong.Target.SupportsWaveTable() {
                                             if err == nil {
                                                 if !isWTM { // Regular @WT
                                                     if len(lst.LoopedPart) == 0 {
                                                         if inRange(lst.MainPart,
-                                                                   CurrSong.Target.GetMinWavSample(),
-                                                                   CurrSong.Target.GetMaxWavSample()) {
-                                                            if len(lst.MainPart) < CurrSong.Target.GetMinWavLength() {
+                                                                   comp.CurrSong.Target.GetMinWavSample(),
+                                                                   comp.CurrSong.Target.GetMaxWavSample()) {
+                                                            if len(lst.MainPart) < comp.CurrSong.Target.GetMinWavLength() {
                                                                 WARNING(fmt.Sprintf("Padding waveform with zeroes (current length: %d, needs to be at least %d)",
-                                                                    len(lst.MainPart), CurrSong.Target.GetMinWavLength()))
-                                                                lst.MainPart = append(lst.MainPart, make([]int, CurrSong.Target.GetMinWavLength() - len(lst.MainPart))...)
+                                                                    len(lst.MainPart), comp.CurrSong.Target.GetMinWavLength()))
+                                                                lst.MainPart = append(lst.MainPart, make([]int, comp.CurrSong.Target.GetMinWavLength() - len(lst.MainPart))...)
                                                             
-                                                            } else if len(lst.MainPart) > CurrSong.Target.GetMaxWavLength() {
+                                                            } else if len(lst.MainPart) > comp.CurrSong.Target.GetMaxWavLength() {
                                                                 WARNING("Truncating waveform")
-                                                                lst.MainPart = lst.MainPart[0:CurrSong.Target.GetMaxWavLength()]
+                                                                lst.MainPart = lst.MainPart[0:comp.CurrSong.Target.GetMaxWavLength()]
                                                             }
                                                             //waveforms[2] = append(waveforms[2], t[2])
                                                             effects.Waveforms.Append(num, lst)
@@ -1237,7 +1247,7 @@ func CompileFile(fileName string) {
                                     t := Parser.GetString()
                                     if t == "=" {
                                         lst, err := Parser.GetList()
-                                        if CurrSong.Target.SupportsPCM() {
+                                        if comp.CurrSong.Target.SupportsPCM() {
                                             if err == nil {
                                                 if len(lst.LoopedPart) == 0 {
                                                     // ToDo: fix
@@ -1284,8 +1294,8 @@ func CompileFile(fileName string) {
                                         lst, err := Parser.GetList()
                                         if err == nil {
                                             if len(lst.LoopedPart) == 0 {
-                                                if len(lst.MainPart) == CurrSong.Target.GetAdsrLen() {
-                                                    if inRange(lst.MainPart, 0, CurrSong.Target.GetAdsrMax()) {
+                                                if len(lst.MainPart) == comp.CurrSong.Target.GetAdsrLen() {
+                                                    if inRange(lst.MainPart, 0, comp.CurrSong.Target.GetAdsrMax()) {
                                                         effects.ADSRs.Append(num, lst)
                                                     } else {
                                                         ERROR("ADSR parameters out of range: " + lst.Format())
@@ -1323,13 +1333,13 @@ func CompileFile(fileName string) {
                             }
                                 
                             if err1 == nil && err2 == nil {
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     chn.WriteNote(true)
                                 }
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     WARNING("Trying to set tone envelope with no active channels")
                                 } else {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             if chn.SupportsHwToneEnv() != 0 {
                                                 if inRange(num1, -chn.SupportsHwToneEnv(), chn.SupportsHwToneEnv()) {
@@ -1362,13 +1372,13 @@ func CompileFile(fileName string) {
                         } else if strings.HasPrefix(s, "es") {
                             num, err := strconv.Atoi(s[2:])
                             if err == nil {
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     chn.WriteNote(true)
                                 }
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     WARNING("Trying to set envelope speed with no active channels")
                                 } else if inRange(num, 0, 65535) {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             switch chn.GetChipID() {
                                             case specs.CHIP_AY_3_8910:
@@ -1389,11 +1399,11 @@ func CompileFile(fileName string) {
                         } else if strings.HasPrefix(s, "ve") {
                             num, err := strconv.Atoi(s[2:])
                             if err == nil {
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     chn.WriteNote(true)
                                 }
                                 m = 0
-                                if CurrSong.Target.GetID() == targets.TARGET_GBC {
+                                if comp.CurrSong.Target.GetID() == targets.TARGET_GBC {
                                     if num < 0 {
                                         num = (abs(num) - 1) ^ 7
                                     } else if num > 0 {
@@ -1403,10 +1413,10 @@ func CompileFile(fileName string) {
                                         num = 0
                                     }
                                 }
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     WARNING("Trying to set volume envelope with no active channels")
                                 } else if err == nil {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             if chn.SupportsHwVolEnv() != 0 {
                                                 if inRange(num, -chn.SupportsHwVolEnv(), chn.SupportsHwVolEnv()) {
@@ -1447,8 +1457,8 @@ func CompileFile(fileName string) {
                             num, err := strconv.Atoi(s[1:])
                             if err == nil {
                                 idx := effects.VolumeMacros.FindKey(num)
-                                if CurrSong.GetNumActiveChannels() == 0 {
-                                    if len(patName) > 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
+                                    if len(comp.patName) > 0 {
                                     } else {
                                         if idx < 0 {
                                             t := Parser.GetString()
@@ -1456,13 +1466,13 @@ func CompileFile(fileName string) {
                                                 lst, err := Parser.GetList()
                                                 if err == nil {
                                                     if inRange(lst.MainPart,
-                                                               CurrSong.Target.GetMinVolume(),
-                                                               CurrSong.Target.GetMaxVolume()) &&
+                                                               comp.CurrSong.Target.GetMinVolume(),
+                                                               comp.CurrSong.Target.GetMaxVolume()) &&
                                                        inRange(lst.LoopedPart,
-                                                               CurrSong.Target.GetMinVolume(),
-                                                               CurrSong.Target.GetMaxVolume()) {
+                                                               comp.CurrSong.Target.GetMinVolume(),
+                                                               comp.CurrSong.Target.GetMaxVolume()) {
                                                         effects.VolumeMacros.Append(num, lst)
-                                                        effects.VolumeMacros.PutInt(num, getEffectFrequency())
+                                                        effects.VolumeMacros.PutInt(num, comp.getEffectFrequency())
                                                     } else {
                                                         ERROR("Value out of range: " + lst.Format())
                                                     }
@@ -1480,7 +1490,7 @@ func CompileFile(fileName string) {
                                     if idx < 0 {
                                         ERROR("Undefined macro: @" + s)
                                     } else {
-                                        for _, chn := range CurrSong.Channels {
+                                        for _, chn := range comp.CurrSong.Channels {
                                             if chn.Active {
                                                 if !effects.VolumeMacros.IsEmpty(num) {
                                                     if effects.VolumeMacros.GetInt(num) == defs.EFFECT_STEP_EVERY_FRAME {
@@ -1504,8 +1514,8 @@ func CompileFile(fileName string) {
                             num, err := strconv.Atoi(s[2:])
                             if err == nil {
                                 idx := effects.PulseMacros.FindKey(num)
-                                if CurrSong.GetNumActiveChannels() == 0 {
-                                    if len(patName) > 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
+                                    if len(comp.patName) > 0 {
                                     } else {
                                         if idx < 0 {
                                             t := Parser.GetString()
@@ -1515,7 +1525,7 @@ func CompileFile(fileName string) {
                                                     if inRange(lst.MainPart, 0, 15) &&
                                                        inRange(lst.LoopedPart, 0, 15) {
                                                         effects.PulseMacros.Append(num, lst)
-                                                        effects.PulseMacros.PutInt(num, getEffectFrequency())
+                                                        effects.PulseMacros.PutInt(num, comp.getEffectFrequency())
                                                     } else {
                                                         ERROR("Value out of range: " + lst.Format())
                                                     }
@@ -1533,7 +1543,7 @@ func CompileFile(fileName string) {
                                     if idx < 0 {
                                         ERROR("Undefined macro: @" + s)
                                     } else {
-                                        for _, chn := range CurrSong.Channels {
+                                        for _, chn := range comp.CurrSong.Channels {
                                             if chn.Active {
                                                 if !effects.PulseMacros.IsEmpty(num) {
                                                     chn.AddCmd([]int{defs.CMD_PULMAC, idx})
@@ -1551,13 +1561,13 @@ func CompileFile(fileName string) {
                         } else if strings.HasPrefix(s, "q") {
                             num, err := strconv.Atoi(s[1:])
                             if err == nil {
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     chn.WriteNote(true)
                                 }
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     WARNING("Trying to set cutoff with no active channels")
                                 } else if num >= 0 && num <= 15 {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             chn.CurrentCutoff.Val = num
                                             chn.CurrentCutoff.Typ = defs.CT_FRAMES
@@ -1570,7 +1580,7 @@ func CompileFile(fileName string) {
                                         }
                                     }
                                 } else if num < 0 && num >= -15 {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             chn.CurrentCutoff.Val = -num
                                             chn.CurrentCutoff.Typ = defs.CT_NEG_FRAMES
@@ -1600,19 +1610,19 @@ func CompileFile(fileName string) {
 
             // Pattern definition/invokation
             } else if c == '\\' {
-                for _, chn := range CurrSong.Channels {
+                for _, chn := range comp.CurrSong.Channels {
                     chn.WriteNote(true)
                 }
                 s := Parser.GetStringInRange(ALPHANUM)
                 Parser.SkipWhitespace()
                 m := Parser.Getch()
                 if len(s) > 0 {
-                    pattern = &MmlPattern{}
+                    comp.pattern = &MmlPattern{}
                     if m == '(' {
-                        if CurrSong.GetNumActiveChannels() == 0 {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
                             ERROR("Pattern invokation with no active channels")
                         } else {
-                            if CurrSong.Channels[len(CurrSong.Channels)-1].Active {
+                            if comp.CurrSong.Channels[ len(comp.CurrSong.Channels) - 1 ].Active {
                                 ERROR("Pattern invokation found inside pattern")
                             } else {
                                 t := Parser.GetStringUntil(")")
@@ -1625,12 +1635,12 @@ func CompileFile(fileName string) {
                                 }
 
                                 // Pattern invokation
-                                idx := patterns.FindKey(s)
+                                idx := comp.patterns.FindKey(s)
                                 if idx >= 0 {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             chn.AddCmd([]int{defs.CMD_JSR, idx - 1})
-                                            chn.HasAnyNote = chn.HasAnyNote || patterns.HasAnyNote(s)
+                                            chn.HasAnyNote = chn.HasAnyNote || comp.patterns.HasAnyNote(s)
                                             /*usesEffect[i] = or_bits(usesEffect[i], {1,1,1,1,1,1})
                                             songLen[songNum][i] += patterns[4][idx]*/
                                         }
@@ -1641,9 +1651,9 @@ func CompileFile(fileName string) {
                             }
                         }
                     } else if m == '{' {
-                        if CurrSong.GetNumActiveChannels() == 0 {
-                            patName = s
-                            CurrSong.Channels[len(CurrSong.Channels)-1].Active = true
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            comp.patName = s
+                            comp.CurrSong.Channels[ len(comp.CurrSong.Channels) - 1 ].Active = true
                             //songs[songNum][length(songs[songNum])] = {}
                         } else {
                             ERROR("Pattern definitions are not allowed while channels are active")
@@ -1656,11 +1666,11 @@ func CompileFile(fileName string) {
                 }
             
             } else if c == '(' {
-                if len(patName) > 0 {
+                if len(comp.patName) > 0 {
                     ERROR("Found ( inside pattern")
-                } else if !keepChannelsActive {
-                    if CurrSong.GetNumActiveChannels() > 0 && !CurrSong.Channels[len(CurrSong.Channels)-1].Active {
-                        keepChannelsActive = true
+                } else if !comp.keepChannelsActive {
+                    if comp.CurrSong.GetNumActiveChannels() > 0 && !comp.CurrSong.Channels[ len(comp.CurrSong.Channels) - 1 ].Active {
+                        comp.keepChannelsActive = true
                     } else {
                         ERROR("( requires at least one active channel")
                     }
@@ -1669,15 +1679,15 @@ func CompileFile(fileName string) {
                 }
                 
             } else if c == ')' {
-                if keepChannelsActive {
-                    keepChannelsActive = false
+                if comp.keepChannelsActive {
+                    comp.keepChannelsActive = false
                 } else {
                     ERROR("Unexpected )")
                 }
             
             // Macro definition/invokation
             } else if c == '$' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 s := Parser.GetStringInRange(ALPHANUM)
                 Parser.SkipWhitespace()
                 m := Parser.Getch()
@@ -1686,7 +1696,7 @@ func CompileFile(fileName string) {
                     // ToDo: macro := []int{}
                     n := 1
                     if m == '(' {
-                        if CurrSong.GetNumActiveChannels() == 0 {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
                             l := 1
                             // Read default parameters
                             for {
@@ -1744,7 +1754,7 @@ func CompileFile(fileName string) {
                                     fileData &= u
                                 }*/
 
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     ERROR("Trying to invoke a macro with no channels active")
                                 }
                             } else {
@@ -1763,7 +1773,7 @@ func CompileFile(fileName string) {
                     if m == '{' && n > 0 {
                         idx := 0  // ToDo: fix:  macros.FindKey(s)
                         if idx < 0 {
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 for n != '}' {
                                     n = Parser.Getch()
                                     if n == '%' {
@@ -1807,21 +1817,21 @@ func CompileFile(fileName string) {
 
             // Callback
             } else if c == '!' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 s := Parser.GetStringUntil("(\t\r\n ")
                 Parser.SkipWhitespace()
                 n := Parser.Getch()
                 if n == '(' {
                     idx := -1
-                    for i, cb := range callbacks {
+                    for i, cb := range comp.callbacks {
                         if cb == s {
                             idx = i
                             break
                         }
                     }
                     if idx < 0 {
-                        callbacks = append(callbacks, s)
-                        idx = len(callbacks) - 1
+                        comp.callbacks = append(comp.callbacks, s)
+                        idx = len(comp.callbacks) - 1
                     }
 
                     t := Parser.GetStringUntil(")\t\r\n ")
@@ -1830,7 +1840,7 @@ func CompileFile(fileName string) {
                         if num == 0 {
                             // Never (Off)
                             numChannels := 0
-                            for _, chn := range CurrSong.Channels {
+                            for _, chn := range comp.CurrSong.Channels {
                                 if chn.Active {
                                     numChannels++
                                     chn.AddCmd([]int{defs.CMD_CBOFF})
@@ -1842,7 +1852,7 @@ func CompileFile(fileName string) {
                         } else if num == 1 {
                             // Once
                             numChannels := 0
-                            for _, chn := range CurrSong.Channels {
+                            for _, chn := range comp.CurrSong.Channels {
                                 if chn.Active {
                                     numChannels++
                                     chn.AddCmd([]int{defs.CMD_CBONCE, idx})
@@ -1855,31 +1865,31 @@ func CompileFile(fileName string) {
                             ERROR("Bad callback frequency: " + s)
                         }
                     } else if t == "EVERY-NOTE" {
-                        if CurrSong.GetNumActiveChannels() == 0 {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
                             ERROR("Trying to set a callback with no channels active")
                         } else {
-                            applyCmdOnAllActive("Callback", []int{defs.CMD_CBEVNT, idx})
+                            comp.applyCmdOnAllActive("Callback", []int{defs.CMD_CBEVNT, idx})
                         }
 
                     } else if t == "EVERY-VOL-CHANGE" {
-                        if CurrSong.GetNumActiveChannels() == 0 {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
                             ERROR("Trying to set a callback with no channels active")
                         } else {
-                            applyCmdOnAllActive("Callback", []int{defs.CMD_CBEVVC, idx})
+                            comp.applyCmdOnAllActive("Callback", []int{defs.CMD_CBEVVC, idx})
                         }
 
                     } else if t == "EVERY-VOL-MIN" {
-                        if CurrSong.GetNumActiveChannels() == 0 {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
                             ERROR("Trying to set a callback with no channels active")
                         } else {
-                            applyCmdOnAllActive("Callback", []int{defs.CMD_CBEVVM, idx})
+                            comp.applyCmdOnAllActive("Callback", []int{defs.CMD_CBEVVM, idx})
                         }
 
                     } else if t == "EVERY-OCT-CHANGE" {
-                        if CurrSong.GetNumActiveChannels() == 0 {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
                             ERROR("Trying to set a callback with no channels active")
                         } else {
-                            applyCmdOnAllActive("Callback", []int{defs.CMD_CBEVOC, idx})
+                            comp.applyCmdOnAllActive("Callback", []int{defs.CMD_CBEVOC, idx})
                         }
 
                     } else {
@@ -1895,7 +1905,7 @@ func CompileFile(fileName string) {
 
             // Multiline comment
             } else if c == '/' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 m := Parser.Getch()
                 if m == '*' {
                     n := 0
@@ -1918,11 +1928,11 @@ func CompileFile(fileName string) {
 
             // Beginning of a [..|..]<num> loop
             } else if c == '[' {
-                writeAllPendingNotes(true)
-                if CurrSong.GetNumActiveChannels() == 0 {
+                comp.writeAllPendingNotes(true)
+                if comp.CurrSong.GetNumActiveChannels() == 0 {
                     // ToDo: treat as error?
                 } else {
-                    for _, chn := range CurrSong.Channels {
+                    for _, chn := range comp.CurrSong.Channels {
                         if chn.Active {
                             if chn.Tuple.Active {
                                 ERROR("Loops not allowed inside {}")
@@ -1940,9 +1950,9 @@ func CompileFile(fileName string) {
                                 Skip1OctCmd:-1,
                             })
                             
-                            if chn.Loops.Len() > CurrSong.Target.GetMaxLoopDepth() {
+                            if chn.Loops.Len() > comp.CurrSong.Target.GetMaxLoopDepth() {
                                 ERROR("Maximum nesting level for loops is " +
-                                            strconv.FormatInt(int64(CurrSong.Target.GetMaxLoopDepth()), 10))
+                                            strconv.FormatInt(int64(comp.CurrSong.Target.GetMaxLoopDepth()), 10))
                             }
                             chn.AddCmd([]int{defs.CMD_LOPCNT, 0})
                         }
@@ -1950,11 +1960,11 @@ func CompileFile(fileName string) {
                 }
             
             } else if c == '|' {
-                writeAllPendingNotes(true)
-                if CurrSong.GetNumActiveChannels() == 0 {
+                comp.writeAllPendingNotes(true)
+                if comp.CurrSong.GetNumActiveChannels() == 0 {
                     // ToDo: treat as error?
                 } else {
-                    for _, chn := range CurrSong.Channels {
+                    for _, chn := range comp.CurrSong.Channels {
                         if chn.Active {
                             if chn.Loops.Len() > 0 {
                                 pElem := chn.Loops.Peek()
@@ -1973,10 +1983,10 @@ func CompileFile(fileName string) {
             
             // End of a [..|..]<num> loop
             } else if c == ']' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 t := Parser.GetNumericString()
                 loopCount, err := strconv.Atoi(t)
-                for _, chn := range CurrSong.Channels {
+                for _, chn := range comp.CurrSong.Channels {
                     if chn.Active {
                         elem := chn.Loops.Pop()
                         if elem.StartPos != 0 {
@@ -2031,17 +2041,17 @@ func CompileFile(fileName string) {
 
             // Octave up/down       
             } else if c == '>' || c == '<' {
-                for _, chn := range CurrSong.Channels {
+                for _, chn := range comp.CurrSong.Channels {
                     chn.WriteNote(true)
                 }
                 delta := 1
                 if c == '<' {
                     delta = -1
                 }
-                if CurrSong.GetNumActiveChannels() == 0 {
+                if comp.CurrSong.GetNumActiveChannels() == 0 {
                     WARNING("Trying to change octave with no active channels: " + string(byte(c)))
                 } else {
-                    for _, chn := range CurrSong.Channels {
+                    for _, chn := range comp.CurrSong.Channels {
                         if chn.Active {
                             if chn.CurrentOctave + delta >= chn.GetMinOctave() &&
                                chn.CurrentOctave + delta <= chn.GetMaxOctave() {
@@ -2066,14 +2076,14 @@ func CompileFile(fileName string) {
                 }
                 
             } else if c == 'k' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
-                    if CurrSong.GetNumActiveChannels() == 0 {
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set length with no active channels")
                     } else if inRange(num, 1, 256) {
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 chn.CurrentLength = float64(num)
                                 chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff, _ = chn.NoteLength(chn.CurrentLength)
@@ -2089,14 +2099,14 @@ func CompileFile(fileName string) {
                 }
                         
             } else if c == 'l' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
-                    if CurrSong.GetNumActiveChannels() == 0 {
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set length with no active channels")
                     } else if utils.PositionOfInt(timing.SupportedLengths, num) >= 0 {
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 chn.CurrentLength = 32.0 / float64(num)
                                 chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff, _ = chn.NoteLength(chn.CurrentLength)
@@ -2114,14 +2124,14 @@ func CompileFile(fileName string) {
 
             // Set octave
             } else if c == 'o' {
-                writeAllPendingNotes(false)
+                comp.writeAllPendingNotes(false)
                 s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
-                    if CurrSong.GetNumActiveChannels() == 0 {
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set octave with no active channels")
                     } else {
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 if inRange(num, chn.GetMinOctave(), chn.GetMaxOctave()) {
                                     chn.CurrentOctave = num
@@ -2158,14 +2168,14 @@ func CompileFile(fileName string) {
 
             // Set cutoff
             } else if c == 'q' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
-                    if CurrSong.GetNumActiveChannels() == 0 {
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set cutoff with no active channels")
                     } else if num >= 0 && num <= 8 {
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 chn.CurrentCutoff.Val = num
                                 chn.CurrentCutoff.Typ = defs.CT_NORMAL
@@ -2178,7 +2188,7 @@ func CompileFile(fileName string) {
                             }
                         }
                     } else if num < 0 && num >= -8 {
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 chn.CurrentCutoff.Val = -num
                                 chn.CurrentCutoff.Typ = defs.CT_NEG
@@ -2199,15 +2209,15 @@ func CompileFile(fileName string) {
 
             // Set tempo
             } else if c == 't' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 s := Parser.GetNumericString()
                 num, err := strconv.Atoi(s)
                 if err == nil {
-                    if CurrSong.GetNumActiveChannels() == 0 {
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set tempo with no active channels")
-                    } else if inRange(num, 0, CurrSong.Target.GetMaxTempo()) {
+                    } else if inRange(num, 0, comp.CurrSong.Target.GetMaxTempo()) {
                         fmt.Printf("New tempo: %d\n", num)
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 fmt.Printf("Setting tempo on channel %s\n", chn.Name)
                                 chn.CurrentTempo = num
@@ -2222,7 +2232,7 @@ func CompileFile(fileName string) {
 
             // Set volume
             } else if c == 'v' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 
                 volType := defs.CMD_VOL2
                 volDelta := 0
@@ -2272,17 +2282,17 @@ func CompileFile(fileName string) {
                 }
 
                 if err == nil {
-                    if CurrSong.GetNumActiveChannels() == 0 {
-                        if len(patName) > 0 {
-                            if num >= CurrSong.Target.GetMinVolume() {
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
+                        if len(comp.patName) > 0 {
+                            if num >= comp.CurrSong.Target.GetMinVolume() {
                             } else {
                                 ERROR("Bad volume: " + strconv.FormatInt(int64(num), 10))
                             }
                         } else {
                             WARNING("Trying to set volume with no active channels")
                         }
-                    } else if num >= CurrSong.Target.GetMinVolume() {
-                        for _, chn := range CurrSong.Channels {
+                    } else if num >= comp.CurrSong.Target.GetMinVolume() {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 if volType == defs.CMD_VOL2 {
                                     if num <= chn.GetMaxVolume() {
@@ -2321,7 +2331,7 @@ func CompileFile(fileName string) {
 
             // Single line comment
             } else if c == ';' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 n := 0
                 for n != -1 {
                     n = Parser.Getch()
@@ -2337,12 +2347,12 @@ func CompileFile(fileName string) {
 
             // Reads notes (e.g. c d+ a+4 g-1.. e1^8^32 f&f16&f32)
             } else if defs.NoteIndex(c) >= 0 {
-                if !slur {
-                    writeAllPendingNotes(false)
+                if !comp.slur {
+                    comp.writeAllPendingNotes(false)
                 }
 
-                tie     = false
-                slur    = false
+                comp.tie     = false
+                comp.slur    = false
                 hasTie  := false
                 hasSlur := false
                 hasDot  := false
@@ -2356,7 +2366,7 @@ func CompileFile(fileName string) {
                 
                 for n != -1 {
                     if defs.NoteIndex(n) >= 0 {
-                        if extraChars > 0 && !slur {
+                        if extraChars > 0 && !comp.slur {
                             Parser.Ungetch()
                             break
                         }
@@ -2365,27 +2375,27 @@ func CompileFile(fileName string) {
                         if hasTie {
                             ERROR("Trying to use & and ^ in same expression")
                         }
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active && chn.Tuple.Active {
                                 WARNING("Command ignored inside tuple: &")
                             }
                         }
                         hasSlur = true
-                        slur = true
+                        comp.slur = true
                         note = -1
                     } else if n == '^' {
                         if hasSlur {
                             ERROR("Trying to use & and ^ in same expression")
                         }
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active && chn.Tuple.Active {
                                 WARNING("Command ignored inside tuple: ^")
                             }
                         }
                         hasTie = true
-                        tie = true
+                        comp.tie = true
                     } else if n == '.' {
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active && chn.Tuple.Active {
                                 WARNING("Command ignored inside tuple: .")
                             }
@@ -2396,7 +2406,7 @@ func CompileFile(fileName string) {
                         break
                     }
 
-                    if (defs.NoteIndex(n) >= 0 && n != 'r' && n != 's') || (extraChars > 0 && note != -1 && slur) {
+                    if (defs.NoteIndex(n) >= 0 && n != 'r' && n != 's') || (extraChars > 0 && note != -1 && comp.slur) {
                         flatSharp = 0
                         frames = -1
                         m := Parser.Getch()
@@ -2425,14 +2435,14 @@ func CompileFile(fileName string) {
                         }
                     }
 
-                    if defs.NoteIndex(n) >= 0 || tie {
+                    if defs.NoteIndex(n) >= 0 || comp.tie {
                         s := Parser.GetNumericString()
                         if len(s) > 0 {
                             noteLen, err := strconv.Atoi(s)
                             if err == nil {
                                 if utils.PositionOfInt(timing.SupportedLengths, noteLen) >= 0 { 
                                     frames = 32.0 / float64(noteLen) 
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active && chn.Tuple.Active {
                                             WARNING("Note length ignored inside tuple")
                                         }
@@ -2445,7 +2455,7 @@ func CompileFile(fileName string) {
                             }
                         }
                     }
-                    if frames == -1 && tie {
+                    if frames == -1 && comp.tie {
                         ERROR("Expected a length")
                     }
 
@@ -2454,7 +2464,7 @@ func CompileFile(fileName string) {
                     dotOff  = false
                     
                     numChannels := 0
-                    for _, chn := range CurrSong.Channels {
+                    for _, chn := range comp.CurrSong.Channels {
                         if chn.Active {
                             if chn.CurrentOctave <= chn.GetMinOctave() &&
                                note > 0 &&
@@ -2487,10 +2497,10 @@ func CompileFile(fileName string) {
                                         ERROR("Note length out of range due to dot command")
                                     }
                                     dotOff = true
-                                } else if tie {
+                                } else if comp.tie {
                                     chn.CurrentNote.Frames += frames
                                     tieOff = true
-                                } else if slur {
+                                } else if comp.slur {
                                     if note != -1 {
                                         if ((chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp - 1 == chn.CurrentNote.Num) ||
                                             (chn.CurrentNote.Num == defs.Rest && n == 'r') ||
@@ -2513,10 +2523,10 @@ func CompileFile(fileName string) {
                         hasDot = false
                     }
                     if slurOff {
-                        slur = false
+                        comp.slur = false
                     }
                     if tieOff {
-                        tie = false
+                        comp.tie = false
                     }
                     
                     if numChannels == 0 {
@@ -2526,19 +2536,19 @@ func CompileFile(fileName string) {
                     n = Parser.Getch()
                     extraChars++
                 }
-                tie = false
-                slur = false
+                comp.tie = false
+                comp.slur = false
                 hasDot = false
-                for _, chn := range CurrSong.Channels {
+                for _, chn := range comp.CurrSong.Channels {
                     chn.LastSetLength = 0
                 }
 
             } else if c == '{' {
-                writeAllPendingNotes(true)
-                if CurrSong.GetNumActiveChannels() == 0 {
+                comp.writeAllPendingNotes(true)
+                if comp.CurrSong.GetNumActiveChannels() == 0 {
                     ERROR("{ requires at least one active channel")
                 } else {
-                    for _, chn := range CurrSong.Channels {
+                    for _, chn := range comp.CurrSong.Channels {
                         if chn.Active {
                             if !chn.Tuple.Active {
                                 chn.Tuple.Active = true
@@ -2550,7 +2560,7 @@ func CompileFile(fileName string) {
                 }
                 
             } else if c == '}' {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 s := Parser.GetNumericString()
                 tupleLen := -1.0
                 if len(s) > 0 {
@@ -2566,24 +2576,24 @@ func CompileFile(fileName string) {
                     }
                 }
                 if tupleLen == -1 {
-                    if len(patName) > 0 {
-                        CurrSong.Channels[len(CurrSong.Channels)-1].AddCmd([]int{defs.CMD_RTS})
-                        patterns.Append(patName, pattern)
+                    if len(comp.patName) > 0 {
+                        comp.CurrSong.Channels[ len(comp.CurrSong.Channels)-1 ].AddCmd([]int{defs.CMD_RTS})
+                        comp.patterns.Append(comp.patName, comp.pattern)
                         /*patterns[1] = append(patterns[1], patName)
                         patterns[2] = append(patterns[2], songs[songNum][length(songs[songNum])])
                         patterns[3] &= hasAnyNote[length(supportedChannels)]
                         patterns[4] &= songLen[songNum][length(supportedChannels)]*/
-                        patName = ""
+                        comp.patName = ""
                         //songs[songNum][length(songs[songNum])] = {}
-                        CurrSong.Channels[len(CurrSong.Channels)-1].Active = false
+                        comp.CurrSong.Channels[len(comp.CurrSong.Channels)-1].Active = false
                     } else {
                         ERROR("Syntax error: }")
                     }
                 } else {
-                    if CurrSong.GetNumActiveChannels() == 0 {
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                         ERROR("Trying to close a tuple with no active channels")
                     } else {
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 if chn.Tuple.Active {
                                     chn.WriteTuple(tupleLen)
@@ -2594,9 +2604,9 @@ func CompileFile(fileName string) {
                     }
                 }   
                 
-            } else if strings.ContainsRune(CurrSong.Target.GetChannelNames(), rune(c)) ||
+            } else if strings.ContainsRune(comp.CurrSong.Target.GetChannelNames(), rune(c)) ||
                       strings.ContainsRune("ACDEFKLMOPRSWnpw", rune(c)) {
-                writeAllPendingNotes(true)
+                comp.writeAllPendingNotes(true)
                 
                 if c == 'A' {
                     m := Parser.Getch()
@@ -2617,13 +2627,13 @@ func CompileFile(fileName string) {
                             key := -1
                             if err == nil {
                                 if len(lst.LoopedPart) == 0 {
-                                    if len(lst.MainPart) == CurrSong.Target.GetAdsrLen() {
-                                        if inRange(lst.MainPart, 0, CurrSong.Target.GetAdsrMax()) {
+                                    if len(lst.MainPart) == comp.CurrSong.Target.GetAdsrLen() {
+                                        if inRange(lst.MainPart, 0, comp.CurrSong.Target.GetAdsrMax()) {
                                             key = effects.ADSRs.GetKeyFor(lst)
                                             if key == -1 {
-                                                effects.ADSRs.Append(implicitAdsrId, lst)
-                                                num = implicitAdsrId
-                                                implicitAdsrId++
+                                                effects.ADSRs.Append(comp.implicitAdsrId, lst)
+                                                num = comp.implicitAdsrId
+                                                comp.implicitAdsrId++
                                             } else {
                                                 num = key
                                             }
@@ -2649,10 +2659,10 @@ func CompileFile(fileName string) {
                         
                         if err == nil {
                             idx := effects.ADSRs.FindKey(num)
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("ADSR requires at least one active channel")
                             } else if idx >= 0 {
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
                                         if chn.SupportsADSR() {
                                             chn.AddCmd([]int{defs.CMD_ADSR, idx})
@@ -2677,10 +2687,10 @@ func CompileFile(fileName string) {
                             num, err := strconv.Atoi(s)
                             if err == nil {
                                 if inRange(num, 0, 1) {
-                                    if CurrSong.GetNumActiveChannels() == 0 {
+                                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                                         ERROR("AM requires at least one active channel")
                                     } else {
-                                        applyCmdOnAllActiveFM("AM", []int{defs.CMD_HWAM, num})
+                                        comp.applyCmdOnAllActiveFM("AM", []int{defs.CMD_HWAM, num})
                                     }
                                 } else {
                                     ERROR("AM out of range")
@@ -2690,13 +2700,13 @@ func CompileFile(fileName string) {
                             }
                         } else {
                             Parser.Ungetch()
-                            assertIsChannelName(c)
+                            comp.assertIsChannelName(c)
                         }                       
                     } else {
                         Parser.Ungetch()
                         Parser.Ungetch()
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
 
 
@@ -2704,12 +2714,12 @@ func CompileFile(fileName string) {
                     m := Parser.Getch()
                     if m == 'S' {
                         characterHandled = true
-                        num, idx, err := assertEffectIdExistsAndChannelsActive("CS", effects.PanMacros)
+                        num, idx, err := comp.assertEffectIdExistsAndChannelsActive("CS", effects.PanMacros)
                         
                         if err == nil {
-                            if CurrSong.Target.SupportsPan() {
+                            if comp.CurrSong.Target.SupportsPan() {
                                 idx |= effects.PanMacros.GetInt(num) * 0x80
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
                                         chn.AddCmd([]int{defs.CMD_PANMAC, idx + 1})
                                         effects.PanMacros.AddRef(num)
@@ -2722,8 +2732,8 @@ func CompileFile(fileName string) {
                             m = Parser.Getch()
                             t := string(byte(m)) + string(byte(Parser.Getch()))
                             if t == "OF" {
-                                if CurrSong.Target.SupportsPan() {
-                                    applyCmdOnAllActive("CS", []int{defs.CMD_PANMAC, 0})
+                                if comp.CurrSong.Target.SupportsPan() {
+                                    comp.applyCmdOnAllActive("CS", []int{defs.CMD_PANMAC, 0})
                                 }
                             } else {
                                 ERROR("Syntax error: CS" + t)
@@ -2731,7 +2741,7 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
                 
                 } else if c == 'D' {
@@ -2742,11 +2752,11 @@ func CompileFile(fileName string) {
                         s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("Detune requires at least one active channel")
                             } else {
-                                trg := CurrSong.Target.GetID()
-                                for _, chn := range CurrSong.Channels {
+                                trg := comp.CurrSong.Target.GetID()
+                                for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
                                         if chn.SupportsDetune() {
                                             if chn.SupportsFM() &&
@@ -2778,7 +2788,7 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }                       
 
                 } else if c == 'K' {
@@ -2789,11 +2799,11 @@ func CompileFile(fileName string) {
                         s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("Transpose requires at least one active channel")
                             } else {
                                 if inRange(num, -127, 127) {
-                                    applyCmdOnAllActive("K", []int{defs.CMD_TRANSP, num})
+                                    comp.applyCmdOnAllActive("K", []int{defs.CMD_TRANSP, num})
                                 } else {
                                     ERROR("Transpose value out of range: " + s)
                                 }
@@ -2803,22 +2813,22 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }       
                     
                 } else if c == 'E' {
                     m := Parser.Getch()
                     if m == 'N' {
                         characterHandled = true
-                        num, idx, err := assertEffectIdExistsAndChannelsActive("EN", effects.Arpeggios)
+                        num, idx, err := comp.assertEffectIdExistsAndChannelsActive("EN", effects.Arpeggios)
                         
                         if err == nil {
-                            for _, chn := range CurrSong.Channels {
+                            for _, chn := range comp.CurrSong.Channels {
                                 if chn.Active {
                                     if !effects.Arpeggios.IsEmpty(num) {
                                         effects.Arpeggios.AddRef(num)
                                         idx |= effects.Arpeggios.GetInt(num) * 0x80
-                                        if enRev == 0 {
+                                        if comp.enRev == 0 {
                                             chn.AddCmd([]int{defs.CMD_ARPMAC, idx})
                                             //ToDo fix: usesEN[1] += 1
                                             chn.UsesEffect["EN"] = true
@@ -2831,15 +2841,15 @@ func CompileFile(fileName string) {
                                 }
                             }
                         } else {
-                            assertDisablingEffect("EN", defs.CMD_ARPOFF)
+                            comp.assertDisablingEffect("EN", defs.CMD_ARPOFF)
                         }
 
                     } else if m == 'P' {
                         characterHandled = true
-                        num, idx, err := assertEffectIdExistsAndChannelsActive("EP", effects.PitchMacros)
+                        num, idx, err := comp.assertEffectIdExistsAndChannelsActive("EP", effects.PitchMacros)
 
                         if err == nil {
-                            for _, chn := range CurrSong.Channels {
+                            for _, chn := range comp.CurrSong.Channels {
                                 if chn.Active {
                                     if !effects.PitchMacros.IsEmpty(num) {
                                         idx |= effects.PitchMacros.GetInt(num) * 0x80
@@ -2850,12 +2860,12 @@ func CompileFile(fileName string) {
                                 }
                             }
                         } else {
-                            assertDisablingEffect("EP", defs.CMD_SWPMAC)
+                            comp.assertDisablingEffect("EP", defs.CMD_SWPMAC)
                         }
 
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
 
                 // FM feedback select
@@ -2867,11 +2877,11 @@ func CompileFile(fileName string) {
                             characterHandled = true
                             num, err := strconv.Atoi(s)
                             if err == nil {
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     ERROR("FB requires at least one active channel")
                                 } else {
                                     if inRange(num, 0, 7) {
-                                        applyCmdOnAllActiveFM("FB", []int{defs.CMD_FEEDBK | num})
+                                        comp.applyCmdOnAllActiveFM("FB", []int{defs.CMD_FEEDBK | num})
                                     } else {
                                         ERROR(fmt.Sprintf("Feedback value out of range: %d", num))
                                     }
@@ -2887,13 +2897,13 @@ func CompileFile(fileName string) {
                                     characterHandled = true
                                     num, err := strconv.Atoi(s)
                                     if err == nil {
-                                        if CurrSong.GetNumActiveChannels() == 0 {
+                                        if comp.CurrSong.GetNumActiveChannels() == 0 {
                                             ERROR("FBM requires at least one active channel")
                                         } else {
                                             idx := effects.FeedbackMacros.FindKey(num)
                                             if idx >= 0 {
                                                 idx |= effects.FeedbackMacros.GetInt(num) * 0x80                
-                                                for _, chn := range CurrSong.Channels {
+                                                for _, chn := range comp.CurrSong.Channels {
                                                     if chn.Active {
                                                         if chn.SupportsFM() {
                                                             //if o[2] >=0 and o[2] <= 7 then
@@ -2918,12 +2928,12 @@ func CompileFile(fileName string) {
                                 } else {
                                     Parser.Ungetch()
                                     Parser.Ungetch()
-                                    assertIsChannelName(c)
+                                    comp.assertIsChannelName(c)
                                 }
                             } else {
                                 Parser.Ungetch()
                                 Parser.Ungetch()
-                                assertIsChannelName(c)
+                                comp.assertIsChannelName(c)
                             }
                         }
 
@@ -2933,13 +2943,13 @@ func CompileFile(fileName string) {
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             idx := -1
-                            if CurrSong.Target.GetID() != targets.TARGET_AT8 {
+                            if comp.CurrSong.Target.GetID() != targets.TARGET_AT8 {
                                 idx = effects.Filters.FindKey(num)
                             }
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("FT requires at least one active channel")
                             } else if idx >= 0 {
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
                                         if chn.SupportsFilter() {
                                             chn.AddCmd([]int{defs.CMD_FILTER, idx + 1})
@@ -2949,8 +2959,8 @@ func CompileFile(fileName string) {
                                         }
                                     }
                                 }
-                            } else if CurrSong.Target.GetID() == targets.TARGET_AT8 && num == 0 {
-                                applyCmdOnAllActive("FT", []int{defs.CMD_FILTER, 1})
+                            } else if comp.CurrSong.Target.GetID() == targets.TARGET_AT8 && num == 0 {
+                                comp.applyCmdOnAllActive("FT", []int{defs.CMD_FILTER, 1})
                             } else {
                                 ERROR("Undefined macro: FT" + s)
                             }
@@ -2958,7 +2968,7 @@ func CompileFile(fileName string) {
                             m = Parser.Getch()
                             t := string(byte(m)) + string(byte(Parser.Getch()))
                             if t == "OF" {
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
                                         if chn.SupportsFilter() {
                                             chn.AddCmd([]int{defs.CMD_FILTER, 0})
@@ -2971,22 +2981,22 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }                   
 
                 } else if c == 'L' {
-                    if CurrSong.GetNumActiveChannels() == 0 || lastWasChannelSelect {
-                        if !strings.ContainsRune(CurrSong.Target.GetChannelNames(), rune(c)) {
-                            writeAllPendingNotes(true)
+                    if comp.CurrSong.GetNumActiveChannels() == 0 || comp.lastWasChannelSelect {
+                        if !strings.ContainsRune(comp.CurrSong.Target.GetChannelNames(), rune(c)) {
+                            comp.writeAllPendingNotes(true)
                             WARNING("Trying to set a loop point with no active channels")
                             characterHandled = true
                         }
                     } else {
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             chn.WriteNote(true)
                         }
                         characterHandled = true
-                        for _, chn := range CurrSong.Channels {
+                        for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 if chn.LoopPoint == -1 {
                                     chn.LoopPoint = len(chn.Cmds)
@@ -3004,11 +3014,11 @@ func CompileFile(fileName string) {
                     m := Parser.Getch()
                     if m == 'P' {
                         characterHandled = true
-                        num, idx, err := assertEffectIdExistsAndChannelsActive("MP", effects.Vibratos)
+                        num, idx, err := comp.assertEffectIdExistsAndChannelsActive("MP", effects.Vibratos)
                         
                         if err == nil {
                             idx |= effects.Vibratos.GetInt(num) * 0x80
-                            for _, chn := range CurrSong.Channels {
+                            for _, chn := range comp.CurrSong.Channels {
                                 if chn.Active {
                                     chn.AddCmd([]int{defs.CMD_VIBMAC, idx + 1})
                                     effects.Vibratos.AddRef(num)
@@ -3016,7 +3026,7 @@ func CompileFile(fileName string) {
                                 }
                             }
                         } else {
-                            assertDisablingEffect("MP", defs.CMD_VIBMAC);
+                            comp.assertDisablingEffect("MP", defs.CMD_VIBMAC);
                         }
                     } else if m == 'F' {
                         s := Parser.GetNumericString()
@@ -3025,10 +3035,10 @@ func CompileFile(fileName string) {
                             num, err := strconv.Atoi(s)
                             if err == nil {
                                 if inRange(num, 0, 15) {
-                                    if CurrSong.GetNumActiveChannels() == 0 {
+                                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                                         ERROR("MF requires at least one active channel")
                                     } else {
-                                        for _, chn := range CurrSong.Channels {
+                                        for _, chn := range comp.CurrSong.Channels {
                                             if chn.Active {
                                                 if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_POKEY {
                                                     if chn.GetChipID() == specs.CHIP_POKEY {
@@ -3055,7 +3065,7 @@ func CompileFile(fileName string) {
                             }
                         } else {
                             Parser.Ungetch()
-                            assertIsChannelName(c)
+                            comp.assertIsChannelName(c)
                         }
                     } else if m == 'O' {
                         m = Parser.Getch()
@@ -3066,10 +3076,10 @@ func CompileFile(fileName string) {
                                 num, err := strconv.Atoi(s)
                                 if err == nil {
                                     idx := effects.MODs.FindKey(num)
-                                    if CurrSong.GetNumActiveChannels() == 0 {
+                                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                                         ERROR("MOD requires at least one active channel")
                                     } else if idx >= 0 {
-                                        for _, chn := range CurrSong.Channels {
+                                        for _, chn := range comp.CurrSong.Channels {
                                             if chn.Active {
                                                 if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_HUC6280 {
                                                     chn.AddCmd([]int{defs.CMD_MODMAC, idx + 1})
@@ -3088,7 +3098,7 @@ func CompileFile(fileName string) {
                                 t := string(byte(m)) + string(byte(Parser.Getch()))
                                 if t == "OF" {
                                     characterHandled = true
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_HUC6280 {
                                                 chn.AddCmd([]int{defs.CMD_MODMAC, 0})
@@ -3100,13 +3110,13 @@ func CompileFile(fileName string) {
                                     Parser.Ungetch()
                                     Parser.Ungetch()
                                     Parser.Ungetch()
-                                    assertIsChannelName(c)
+                                    comp.assertIsChannelName(c)
                                 }
                             }
                         } else {
                             Parser.Ungetch()
                             Parser.Ungetch()
-                            assertIsChannelName(c)
+                            comp.assertIsChannelName(c)
                         }
                     } else if IsNumeric(m) {
                         characterHandled = true
@@ -3114,10 +3124,10 @@ func CompileFile(fileName string) {
                         s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("M requires at least one active channel")
                             } else if inRange(num, 0, 15) {
-                                applyCmdOnAllActive("M", []int{defs.CMD_MODE | num})
+                                comp.applyCmdOnAllActive("M", []int{defs.CMD_MODE | num})
                             } else {
                                 ERROR("Bad mode: " + s)
                             }
@@ -3126,23 +3136,23 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
 
                 // FM operator select
                 } else if c == 'O' {
                     m := Parser.Getch()
-                    if m == 'P' && !lastWasChannelSelect {
+                    if m == 'P' && !comp.lastWasChannelSelect {
                         s := Parser.GetNumericString()
                         if len(s) > 0 {
                             characterHandled = true
                             num, err := strconv.Atoi(s)
                             if err == nil {
                                 if inRange(num, 0, 4) {
-                                    if CurrSong.GetNumActiveChannels() == 0 {
+                                    if comp.CurrSong.GetNumActiveChannels() == 0 {
                                         ERROR("OP requires at least one active channel")
                                     } else {
-                                        applyCmdOnAllActiveFM("OP", []int{defs.CMD_OPER | num})
+                                        comp.applyCmdOnAllActiveFM("OP", []int{defs.CMD_OPER | num})
                                     }
                                 } else {
                                     ERROR("OP out of range: " + s)
@@ -3152,11 +3162,11 @@ func CompileFile(fileName string) {
                             }
                         } else {
                             Parser.Ungetch()
-                            assertIsChannelName(c)
+                            comp.assertIsChannelName(c)
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
 
                 // Portamento select
@@ -3168,7 +3178,7 @@ func CompileFile(fileName string) {
                         num, err := strconv.Atoi(s)
                         if err == nil {
                             idx := effects.Portamentos.FindKey(num)
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("PT requires at least one active channel")
                             } else if idx >= 0 {
                                 // TODO: set portamento
@@ -3187,7 +3197,7 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
 
                 // Rate scale / Ring modulation
@@ -3201,10 +3211,10 @@ func CompileFile(fileName string) {
                             s = Parser.GetNumericString()
                             num, err := strconv.Atoi(s)
                             if err == nil {
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     ERROR("RING requires at least one active channel")
                                 } else if inRange(num, 0, 1) {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             if chn.SupportsRingMod() {
                                                 chn.AddCmd([]int{defs.CMD_HWRM, num})
@@ -3223,18 +3233,18 @@ func CompileFile(fileName string) {
                             Parser.Ungetch()
                             Parser.Ungetch()
                             Parser.Ungetch()
-                            assertIsChannelName(c)
+                            comp.assertIsChannelName(c)
                         }
                         
-                    } else if m == 'S' && !lastWasChannelSelect {
+                    } else if m == 'S' && !comp.lastWasChannelSelect {
                         characterHandled = true
                         s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil {
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("RS requires at least one active channel")
                             } else if inRange(num, 0, 3) {
-                                applyCmdOnAllActiveFM("RS", []int{defs.CMD_RSCALE, num})
+                                comp.applyCmdOnAllActiveFM("RS", []int{defs.CMD_RSCALE, num})
                             } else {
                                 ERROR("RS out of range: " + s)
                             }
@@ -3243,7 +3253,7 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
 
                 // SSG-EG mode / Hard sync
@@ -3257,10 +3267,10 @@ func CompileFile(fileName string) {
                             s = Parser.GetNumericString()
                             num, err := strconv.Atoi(s)
                             if err == nil {
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     ERROR("SYNC requires at least one active channel")
                                 } else if inRange(num, 0, 1) {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             if chn.SupportsRingMod() {
                                                 chn.AddCmd([]int{defs.CMD_SYNC, num})
@@ -3279,7 +3289,7 @@ func CompileFile(fileName string) {
                             Parser.Ungetch()
                             Parser.Ungetch()
                             Parser.Ungetch()
-                            assertIsChannelName(c)
+                            comp.assertIsChannelName(c)
                         }
                     
                     } else if m == 'S' {
@@ -3290,10 +3300,10 @@ func CompileFile(fileName string) {
                             s = Parser.GetNumericString()
                             num, err := strconv.Atoi(s)
                             if err == nil {
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     ERROR("SSG requires at least one active channel")
                                 } else if inRange(num, 0, 7) {
-                                    applyCmdOnAllActiveFM("SSG", []int{defs.CMD_SSG, num + 1})
+                                    comp.applyCmdOnAllActiveFM("SSG", []int{defs.CMD_SSG, num + 1})
                                 } else {
                                     ERROR("SSG out of range: " + s)
                                 }
@@ -3301,7 +3311,7 @@ func CompileFile(fileName string) {
                                 m = Parser.Getch()
                                 t := string(byte(m)) + string(byte(Parser.Getch()))
                                 if t == "OF" {
-                                    for _, chn := range CurrSong.Channels {
+                                    for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
                                             if chn.SupportsFM() {
                                                 chn.AddCmd([]int{defs.CMD_SSG, 0})
@@ -3317,7 +3327,7 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
 
                 } else if c == 'W' {
@@ -3336,26 +3346,26 @@ func CompileFile(fileName string) {
                         if err == nil {
                             if !isWTM {
                                 idx := effects.Waveforms.FindKey(num)
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     ERROR("WT requires at least one active channel")
                                 } else if idx >= 0 {
-                                    if CurrSong.GetNumActiveChannels() > 0 {
-                                        applyEffectOnAllActiveSupported("WT", []int{defs.CMD_LDWAVE, idx + 1},
+                                    if comp.CurrSong.GetNumActiveChannels() > 0 {
+                                        comp.applyEffectOnAllActiveSupported("WT", []int{defs.CMD_LDWAVE, idx + 1},
                                                                         func(c *channel.Channel) bool { return c.SupportsWaveTable() },
                                                                         effects.Waveforms, num)
                                     } else {
                                         WARNING("Trying to use WT with no channels active")
                                     }
-                                } else if CurrSong.Target.SupportsWaveTable() {
+                                } else if comp.CurrSong.Target.SupportsWaveTable() {
                                     ERROR("Undefined macro: WT" + s)
                                 }
                             } else {
                                 idx := effects.WaveformMacros.FindKey(num)
-                                if CurrSong.GetNumActiveChannels() == 0 {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     ERROR("WTM requires at least one active channel")
                                 } else if idx >= 0 {
-                                    if CurrSong.GetNumActiveChannels() > 0 {
-                                        applyEffectOnAllActiveSupported("WTM", []int{defs.CMD_WAVMAC, idx + 1},
+                                    if comp.CurrSong.GetNumActiveChannels() > 0 {
+                                        comp.applyEffectOnAllActiveSupported("WTM", []int{defs.CMD_WAVMAC, idx + 1},
                                                                         func(c *channel.Channel) bool { return c.SupportsWaveTable() },
                                                                         effects.WaveformMacros, num)
                                         /*for i = 1 to length(supportedChannels) do
@@ -3371,7 +3381,7 @@ func CompileFile(fileName string) {
                                     } else {
                                         WARNING("Trying to use WTM with no channels active")
                                     }
-                                } else if CurrSong.Target.SupportsWaveTable() {
+                                } else if comp.CurrSong.Target.SupportsWaveTable() {
                                     ERROR("Undefined macro: WTM" + s)
                                 }
                             }
@@ -3379,7 +3389,7 @@ func CompileFile(fileName string) {
                             m = Parser.Getch()
                             t := string(byte(m)) + string(byte(Parser.Getch()))
                             if t == "OF" {
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
                                         if chn.SupportsWaveTable() {
                                             chn.AddCmd([]int{defs.CMD_LDWAVE, 0})
@@ -3394,7 +3404,7 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
 
                 // Noise speed
@@ -3403,13 +3413,13 @@ func CompileFile(fileName string) {
                     s := Parser.GetNumericString()
                     num, err := strconv.Atoi(s)
                     if err == nil && inRange(num, 0, 63) {
-                        if CurrSong.GetNumActiveChannels() == 0 {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
                             ERROR("n requires at least one active channel")
                         } else {
-                            if CurrSong.GetNumActiveChannels() > 0 {
-                                for _, chn := range CurrSong.Channels {
+                            if comp.CurrSong.GetNumActiveChannels() > 0 {
+                                for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
-                                        switch CurrSong.Target.GetID() {
+                                        switch comp.CurrSong.Target.GetID() {
                                         case targets.TARGET_AST, targets.TARGET_KSS, targets.TARGET_CPC:
                                             chn.AddCmd([]int{defs.CMD_HWNS, num ^ 0x3F})
                                         default:
@@ -3432,11 +3442,11 @@ func CompileFile(fileName string) {
                         s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
                         if err == nil && inRange(num, 0, 15) {
-                            if CurrSong.GetNumActiveChannels() == 0 {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("pw requires at least one active channel")
                             } else {
-                                if CurrSong.GetNumActiveChannels() > 0 {
-                                    applyCmdOnAllActive("pw", []int{defs.CMD_PULSE | num})
+                                if comp.CurrSong.GetNumActiveChannels() > 0 {
+                                    comp.applyCmdOnAllActive("pw", []int{defs.CMD_PULSE | num})
                                 } else {
                                     WARNING("Trying to use pw with no channels active")
                                 }
@@ -3446,7 +3456,7 @@ func CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        assertIsChannelName(c)
+                        comp.assertIsChannelName(c)
                     }
                 
                 } else if c == 'w' {
@@ -3480,7 +3490,7 @@ func CompileFile(fileName string) {
                                 if err != nil {
                                     ERROR("Bad second argument for w")
                                 }
-                                for _, chn := range CurrSong.Channels {
+                                for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
                                         go chn.AddCmd([]int{wrType,
                                                          (addr & 0xFF),
@@ -3501,8 +3511,8 @@ func CompileFile(fileName string) {
                 }
                 
                 if !characterHandled {
-                    for _, chn := range CurrSong.Channels {
-                        if !lastWasChannelSelect {
+                    for _, chn := range comp.CurrSong.Channels {
+                        if !comp.lastWasChannelSelect {
                         chn.Active = false
                     }
                         if chn.GetName() == string(byte(c)) {
@@ -3511,7 +3521,7 @@ func CompileFile(fileName string) {
                     }
                 }
             } else if strings.ContainsRune("\t\r\n ", rune(c)) {
-                for _, chn := range CurrSong.Channels {
+                for _, chn := range comp.CurrSong.Channels {
                     chn.WriteNote(c == 10)
                 }
             } else {
@@ -3522,11 +3532,11 @@ func CompileFile(fileName string) {
                 }
             }
 
-            lastWasChannelSelect = strings.ContainsRune(CurrSong.Target.GetChannelNames(), rune(c2))
+            comp.lastWasChannelSelect = strings.ContainsRune(comp.CurrSong.Target.GetChannelNames(), rune(c2))
         }               
                 
     }
     
-    writeAllPendingNotes(true)
+    comp.writeAllPendingNotes(true)
     Parser = OldParsers.Pop()
 }

@@ -96,6 +96,8 @@ func main() {
     utils.WarningsAreErrors(false)
     target = targets.TARGET_UNKNOWN
 
+    comp := &compiler.Compiler{}
+    
     for i, arg := range os.Args {
         if i >= 1 {
             if arg[0] == '-' {
@@ -114,34 +116,34 @@ func main() {
                     fmt.Printf("Error: No target platform specified.\nRun the compiler with the -h option to see a list of targets.")
                     return
                 }
-                compiler.Init(target)
+                comp.Init(target)
 
                 inputFileName := arg
                 lastDot := strings.LastIndexAny(inputFileName, ".")
                 lastSlash := strings.LastIndexAny(inputFileName, "/\\")
                 
                 if lastDot >= 0 && lastSlash < 0 {
-                    compiler.ShortFileName = inputFileName[:lastDot]
+                    comp.ShortFileName = inputFileName[:lastDot]
                 } else {
-                    compiler.ShortFileName = inputFileName
+                    comp.ShortFileName = inputFileName
                     inputFileName += ".mml"
                 }
 
                 if i < len(os.Args)-1 {
-                    compiler.ShortFileName = os.Args[i + 1]
+                    comp.ShortFileName = os.Args[i + 1]
                     lastDot = strings.LastIndexAny(os.Args[i + 1], ".")
                     if lastDot >= 0 {
-                        compiler.ShortFileName = os.Args[i+1][:lastDot]
+                        comp.ShortFileName = os.Args[i+1][:lastDot]
                         //writeVGM = equal(lower(fileNames[2][n..length(fileNames[2])]), ".vgm")
                         //writeVGM += equal(lower(fileNames[2][n..length(fileNames[2])]), ".vgz") * 2
                         //writeWAV = equal(lower(fileNames[2][n..length(fileNames[2])]), ".wav")
                     }
                 }
                 
-                fmt.Printf("compiler.SFN = " + compiler.ShortFileName + "\n")
+                fmt.Printf("compiler.SFN = " + comp.ShortFileName + "\n")
                 
-                compiler.CompileFile(inputFileName);
-                compiler.CurrSong.Target.Output(0)
+                comp.CompileFile(inputFileName);
+                comp.CurrSong.Target.Output(0)
                 
                 return
             }
