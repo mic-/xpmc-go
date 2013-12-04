@@ -173,4 +173,6 @@ type ITarget interface {
 
 type ICompiler interface {
     GetShortFileName() string
+    GetGbVolCtrlType() int
+    GetGbNoiseType() int
 }
