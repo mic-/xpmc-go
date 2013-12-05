@@ -127,6 +127,14 @@ func (chn *Channel) GetNum() int {
     return chn.Num
 }
 
+func (chn *Channel) GetName() string {
+    return chn.Name
+}
+
+func (chn *Channel) GetCommands() []int {
+    return chn.Cmds
+}
+
 func (chn *Channel) IsUsingEffect(effName string) bool {
     return chn.UsesEffect[effName]
 }
@@ -222,10 +230,6 @@ func (chn *Channel) SupportsVolumeChange() int {
     return 0
 }
 
-
-func (chn *Channel) GetName() string {
-    return chn.Name
-}
 
 func (chn *Channel) GetMaxOctave() int {
     if len(chn.ChannelSpecs.GetMaxOct()) > 0 {

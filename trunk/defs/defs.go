@@ -179,6 +179,8 @@ type ISong interface {
 
 type IChannel interface {
     GetNum() int
+    GetName() string
+    GetCommands() []int
     IsUsingEffect(effName string) bool
 }
 
