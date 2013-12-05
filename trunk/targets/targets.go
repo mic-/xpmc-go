@@ -15,6 +15,7 @@ import (
     "time"
     "../specs"
     "../utils"
+    "../effects"
 )
 
 import . "../defs"
@@ -396,20 +397,15 @@ func (t *TargetGBC) Output(outputVgm int) {
     end if*/
 
     songs := t.CompilerItf.GetSongs()
+    numChannels := len(songs[0].GetChannels())
     for _, effName := range EFFECT_STRINGS {
-        usesEffect := false
-        for _, sng := range songs {
-            channels := sng.GetChannels()
-            for _, chn := range channels {
-                if chn.IsUsingEffect(effName) {
-                    outFile.WriteString(fmt.Sprintf(".DEFINE XPMP_CHN%d_USES_", chn.GetNum()) + effName + "\n")
-                    usesEffect = true
+        for c := 0; c < numChannels; c++ {
+            for _, sng := range songs {
+                channels := sng.GetChannels()
+                if channels[c].IsUsingEffect(effName) {
+                    outFile.WriteString(fmt.Sprintf(".DEFINE XPMP_CHN%d_USES_", channels[c].GetNum()) + effName + "\n")
                     break
                 }
-            }
-            // ToDo: handle the case where the same effect is used by multiple songs, but on different channels
-            if usesEffect {
-                break
             }
         }
     }
@@ -421,8 +417,8 @@ func (t *TargetGBC) Output(outputVgm int) {
         outFile.WriteString(".DEFINE XPMP_ALT_GB_VOLCTRL\n")
     }
     
-    /*tableSize  = output_wla_table("xpmp_dt_mac", dutyMacros,   1, 1, #80)
-    tableSize += output_wla_table("xpmp_v_mac",  volumeMacros, 1, 1, #80)
+    _ = outputWlaTable(outFile, "xpmp_dt_mac", effects.DutyMacros,   true, 1, 0x80)
+    /*tableSize += output_wla_table("xpmp_v_mac",  volumeMacros, 1, 1, #80)
     tableSize += output_wla_table("xpmp_VS_mac", volumeSlides, 1, 1, #80)
     tableSize += output_wla_table("xpmp_EP_mac", pitchMacros,  1, 1, #80)
     tableSize += output_wla_table("xpmp_EN_mac", arpeggios,    1, 1, #80)
@@ -654,6 +650,85 @@ func (t *TargetSMS) Init() {
     t.MaxLoopDepth      = 2
     t.MachineSpeed      = 3579545
     t.SupportsPal       = true
+}
+
+
+
+// Output table data in WLA-DX format 
+func outputWlaTable(outFile *os.File, tblName string, effMap *effects.EffectMap, canLoop bool, scaling int, loopDelim int) int {
+    var bytesWritten, dat int
+    
+    bytesWritten = 0
+    
+    if effMap.Len() > 0 {
+        for _, key := range effMap.GetKeys() {
+            outFile.WriteString(fmt.Sprintf(tblName + "_%d:", key))
+            effectData := effMap.GetData(key)
+            for j, param := range effectData.MainPart {
+                dat = (param * scaling) & 0xFF
+                if canLoop && (dat == loopDelim) {
+                    dat++
+                }
+
+                if canLoop && j == len(effectData.MainPart)-1 && len(effectData.LoopedPart) == 0 {
+                    if j > 0 {
+                        outFile.WriteString(fmt.Sprintf(", $%02x", loopDelim))
+                    }
+                    outFile.WriteString(fmt.Sprintf("\n" + tblName + "_%d_loop:\n", key))
+                    outFile.WriteString(fmt.Sprintf(".db $%02x, $%02x", dat, loopDelim))
+                    bytesWritten += 3
+                } else if j == 0 {
+                    outFile.WriteString(fmt.Sprintf("\n.db $%02x", dat))
+                    bytesWritten += 1
+                } else {
+                    outFile.WriteString(fmt.Sprintf(", $%02x", dat))
+                    bytesWritten += 1
+                }
+            }
+            if canLoop && len(effectData.LoopedPart) > 0 {
+                if len(effectData.MainPart) > 0 {
+                    outFile.WriteString(fmt.Sprintf(", $%02x", loopDelim))
+                    bytesWritten += 1
+                }
+                outFile.WriteString(fmt.Sprintf("\n" + tblName + "_%d_loop:\n", key))
+                for j, param := range effectData.LoopedPart {
+                    dat = (param * scaling) & 0xFF
+                    if dat == loopDelim && canLoop {
+                        dat++
+                    }
+                    if j == 0 {
+                        outFile.WriteString(fmt.Sprintf(".db $%02x", dat))
+                    } else {
+                        outFile.WriteString(fmt.Sprintf(", $%02x", dat))
+                    }
+                    bytesWritten += 1
+                }
+                outFile.WriteString(fmt.Sprintf(", $%02x", loopDelim))
+                bytesWritten += 1
+            }
+            outFile.WriteString("\n")
+        }
+        outFile.WriteString(tblName + "_tbl:\n")
+        for _, key := range effMap.GetKeys() {
+            outFile.WriteString(fmt.Sprintf(".dw " + tblName + "_%d\n", key))
+            bytesWritten += 2
+        }
+        if canLoop {
+            outFile.WriteString(tblName + "_loop_tbl:\n")
+            for _, key := range effMap.GetKeys() {
+                outFile.WriteString(fmt.Sprintf(".dw " + tblName + "_%d_loop\n", key))
+                bytesWritten += 2
+            }
+        }
+        outFile.WriteString("\n")
+    } else {
+        outFile.WriteString(tblName + "_tbl:\n")
+        if canLoop {
+            outFile.WriteString(tblName + "_loop_tbl:\n")
+        }
+        outFile.WriteString("\n")
+    }
+    return bytesWritten
 }
 
 

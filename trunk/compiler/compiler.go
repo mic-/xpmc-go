@@ -1037,10 +1037,10 @@ func (comp *Compiler) CompileFile(fileName string) {
                                 if chn.Active {
                                     numChannels++
                                     if chn.SupportsDutyChange() > 0 {
-                                        idx |= effects.DutyMacros.GetInt(num) * 0x80
+                                        idx |= effects.DutyMacros.GetInt(num) * 0x80    // Effect frequency
                                         chn.AddCmd([]int{defs.CMD_DUTMAC, idx})
                                         effects.DutyMacros.AddRef(num)
-                                        chn.UsesEffect["@@"] = true
+                                        chn.UsesEffect["DM"] = true
                                     } else {
                                         WARNING("Unsupported command for channel " +
                                                       chn.GetName() + ": @@")
