@@ -316,6 +316,7 @@ func (t *TargetGBC) Output(outputVgm int) {
     now := time.Now()
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
 
+    songSize := 0
     /*numSongs = 0
     for i = 1 to length(songs) do
         if sequence(songs[i]) then
@@ -417,14 +418,15 @@ func (t *TargetGBC) Output(outputVgm int) {
         outFile.WriteString(".DEFINE XPMP_ALT_GB_VOLCTRL\n")
     }
     
-    _ = outputWlaTable(outFile, "xpmp_dt_mac", effects.DutyMacros,   true, 1, 0x80)
-    /*tableSize += output_wla_table("xpmp_v_mac",  volumeMacros, 1, 1, #80)
-    tableSize += output_wla_table("xpmp_VS_mac", volumeSlides, 1, 1, #80)
-    tableSize += output_wla_table("xpmp_EP_mac", pitchMacros,  1, 1, #80)
-    tableSize += output_wla_table("xpmp_EN_mac", arpeggios,    1, 1, #80)
-    tableSize += output_wla_table("xpmp_MP_mac", vibratos,     0, 1, #80)
-    tableSize += output_wla_table("xpmp_CS_mac", panMacros,    1, 1, #80)
-    tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)
+    tableSize := outputWlaTable(outFile, "xpmp_dt_mac", effects.DutyMacros,   true, 1, 0x80)
+    tableSize += outputWlaTable(outFile, "xpmp_v_mac",  effects.VolumeMacros, true, 1, 0x80)
+    //tableSize += outputWlaTable(outFile, "xpmp_VS_mac", effects.VolumeSlides, true, 1, 0x80)
+    tableSize += outputWlaTable(outFile, "xpmp_EP_mac", effects.PitchMacros,  true, 1, 0x80)
+    tableSize += outputWlaTable(outFile, "xpmp_EN_mac", effects.Arpeggios,    true, 1, 0x80)
+    tableSize += outputWlaTable(outFile, "xpmp_MP_mac", effects.Vibratos,     false, 1, 0x80)
+    tableSize += outputWlaTable(outFile, "xpmp_CS_mac", effects.PanMacros,    true, 1, 0x80)
+    
+    /*tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)
     
     wavSize = 0
     puts(outFile, "xpmp_waveform_data:")
@@ -449,16 +451,12 @@ func (t *TargetGBC) Output(outputVgm int) {
         puts(outFile, ".dw " & callbacks[i] & CRLF)
         cbSize += 2
     end for
-    puts(outFile, CRLF)
+    puts(outFile, CRLF)*/
 
-    if verbose then
-        printf(1, "Size of effect tables: %d bytes\n", tableSize)
-    end if
-    if verbose then
-        printf(1, "Size of waveform table: %d bytes\n", wavSize)
-    end if
+    utils.INFO(fmt.Sprintf("Size of effect tables: %d bytes\n", tableSize))
+    //INFO(fmt.Sprintf("Size of waveform table: %d bytes\n", wavSize))
 
-    patSize = 0
+    /*patSize = 0
     for n = 1 to length(patterns[2]) do
         printf(outFile, "xpmp_pattern%d:", n)
         for j = 1 to length(patterns[2][n]) do
@@ -484,43 +482,38 @@ func (t *TargetGBC) Output(outputVgm int) {
 
     if verbose then
         printf(1, "Size of patterns table: %d bytes\n", patSize)
-    end if
-    
-    songSize = 0
-    for n = 1 to length(songs) do
-        if sequence(songs[n]) then
-            for i = 1 to length(supportedChannels)-1 do
-                printf(outFile, "xpmp_s%d_channel_" & supportedChannels[i] & ":", n)
-                for j = 1 to length(songs[n][i]) do
-                    if remainder(j, 16) = 1 then
-                        puts(outFile, CRLF & ".db ")
-                    end if              
-                    printf(outFile, "$%02x", and_bits(songs[n][i][j], #FF))
-                    songSize += 1
-                    if j < length(songs[n][i]) and remainder(j, 16) != 0 then
-                        puts(outFile, ",")
-                    end if
-
-                end for
-                puts(outFile, CRLF)
-                printf(1, "Song %d, Channel " & supportedChannels[i] & ": %d bytes, %d / %d ticks\n", {n, length(songs[n][i]), round2(songLen[n][i]), round2(songLoopLen[n][i])})
-            end for
-        end if
-    end for
-    
-    puts(outFile, {13, 10} & "xpmp_song_tbl:" & CRLF)
-    for n = 1 to length(songs) do
-        if sequence(songs[n]) then
-            for i = 1 to length(supportedChannels)-1 do
-                printf(outFile, ".dw xpmp_s%d_channel_" & supportedChannels[i] & CRLF, n)
-                songSize += 2
-            end for
-        end if
-    end for
-
-    if verbose then
-        printf(1, "Total size of song(s): %d bytes\n", songSize + patSize + tableSize + cbSize + wavSize)
     end if*/
+  
+    for n, sng := range songs {
+        channels := sng.GetChannels()
+        for _, chn := range channels {  // ToDo: don't iterate over the last channel (pattern)
+            outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
+            commands := chn.GetCommands()
+            for j, cmd := range commands {
+                if (j % 16) == 0 {
+                    outFile.WriteString("\n.db ")
+                }
+                outFile.WriteString(fmt.Sprintf("$%02x", cmd & 0xFF))
+                songSize++
+                if j < len(commands)-1 && (j % 16) != 15 {
+                   outFile.WriteString(",")
+                }
+            }
+            outFile.WriteString("\n")
+            fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", n, chn.GetName(), len(commands), 0, 0)  // ToDo: replace zeroes with: round2(songLen[n][i]), round2(songLoopLen[n][i])})
+        }
+    }
+    
+    outFile.WriteString("\nxpmp_song_tbl:\n")
+    for n, sng := range songs {
+        channels := sng.GetChannels()
+        for _, chn := range channels {  // ToDo: don't iterate over the last channel (pattern)
+            outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
+            songSize += 2
+        }
+    }
+
+    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize)) // ToDo: + patSize + cbSize + wavSize)
     
     outFile.WriteString(".ENDIF")
     outFile.Close()
