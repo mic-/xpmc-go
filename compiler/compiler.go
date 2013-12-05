@@ -2386,7 +2386,8 @@ func (comp *Compiler) CompileFile(fileName string) {
                 hasSlur := false
                 hasDot  := false
                 firstNote := -1
-                frames := -1.0
+                //frames := -1.0
+                ticks := -1
                 flatSharp := 0
                 
                 extraChars := 0
@@ -2437,7 +2438,7 @@ func (comp *Compiler) CompileFile(fileName string) {
 
                     if (defs.NoteIndex(n) >= 0 && n != 'r' && n != 's') || (extraChars > 0 && note != -1 && comp.slur) {
                         flatSharp = 0
-                        frames = -1
+                        ticks = -1 //frames = -1
                         m := Parser.Getch()
                         if m == '+' {
                             flatSharp = 1
@@ -2470,7 +2471,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             noteLen, err := strconv.Atoi(s)
                             if err == nil {
                                 if utils.PositionOfInt(timing.SupportedLengths, noteLen) >= 0 { 
-                                    frames = 32.0 / float64(noteLen) 
+                                    ticks = 32 / noteLen //frames = 32.0 / float64(noteLen) 
                                     for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active && chn.Tuple.Active {
                                             WARNING("Note length ignored inside tuple")
@@ -2484,7 +2485,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             }
                         }
                     }
-                    if frames == -1 && comp.tie {
+                    if ticks == -1 && comp.tie {
                         ERROR("Expected a length")
                     }
 
@@ -2502,40 +2503,40 @@ func (comp *Compiler) CompileFile(fileName string) {
                                               string(byte(defs.NoteVal(note))))
                             }
                             numChannels++
-                            if frames == -1 {
-                                frames = chn.CurrentLength
+                            if ticks == -1 {
+                                ticks = int(chn.CurrentLength)
                             }
                             if extraChars == 0 {
                                 if n != 'r' && n != 's' {
                                     chn.CurrentNote = channel.Note{Num: (chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp - 1,
-                                                                   Frames: float64(frames),
+                                                                   Frames: float64(ticks),
                                                                    HasData: true}
                                 } else if n == 'r' {
-                                    chn.CurrentNote = channel.Note{Num: defs.Rest, Frames: float64(frames), HasData: true}
+                                    chn.CurrentNote = channel.Note{Num: defs.Rest, Frames: float64(ticks), HasData: true}
                                 } else {
-                                    chn.CurrentNote = channel.Note{Num: defs.Rest2, Frames: float64(frames), HasData: true}
+                                    chn.CurrentNote = channel.Note{Num: defs.Rest2, Frames: float64(ticks), HasData: true}
                                 }
-                                chn.LastSetLength = frames
+                                chn.LastSetLength = float64(ticks)
                             } else {
                                 if hasDot {
-                                    frames = float64(chn.LastSetLength) / 2
-                                    chn.LastSetLength = frames
-                                    if frames >= 1 {
-                                        chn.CurrentNote.Frames += frames
+                                    ticks = int(chn.LastSetLength / 2)
+                                    chn.LastSetLength = float64(ticks)
+                                    if ticks >= 1 {
+                                        chn.CurrentNote.Frames += float64(ticks)
                                     } else {
                                         ERROR("Note length out of range due to dot command")
                                     }
                                     dotOff = true
                                 } else if comp.tie {
-                                    chn.CurrentNote.Frames += frames
+                                    chn.CurrentNote.Frames += float64(ticks)
                                     tieOff = true
                                 } else if comp.slur {
                                     if note != -1 {
                                         if ((chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp - 1 == chn.CurrentNote.Num) ||
                                             (chn.CurrentNote.Num == defs.Rest && n == 'r') ||
                                             (chn.CurrentNote.Num == defs.Rest2 && n == 's') {
-                                            chn.CurrentNote.Frames += frames
-                                            chn.LastSetLength = frames
+                                            chn.CurrentNote.Frames += float64(ticks)
+                                            chn.LastSetLength = float64(ticks)
                                             slurOff = true
                                         } else {
                                             ERROR("Bad note: " + string(byte(n)))
@@ -3030,6 +3031,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                 if chn.LoopPoint == -1 {
                                     chn.LoopPoint = len(chn.Cmds)
                                     chn.LoopFrames = chn.Frames
+                                    chn.LoopTicks = chn.Ticks
                                 } else {
                                     ERROR("Loop point already defined for channel " + chn.GetName())
                                 }

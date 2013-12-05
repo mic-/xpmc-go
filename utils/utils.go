@@ -13,6 +13,7 @@ package utils
 import (
     "errors"
     "fmt"
+    "math"
     "os"
     "strconv"
     "strings"
@@ -754,4 +755,12 @@ func (lst *ParamList) Equal(comparedTo *ParamList) bool {
     }
     
     return true
+}
+
+
+func Round2(x float64) int {
+    if math.Abs(x) - math.Floor(math.Abs(x)) > 0.5 {
+        return int(math.Ceil(x))
+    }
+    return int(math.Floor(x))
 }

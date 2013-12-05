@@ -63,6 +63,18 @@ func (song *Song) GetNumActiveChannels() (numActive int) {
     return
 }
 
+func (song *Song) GetTitle() string {
+    return song.Title
+}
+
+func (song *Song) GetComposer() string {
+    return song.Composer
+}
+
+func (song *Song) GetProgrammer() string {
+    return song.Programmer
+}
+
 func (song *Song) GetChannelType(chn int) int {
     return song.Channels[chn].GetChipID()
 }
