@@ -301,6 +301,133 @@ func (t *TargetGBC) Init() {
     t.MaxWavSample      = 15
 }
 
+
+/* Sega Genesis / Megadrive *
+ ****************************/
+
+func (t *TargetGen) Init() {
+    utils.DefineSymbol("GEN", 1)
+    utils.DefineSymbol("SMD", 1)
+    
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsYM2612)     // E..J
+
+    t.ID                = TARGET_SMD
+    t.MaxTempo          = 300
+    t.MinVolume         = 0
+    t.SupportsPanning   = 1
+    t.MaxLoopDepth      = 2
+    t.SupportsPal       = true
+    t.AdsrLen           = 5
+    t.AdsrMax           = 63
+    t.MinWavLength      = 1
+    t.MaxWavLength      = 2097152 // 2MB
+    t.MinWavSample      = 0
+    t.MaxWavSample      = 255
+    t.MachineSpeed      = 3579545
+}
+
+
+/* KSS (MSX executable music) *
+ ******************************/
+
+func (t *TargetKSS) Init() {
+    utils.DefineSymbol("KSS", 1)
+    
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsAY_3_8910)  // E..G
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 7, specs.SpecsSCC)        // H..L
+    //specs.SetChannelSpecs(&t.ChannelSpecs, 0, 12, specs.SpecsYM2151)  // M..T
+    
+    //activeChannels    = repeat(0, length(supportedChannels))  
+    
+    t.ID                = TARGET_KSS
+    t.MaxTempo          = 300
+    t.MinVolume         = 0
+    t.SupportsPanning   = 1
+    t.MaxLoopDepth      = 2
+    t.AdsrLen           = 5
+    t.AdsrMax           = 63
+    t.MinWavLength      = 32
+    t.MaxWavLength      = 32
+    t.MinWavSample      = -128
+    t.MaxWavSample      = 127
+}
+
+
+/* NES / Famicom *
+ *****************/
+
+func (t *TargetNES) Init() {
+    utils.DefineSymbol("NES", 1)       
+    
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.Specs2A03)       // A..E
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 5, specs.SpecsVRC6)       // F..H
+    
+    //activeChannels        = repeat(0, length(supportedChannels))  
+    
+    t.ID                = TARGET_NES
+    t.MaxTempo          = 300
+    t.MinVolume         = 0
+    t.MaxLoopDepth      = 2
+    t.SupportsPal       = true
+}
+
+
+/* NeoGeo Pocket / Color *
+ *************************/
+
+func (t *TargetNGP) Init() {
+    utils.DefineSymbol("NGP", 1)
+    
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsT6W28)      // A..D
+    
+    t.ID                = TARGET_NGP
+    t.MaxTempo          = 300
+    t.MinVolume         = 0
+    t.SupportsPanning   = 1
+    t.MaxLoopDepth      = 2
+    t.MachineSpeed      = 3072000
+}
+
+
+/* Sega Gamegear *
+ *****************/
+
+func (t *TargetSGG) Init() {
+    utils.DefineSymbol("SGG", 1)
+    
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
+    
+    t.ID                = TARGET_SGG
+    t.MaxTempo          = 300
+    t.MinVolume         = 0
+    t.SupportsPanning   = 1
+    t.MaxLoopDepth      = 2
+    t.MachineSpeed      = 3579545
+}
+
+
+/* Sega Master System *
+ **********************/
+
+func (t *TargetSMS) Init() {
+    utils.DefineSymbol("SMS", 1)       
+    
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsYM2413)     // E..M
+    
+    //activeChannels        = repeat(0, length(supportedChannels))  
+    
+    t.ID                = TARGET_SMS
+    t.MaxTempo          = 300
+    t.MinVolume         = 0
+    t.MaxLoopDepth      = 2
+    t.MachineSpeed      = 3579545
+    t.SupportsPal       = true
+}
+
+
 func (t *TargetGBC) Output(outputVgm int) {
     fmt.Printf("TargetGBC.Output\n")
 
@@ -497,132 +624,59 @@ func (t *TargetGBC) Output(outputVgm int) {
     outFile.Close()
 }
 
+func (t *TargetSMS) Output(outputVgm int) {
+    fmt.Printf("TargetSMS.Output\n")
 
-/* Sega Genesis / Megadrive *
- ****************************/
+    fileEnding := ".asm"
+    if outputVgm == 1 {
+        fileEnding = ".vgm"
+    } else if outputVgm == 2 {
+        fileEnding = ".vgz"
+    }
 
-func (t *TargetGen) Init() {
-    utils.DefineSymbol("GEN", 1)
-    utils.DefineSymbol("SMD", 1)
+    if outputVgm != 0 {
+        // ToDo: output VGM/VGZ
+        return
+    }
+
+    envelopes := make([][]int, len(effects.ADSRs.GetKeys()))
+    for i, key := range effects.ADSRs.GetKeys() {
+        envelopes[i] = packADSR(effects.ADSRs.GetData(key).MainPart, specs.CHIP_YM2413)
+    }
     
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsYM2612)     // E..J
+    outFile, err := os.Create(t.CompilerItf.GetShortFileName() + fileEnding)
+    if err != nil {
+        utils.ERROR("Unable to open file: " + t.CompilerItf.GetShortFileName() + fileEnding)
+    }
 
-    t.ID                = TARGET_SMD
-    t.MaxTempo          = 300
-    t.MinVolume         = 0
-    t.SupportsPanning   = 1
-    t.MaxLoopDepth      = 2
-    t.SupportsPal       = true
-    t.AdsrLen           = 5
-    t.AdsrMax           = 63
-    t.MinWavLength      = 1
-    t.MaxWavLength      = 2097152 // 2MB
-    t.MinWavSample      = 0
-    t.MaxWavSample      = 255
-    t.MachineSpeed      = 3579545
+    now := time.Now()
+    outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
+
+    songSize := 0
+    
+    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize)) // + tableSize))
+    outFile.Close()
 }
 
 
-/* KSS (MSX executable music) *
- ******************************/
-
-func (t *TargetKSS) Init() {
-    utils.DefineSymbol("KSS", 1)
+func packADSR(adsr []int, chipType int) []int {
+    packedAdsr := []int{}
     
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsAY_3_8910)  // E..G
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 7, specs.SpecsSCC)        // H..L
-    //specs.SetChannelSpecs(&t.ChannelSpecs, 0, 12, specs.SpecsYM2151)  // M..T
+    switch chipType {
+    case specs.CHIP_YM2413:
+        packedAdsr = make([]int, 2)
+        packedAdsr[0] = adsr[0] * 0x10 + adsr[1]
+        packedAdsr[1] = (adsr[2] ^ 15) * 0x10 + adsr[3]
+    case specs.CHIP_YM2151, specs.CHIP_YM2612:
+        packedAdsr = make([]int, 4)
+        packedAdsr[0] = adsr[1]
+        packedAdsr[1] = adsr[2]
+        packedAdsr[2] = adsr[3]
+        packedAdsr[3] = (adsr[4] / 2) + ((adsr[3] ^ 31) / 2) * 0x10
+    }
     
-    //activeChannels    = repeat(0, length(supportedChannels))  
-    
-    t.ID                = TARGET_KSS
-    t.MaxTempo          = 300
-    t.MinVolume         = 0
-    t.SupportsPanning   = 1
-    t.MaxLoopDepth      = 2
-    t.AdsrLen           = 5
-    t.AdsrMax           = 63
-    t.MinWavLength      = 32
-    t.MaxWavLength      = 32
-    t.MinWavSample      = -128
-    t.MaxWavSample      = 127
+    return packedAdsr
 }
-
-
-/* NES / Famicom *
- *****************/
-
-func (t *TargetNES) Init() {
-    utils.DefineSymbol("NES", 1)       
-    
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.Specs2A03)       // A..E
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 5, specs.SpecsVRC6)       // F..H
-    
-    //activeChannels        = repeat(0, length(supportedChannels))  
-    
-    t.ID                = TARGET_NES
-    t.MaxTempo          = 300
-    t.MinVolume         = 0
-    t.MaxLoopDepth      = 2
-    t.SupportsPal       = true
-}
-
-
-/* NeoGeo Pocket / Color *
- *************************/
-
-func (t *TargetNGP) Init() {
-    utils.DefineSymbol("NGP", 1)
-    
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsT6W28)      // A..D
-    
-    t.ID                = TARGET_NGP
-    t.MaxTempo          = 300
-    t.MinVolume         = 0
-    t.SupportsPanning   = 1
-    t.MaxLoopDepth      = 2
-    t.MachineSpeed      = 3072000
-}
-
-
-/* Sega Gamegear *
- *****************/
-
-func (t *TargetSGG) Init() {
-    utils.DefineSymbol("SGG", 1)
-    
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
-    
-    t.ID                = TARGET_SGG
-    t.MaxTempo          = 300
-    t.MinVolume         = 0
-    t.SupportsPanning   = 1
-    t.MaxLoopDepth      = 2
-    t.MachineSpeed      = 3579545
-}
-
-
-/* Sega Master System *
- **********************/
-
-func (t *TargetSMS) Init() {
-    utils.DefineSymbol("SMS", 1)       
-    
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsYM2413)     // E..M
-    
-    //activeChannels        = repeat(0, length(supportedChannels))  
-    
-    t.ID                = TARGET_SMS
-    t.MaxTempo          = 300
-    t.MinVolume         = 0
-    t.MaxLoopDepth      = 2
-    t.MachineSpeed      = 3579545
-    t.SupportsPal       = true
-}
-
 
 func outputStringWithExactLength(outFile *os.File, str string, exactLength int) {
     if len(str) >= exactLength {

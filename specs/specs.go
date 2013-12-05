@@ -455,11 +455,7 @@ func SetChannelSpecs(dest *Specs, firstPhysChan int, firstLogicalChan int, s Spe
         tempIDs[i] = s.ID
     }
     insertspec(&dest.IDs,       firstLogicalChan, tempIDs)
-    
-    /*if len(SupportedChannels) < len(ChannelSpecs.Duty) {
-        s = supportedChannels
-        for i = length(s) + 1 to length(supportsDutyChange) do
-            supportedChannels &= 'A' + i - 1
-        end for
-    }*/
 }
+
+
+
