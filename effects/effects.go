@@ -48,6 +48,14 @@ func (m *EffectMap) GetKeyFor(lst *utils.ParamList) int {
     return -1
 }
 
+func (m *EffectMap) GetData(key int) *utils.ParamList {
+    pos := m.FindKey(key)
+    if pos != -1 {
+        return m.data[pos]
+    }
+    return nil
+}
+
 func (m *EffectMap) Append(key int, lst *utils.ParamList) {
     m.keys = append(m.keys, key)
     m.data = append(m.data, lst)
