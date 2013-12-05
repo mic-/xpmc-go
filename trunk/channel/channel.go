@@ -75,9 +75,10 @@ func NewLoopStack() *LoopStack {
 type Channel struct {
     Name string                 // The channel's name ("A", "B", "C", etc)
     Num int                     // The channel's number (0, 1, 2, etc)
-    Ticks int           // The total number of ticks (32nd notes) used by this channel
+    Ticks int                   // The total number of ticks (32nd notes) used by this channel
     Frames float64              // The total number of frames used by this channel given the current refresh rate
     LoopFrames float64
+    LoopTicks int
     LoopPoint int
     LastSetLength float64
     CurrentTempo int            // The channel's tempo, in BPM
@@ -133,6 +134,14 @@ func (chn *Channel) GetName() string {
 
 func (chn *Channel) GetCommands() []int {
     return chn.Cmds
+}
+
+func (chn *Channel) GetTicks() int {
+    return chn.Ticks
+}
+
+func (chn *Channel) GetLoopTicks() int {
+    return chn.LoopTicks
 }
 
 func (chn *Channel) IsUsingEffect(effName string) bool {
@@ -377,7 +386,8 @@ func (chn *Channel) WriteNote(forceOctChange bool) {
     if chn.CurrentNote.HasData {
         if !chn.Tuple.HasData {
             chn.Frames += chn.CurrentNote.Frames
-
+            chn.Ticks += int(chn.CurrentNote.Frames)
+            
             frames, cutoffFrames, scaling = chn.NoteLength(chn.CurrentNote.Frames)
                                                     
             if chn.CurrentNote.Num == defs.Rest {

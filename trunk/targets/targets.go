@@ -332,6 +332,7 @@ func (t *TargetGBC) Output(outputVgm int) {
     "\tSLOT 0 $0000\n" +
     "\tSLOT 1 $4000\n" +
     ".ENDME\n\n")
+    
     outFile.WriteString(
     ".ROMBANKSIZE $4000\n" +
     ".ROMBANKS 2\n" +
@@ -341,7 +342,7 @@ func (t *TargetGBC) Output(outputVgm int) {
     outFile.WriteString(
     ".db \"GBS\"\n" +
     ".db 1\t\t; Version\n" +
-    //sprintf(".db %d\t\t; Number of songs", numSongs) & CRLF &
+    fmt.Sprintf(".db %d\t\t; Number of songs\n", len(t.CompilerItf.GetSongs())) +
     ".db 1\t\t; Start song\n" +
     ".dw $0400\t; Load address\n" +
     ".dw $0400\t; Init address\n" +
@@ -350,38 +351,15 @@ func (t *TargetGBC) Output(outputVgm int) {
     ".db 0\n" +
     ".db 0\n")
     
-    /*if length(songTitle) >= 32 then
-        puts(outFile, ".db \"" & songTitle[1..31] & "\", 0" & CRLF)
-    else
-        puts(outFile, ".db \"" & songTitle & "\"")
-        for i = 1 to 32 - length(songTitle) do
-            puts(outFile, ", 0")
-        end for
-        puts(outFile, CRLF)
-    end if
-    if length(songComposer) >= 32 then
-        puts(outFile, ".db \"" & songComposer[1..31] & "\", 0" & CRLF)
-    else
-        puts(outFile, ".db \"" & songComposer & "\"")
-        for i = 1 to 32 - length(songComposer) do
-            puts(outFile, ", 0")
-        end for
-        puts(outFile, CRLF)
-    end if
-    if length(songProgrammer) >= 32 then
-        puts(outFile, ".db \"" & songProgrammer[1..31] & "\", 0" & CRLF)
-    else
-        puts(outFile, ".db \"" & songProgrammer & "\"")
-        for i = 1 to 32 - length(songProgrammer) do
-            puts(outFile, ", 0")
-        end for
-        puts(outFile, CRLF)
-    end if  
-    puts(outFile, ".INCBIN \"gbs.bin\"" & CRLF & CRLF)
-    puts(outFile, ".ELSE" & CRLF & CRLF) 
+    outputStringWithExactLength(outFile, t.CompilerItf.GetSongs()[0].GetTitle(), 32)
+    outputStringWithExactLength(outFile, t.CompilerItf.GetSongs()[0].GetComposer(), 32)
+    outputStringWithExactLength(outFile, t.CompilerItf.GetSongs()[0].GetProgrammer(), 32)   
+
+    outFile.WriteString(".INCBIN \"gbs.bin\"\n\n")
+    outFile.WriteString(".ELSE\n\n") 
 
 
-    if sum(assoc_get_references(volumeMacros)) = 0 then 
+    /*if sum(assoc_get_references(volumeMacros)) = 0 then 
         puts(outFile, ".DEFINE XPMP_VMAC_NOT_USED" & CRLF)
     end if
     if sum(assoc_get_references(pitchMacros)) = 0 then
@@ -500,7 +478,7 @@ func (t *TargetGBC) Output(outputVgm int) {
                 }
             }
             outFile.WriteString("\n")
-            fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", n, chn.GetName(), len(commands), 0, 0)  // ToDo: replace zeroes with: round2(songLen[n][i]), round2(songLoopLen[n][i])})
+            fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", n, chn.GetName(), len(commands), utils.Round2(float64(chn.GetTicks())), utils.Round2(float64(chn.GetLoopTicks())))
         }
     }
     
@@ -645,6 +623,18 @@ func (t *TargetSMS) Init() {
     t.SupportsPal       = true
 }
 
+
+func outputStringWithExactLength(outFile *os.File, str string, exactLength int) {
+    if len(str) >= exactLength {
+        outFile.WriteString(".db \"" + str[:exactLength-1] + "\", 0\n")
+    } else {
+        outFile.WriteString(".db \"" + str + "\"")
+        for i := 0; i < exactLength - len(str); i++ {
+            outFile.WriteString(", 0")
+        }
+        outFile.WriteString("\n")
+    }
+}
 
 
 // Output table data in WLA-DX format 

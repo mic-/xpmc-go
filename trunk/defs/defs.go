@@ -175,12 +175,17 @@ type ITarget interface {
 
 type ISong interface {
     GetChannels() []IChannel
+    GetTitle() string
+    GetComposer() string
+    GetProgrammer() string
 }
 
 type IChannel interface {
     GetNum() int
     GetName() string
     GetCommands() []int
+    GetTicks() int
+    GetLoopTicks() int
     IsUsingEffect(effName string) bool
 }
 

@@ -143,6 +143,23 @@ func main() {
                 fmt.Printf("compiler.SFN = " + comp.ShortFileName + "\n")
                 
                 comp.CompileFile(inputFileName);
+    
+                // Insert END markers or jumps at the end of the command sequence for each channel
+                for _, song := range comp.Songs {
+                    for _, chn := range song.Channels {
+                        chn.LoopTicks = chn.Ticks - chn.LoopTicks
+                        if chn.LoopPoint == -1 {
+                            chn.AddCmd([]int{defs.CMD_END})
+                        } else {
+                            if !chn.HasAnyNote {
+                                chn.AddCmd([]int{defs.CMD_END})
+                            } else {
+                                chn.AddCmd([]int{defs.CMD_JMP, chn.LoopPoint & 0xFF, chn.LoopPoint / 0x100})
+                            }
+                        }
+                    }
+                }
+   
                 comp.CurrSong.Target.Output(0)
                 
                 return
