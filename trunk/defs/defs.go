@@ -187,6 +187,8 @@ type IChannel interface {
     GetCommands() []int
     GetTicks() int
     GetLoopTicks() int
+    GetChipID() int
+    IsUsed() bool
     IsUsingEffect(effName string) bool
 }
 

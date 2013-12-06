@@ -144,18 +144,22 @@ func (chn *Channel) GetLoopTicks() int {
     return chn.LoopTicks
 }
 
-func (chn *Channel) IsUsingEffect(effName string) bool {
-    return chn.UsesEffect[effName]
-}
-
-/*****/
-
 func (chn *Channel) GetChipID() int {
     if len(chn.ChannelSpecs.GetIDs()) > 0 {
         return chn.ChannelSpecs.GetIDs()[chn.Num]
     }
     return specs.CHIP_UNKNOWN
 }
+
+func (chn *Channel) IsUsed() bool {
+    return chn.HasAnyNote
+}
+
+func (chn *Channel) IsUsingEffect(effName string) bool {
+    return chn.UsesEffect[effName]
+}
+
+/*****/
 
 func (chn *Channel) SupportsADSR() bool {
     if len(chn.ChannelSpecs.GetADSR()) > 0 {

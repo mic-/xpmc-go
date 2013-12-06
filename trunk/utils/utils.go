@@ -112,12 +112,12 @@ var definedSymbols map[string]bool
 // Compiler messages
 
 func ERROR(msg string) {
-    fmt.Printf("%s@%d, Error: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
+    fmt.Printf("[%s:%d] Error: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
     os.Exit(1)
 }
 
 func WARNING(msg string) {
-    fmt.Printf("%s@%d, Warning: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
+    fmt.Printf("[%s:%d] Warning: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
     if warningsAreErrors {
         os.Exit(1)
     }
