@@ -450,12 +450,6 @@ func (t *TargetGBC) Output(outputVgm int) {
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
 
     songSize := 0
-    /*numSongs = 0
-    for i = 1 to length(songs) do
-        if sequence(songs[i]) then
-            numSongs += 1
-        end if
-    end for*/
     
     outFile.WriteString(
     ".IFDEF XPMP_MAKE_GBS\n\n" +
@@ -701,15 +695,23 @@ func (t *TargetSMS) Output(outputVgm int) {
     
     t.outputEffectFlags(outFile, FORMAT_WLA_DX)
     
-    /*if supportsPAL then
-        f = 0
-        for i = 5 to 13 do
-            f += length(songs[1][i])
-        end for
-        if f > 9 then
-            puts(outFile, ".DEFINE XPMP_ENABLE_FM" & {13,10})
-        end if
-    end if*/
+    if t.ID == TARGET_SMS {
+        usesFM := false
+        songs := t.CompilerItf.GetSongs()
+        for _, sng := range songs {
+            channels := sng.GetChannels()
+            for _, chn := range channels {
+                if chn.IsUsed() && chn.GetChipID() == specs.CHIP_YM2413 {
+                    usesFM = true
+                    break
+                }
+            }
+            if usesFM {
+                break
+            }
+        }
+        outFile.WriteString(".DEFINE XPMP_ENABLE_FM\n")
+    }
         
     tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros, true,  1, 0x80)
