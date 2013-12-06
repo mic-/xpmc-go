@@ -178,6 +178,7 @@ type ISong interface {
     GetTitle() string
     GetComposer() string
     GetProgrammer() string
+    GetSmsTuning() bool
 }
 
 type IChannel interface {

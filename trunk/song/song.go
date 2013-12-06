@@ -78,3 +78,7 @@ func (song *Song) GetProgrammer() string {
 func (song *Song) GetChannelType(chn int) int {
     return song.Channels[chn].GetChipID()
 }
+
+func (song *Song) GetSmsTuning() bool {
+    return song.TuneSmsPitch
+}
