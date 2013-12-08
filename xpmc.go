@@ -140,7 +140,7 @@ func main() {
                     }
                 }
                 
-                fmt.Printf("compiler.SFN = " + comp.ShortFileName + "\n")
+                //fmt.Printf("compiler.SFN = " + comp.ShortFileName + "\n")
                 
                 comp.CompileFile(inputFileName);
     

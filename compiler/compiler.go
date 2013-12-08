@@ -2245,10 +2245,9 @@ func (comp *Compiler) CompileFile(fileName string) {
                     if comp.CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set tempo with no active channels")
                     } else if inRange(num, 0, comp.CurrSong.Target.GetMaxTempo()) {
-                        fmt.Printf("New tempo: %d\n", num)
+                        //fmt.Printf("New tempo: %d\n", num)
                         for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
-                                fmt.Printf("Setting tempo on channel %s\n", chn.Name)
                                 chn.CurrentTempo = num
                             }
                         }
@@ -2382,17 +2381,16 @@ func (comp *Compiler) CompileFile(fileName string) {
 
                 comp.tie     = false
                 comp.slur    = false
-                hasTie  := false
-                hasSlur := false
-                hasDot  := false
-                firstNote := -1
-                //frames := -1.0
-                ticks := -1
-                flatSharp := 0
+                hasTie      := false
+                hasSlur     := false
+                hasDot      := false
+                firstNote   := -1
+                ticks       := -1
+                flatSharp   := 0
                 
-                extraChars := 0
-                n := c
-                note := 0
+                extraChars  := 0
+                n           := c
+                note        := 0
                 
                 for n != -1 {
                     if defs.NoteIndex(n) >= 0 {
@@ -2679,8 +2677,6 @@ func (comp *Compiler) CompileFile(fileName string) {
                             } else {
                                 ERROR("Bad ADSR: Unable to parse parameter list")
                             }
-                            //num = implicitAdsrId
-                            //implicitAdsrId++
                         } else {
                             // Use a previously declared ADSR
                             s = Parser.GetNumericString()
@@ -2785,12 +2781,11 @@ func (comp *Compiler) CompileFile(fileName string) {
                             if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 ERROR("Detune requires at least one active channel")
                             } else {
-                                trg := comp.CurrSong.Target.GetID()
                                 for _, chn := range comp.CurrSong.Channels {
                                     if chn.Active {
                                         if chn.SupportsDetune() {
                                             if chn.SupportsFM() &&
-                                            (trg == targets.TARGET_SMD || trg == targets.TARGET_CPS || trg == targets.TARGET_KSS) {
+                                            (chn.GetChipID() == specs.CHIP_YM2612 || chn.GetChipID() == specs.CHIP_YM2151) {
                                                 if inRange(num, -3, 3) {
                                                     amount := num
                                                     if amount < 0 {
@@ -3101,6 +3096,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                     } else if m == 'O' {
                         m = Parser.Getch()
                         if m == 'D' {
+                            // Modulator select ("MOD<num>")
                             s := Parser.GetNumericString()
                             if len(s) > 0 {
                                 characterHandled = true
@@ -3128,6 +3124,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                 m = Parser.Getch()
                                 t := string(byte(m)) + string(byte(Parser.Getch()))
                                 if t == "OF" {
+                                    // Modulator off ("MODOF")
                                     characterHandled = true
                                     for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
@@ -3150,6 +3147,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             comp.assertIsChannelName(c)
                         }
                     } else if IsNumeric(m) {
+                        // Mode change ("M<num>")
                         characterHandled = true
                         Parser.Ungetch()
                         s := Parser.GetNumericString()
@@ -3238,6 +3236,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         s := string(byte(Parser.Getch()))
                         s += string(byte(Parser.Getch()))
                         if s == "NG" {
+                            // Ring modulation select ("RING<num>")
                             characterHandled = true
                             s = Parser.GetNumericString()
                             num, err := strconv.Atoi(s)
@@ -3268,6 +3267,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         }
                         
                     } else if m == 'S' && !comp.lastWasChannelSelect {
+                        // Rate scaling ("RS<num>")
                         characterHandled = true
                         s := Parser.GetNumericString()
                         num, err := strconv.Atoi(s)
@@ -3294,6 +3294,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         s := string(byte(Parser.Getch()))
                         s += string(byte(Parser.Getch()))
                         if s == "NC" {
+                            // Hard sync ("SYNC<num>")
                             characterHandled = true
                             s = Parser.GetNumericString()
                             num, err := strconv.Atoi(s)

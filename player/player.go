@@ -104,7 +104,24 @@ func NewPlaybackChannel(num int) *PlaybackChannel {
         NewFeedbackEffect(),
         NewPanningEffect(),*/
     }
-}        
+}
+
+type IPlaybackChannel interface {
+    GetNote() int
+}
+
+type IPlayer interface {
+    GetChannels() []IPlaybackChannel
+}
+
+type IPlaybackWriter interface {
+    Write(player IPlayer, chn int, cmd int)
+}
+
+func NewPlayer(w IPlaybackWriter) {
+    return &Player{w}
+}
+
 type IEffectMacro interface {
     Step(*PlaybackChannel, int)
     Disable()
@@ -140,6 +157,7 @@ type VibratoEffect struct {
 func (e *EffectMacro) Step(c *PlaybackChannel, trigger int) bool {
     if e.Enabled {
         if trigger == EFFECT_STEP_EVERY_NOTE && ((e.ID & EFFECT_STEP_MASK) == EFFECT_STEP_EVERY_FRAME) {
+            // Reset the position of per-frame effects when there's a new note
             e.Params.MoveToStart()
         }
         if trigger == EFFECT_STEP_EVERY_NOTE || ((e.ID & EFFECT_STEP_MASK) == EFFECT_STEP_EVERY_FRAME) {
