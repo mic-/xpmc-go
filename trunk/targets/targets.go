@@ -343,7 +343,7 @@ func (t *TargetKSS) Init() {
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 4, specs.SpecsAY_3_8910)  // E..G
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 7, specs.SpecsSCC)        // H..L
-    //specs.SetChannelSpecs(&t.ChannelSpecs, 0, 12, specs.SpecsYM2151)  // M..T
+    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 12, specs.SpecsYM2151)    // M..T
     
     //activeChannels    = repeat(0, length(supportedChannels))  
     
@@ -596,6 +596,73 @@ func (t *TargetGBC) Output(outputVgm int) {
 }
 
 
+func (t *TargetKSS) Output(outputVgm int) {
+    fmt.Printf("TargetKSS.Output\n")
+
+   outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
+    if err != nil {
+        utils.ERROR("Unable to open file: " + t.CompilerItf.GetShortFileName() + ".asm")
+    }
+
+    now := time.Now()
+    outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
+
+    songSize := 0
+    
+    envelopes := make([][]int, len(effects.ADSRs.GetKeys()))
+    for i, key := range effects.ADSRs.GetKeys() {
+        envelopes[i] = packADSR(effects.ADSRs.GetData(key).MainPart, specs.CHIP_YM2151)
+    }
+    
+    outFile.WriteString( 
+        ".IFDEF XPMP_MAKE_KSS\n" +
+        ".memorymap\n" +
+        "defaultslot 0\n" +
+        "slotsize $8010\n" +
+        "slot 0 0\n" +
+        ".endme\n\n" +
+        ".rombanksize $8010\n" +
+        ".rombanks 1\n\n" +
+        ".orga   $0000\n" +
+        ".db      \"KSCC\"   ; Magic string\n" +
+        ".dw   $0000   ; Load address\n" +
+        ".dw   $8000   ; Data length\n" +
+        ".dw   $7FF0   ; Driver initialize function\n" +
+        ".dw   $0000   ; Play address\n" +
+        ".db   $00   ; No. of banks\n" +
+        ".db   $00   ; extra\n" +
+        ".db   $00   ; reserved\n")
+
+    /*printf(outFile,
+        ".db   $%02x   ; Extra chips" & CRLF & CRLF &
+        ".incbin \"kss.bin\"" & CRLF & CRLF &
+        ".ELSE" & CRLF & CRLF, extraChips)*/
+    
+    t.outputEffectFlags(outFile, FORMAT_WLA_DX)
+
+    tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,     true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros,   true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EP_mac", effects.PitchMacros,    true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EN_mac", effects.Arpeggios,      true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MP_mac", effects.Vibratos,       false, 1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,      true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_WT_mac", effects.WaveformMacros, true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",    effects.MODs,           false, 1, 0)
+    
+    // ToDo: finish
+    
+    outFile.Close()
+    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize)) // ToDo: + patSize + cbSize + wavSize)
+}
+
+
+func (t *TargetSGG) Output(outputVgm int) {
+    fmt.Printf("TargetSGG.Output\n")
+}
+
+
 func (t *TargetSMS) Output(outputVgm int) {
     fmt.Printf("TargetSMS.Output\n")
 
@@ -732,11 +799,12 @@ func (t *TargetSMS) Output(outputVgm int) {
         
     songSize := 0
     
-    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize)) // + tableSize))
+    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize))
     outFile.Close()
 }
 
 
+// Pack the parameters for an ADSR envelope into the format used by the given chip
 func packADSR(adsr []int, chipType int) []int {
     packedAdsr := []int{}
     
@@ -755,6 +823,25 @@ func packADSR(adsr []int, chipType int) []int {
     
     return packedAdsr
 }
+
+
+// Pack the parameters for a MOD modulator macro into the format used by the given chip
+func packMOD(modParams []int, chipType int) [] int {
+    packedMod := []int{}
+    
+    switch chipType {
+    case specs.CHIP_YM2151:
+        packedMod = make([]int, 5)
+        packedMod[0] = modParams[0]
+        packedMod[1] = modParams[1]
+        packedMod[2] = modParams[2] | 0x80
+        packedMod[3] = modParams[3] + modParams[4] * 0x10
+        packedMod[4] = modParams[5] + 0xC0
+    }
+    
+    return packedMod
+}
+
 
 func outputStringWithExactLength(outFile *os.File, str string, exactLength int) {
     if len(str) >= exactLength {

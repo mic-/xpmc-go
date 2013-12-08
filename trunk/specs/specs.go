@@ -366,6 +366,19 @@ var SpecsVRC6 = Specs{
 }
 
 
+var SpecsYM2151 = Specs{
+    Duty:       []int{  7,   7,   7,   7,   7,   7,   7,   7},   // Supports @
+    VolChange:  []int{  1,   1,   1,   1,   1,   1,   1,   1},   // Supports volume change
+    FM:         []int{  1,   1,   1,   1,   1,   1,   1,   1},   // Supports FM
+    ADSR:       []int{  1,   1,   1,   1,   1,   1,   1,   1},   // Supports ADSR
+    Detune:     []int{  1,   1,   1,   1,   1,   1,   1,   1},
+    MinOct:     []int{  1,   1,   1,   1,   1,   1,   1,   1},   // Min octave
+    MaxOct:     []int{  7,   7,   7,   7,   7,   7,   7,   7},   // Max octave
+    MaxVol:     []int{127, 127, 127, 127, 127, 127, 127, 127},   // Maximum volume
+    MinNote:    []int{  1,   1,   1,   1,   1,   1,   1,   1},   // Min playable note
+    ID:         CHIP_YM2151,
+}
+
 /* YM2413 (SMS etc) *
 /********************/
 

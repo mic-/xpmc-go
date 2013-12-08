@@ -3,7 +3,7 @@
  *
  * Part of XPMC.
  *
- * /Mic, 2012
+ * /Mic, 2012-2013
  */
  
 package effects
