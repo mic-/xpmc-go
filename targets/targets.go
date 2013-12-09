@@ -608,6 +608,28 @@ func (t *TargetKSS) Output(outputVgm int) {
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
 
     songSize := 0
+  
+    usesPSG := 0
+    usesSCC := 0
+    extraChips := 0
+    songs := t.CompilerItf.GetSongs()
+    for _, sng := range songs {
+        channels := sng.GetChannels()
+        for _, chn := range channels {
+            if chn.IsUsed() {
+                switch chn.GetChipID() {
+                case specs.CHIP_AY_3_8910:
+                    usesPSG = 1
+                case specs.CHIP_SCC:
+                    usesSCC = 1
+                case specs.CHIP_SN76489:
+                    extraChips |= 6
+                case specs.CHIP_YM2151:
+                    extraChips |= 3
+                }
+            }
+        }
+    }
     
     envelopes := make([][]int, len(effects.ADSRs.GetKeys()))
     for i, key := range effects.ADSRs.GetKeys() {
@@ -633,13 +655,27 @@ func (t *TargetKSS) Output(outputVgm int) {
         ".db   $00   ; extra\n" +
         ".db   $00   ; reserved\n")
 
-    /*printf(outFile,
-        ".db   $%02x   ; Extra chips" & CRLF & CRLF &
-        ".incbin \"kss.bin\"" & CRLF & CRLF &
-        ".ELSE" & CRLF & CRLF, extraChips)*/
+    outFile.WriteString(fmt.Sprintf(
+        ".db   $%02x   ; Extra chips\n\n" +
+        ".incbin \"kss.bin\"\n\n" +
+        ".ELSE\n\n", extraChips))
     
     t.outputEffectFlags(outFile, FORMAT_WLA_DX)
 
+    if usesPSG != 0 {
+        outFile.WriteString(".DEFINE XPMP_USES_AY\n")
+    }
+    if usesSCC != 0 {
+        outFile.WriteString(".DEFINE XPMP_USES_SCC\n")
+    }
+    if (extraChips & 2) == 2 {
+        if (extraChips & 1) == 1 {
+            outFile.WriteString(".DEFINE XPMP_USES_FMUNIT\n")
+        } else {            
+            outFile.WriteString(".DEFINE XPMP_USES_SN76489\n")
+        }
+    }
+    
     tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,     true,  1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros,   true,  1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EP_mac", effects.PitchMacros,    true,  1, 0x80)
@@ -777,7 +813,9 @@ func (t *TargetSMS) Output(outputVgm int) {
                 break
             }
         }
-        outFile.WriteString(".DEFINE XPMP_ENABLE_FM\n")
+        if usesFM {
+            outFile.WriteString(".DEFINE XPMP_ENABLE_FM\n")
+        }
     }
         
     tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
