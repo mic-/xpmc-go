@@ -351,7 +351,7 @@ func (comp *Compiler) handleMetaCommand() {
         switch s {
         case "IFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
-            comp.dontCompile.Push((^expr) | comp.dontCompile.Peek())
+            comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.Peek())
             comp.hasElse.Push(false)
 
         case "IFNDEF":
@@ -365,7 +365,7 @@ func (comp *Compiler) handleMetaCommand() {
                 if !comp.hasElse.Peek() {
                     if (comp.dontCompile.Peek() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
                         _ = comp.dontCompile.Pop()
-                        comp.dontCompile.Push((^expr) | comp.dontCompile.Peek())
+                        comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.Peek())
                     }
                 } else {
                     ERROR("ELSIFDEF found after ELSE")
@@ -409,7 +409,7 @@ func (comp *Compiler) handleMetaCommand() {
         switch cmd {
         case "IFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
-            comp.dontCompile.Push((^expr) | comp.dontCompile.Peek())
+            comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.Peek())
             comp.hasElse.Push(false)
 
         case "IFNDEF":

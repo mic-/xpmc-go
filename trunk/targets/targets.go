@@ -501,26 +501,26 @@ func (t *TargetGBC) Output(outputVgm int) {
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MP_mac", effects.Vibratos,     false, 1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,    true,  1, 0x80)
     
-    /*tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)
+    /*tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)*/
     
-    wavSize = 0
-    puts(outFile, "xpmp_waveform_data:")
-    for i = 1 to length(waveforms[ASSOC_KEY]) do
-        for j = 1 to length(waveforms[ASSOC_DATA][i][LIST_MAIN]) by 2 do
-            if j = 1 then
-                puts(outFile, CRLF & ".db ")
-            end if              
-            printf(outFile, "$%02x", waveforms[ASSOC_DATA][i][LIST_MAIN][j]*#10 + waveforms[ASSOC_DATA][i][LIST_MAIN][j+1])
-            wavSize += 1
-            if j < length(waveforms[ASSOC_DATA][i][LIST_MAIN]) - 1 then
-                puts(outFile, ",")
-            end if
-
-        end for
-    end for
-    puts(outFile, {13, 10, 13, 10})
+    wavSize := 0
+    outFile.WriteString("xpmp_waveform_data:")
+    for key := range effects.Waveforms.GetKeys() {
+        params := effects.Waveforms.GetData(key).MainPart
+        for j := 0; j < len(params); j += 2 {
+            if j == 0 {
+                outFile.WriteString("\n.db ")
+            }             
+            outFile.WriteString(fmt.Sprintf("$%02x", params[j] * 0x10 + params[j+1]))
+            wavSize++
+            if j < len(params) - 1 {
+                outFile.WriteString(",")
+            }
+        }
+    }
+    outFile.WriteString("\n\n")
     
-    cbSize = 0
+    /*cbSize = 0
     puts(outFile, "xpmp_callback_tbl:" & CRLF)
     for i = 1 to length(callbacks) do
         puts(outFile, ".dw " & callbacks[i] & CRLF)
@@ -589,7 +589,7 @@ func (t *TargetGBC) Output(outputVgm int) {
         }
     }
 
-    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize)) // ToDo: + patSize + cbSize + wavSize)
+    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize)) // ToDo: + patSize + cbSize )
     
     outFile.WriteString(".ENDIF")
     outFile.Close()
