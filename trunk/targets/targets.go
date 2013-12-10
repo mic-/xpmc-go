@@ -520,16 +520,16 @@ func (t *TargetGBC) Output(outputVgm int) {
     }
     outFile.WriteString("\n\n")
     
-    /*cbSize = 0
-    puts(outFile, "xpmp_callback_tbl:" & CRLF)
-    for i = 1 to length(callbacks) do
-        puts(outFile, ".dw " & callbacks[i] & CRLF)
+    cbSize := 0
+    outFile.WriteString("xpmp_callback_tbl:\n")
+    for _, cb := range t.CompilerItf.GetCallbacks() {
+        outFile.WriteString(".dw " + cb + "\n")
         cbSize += 2
-    end for
-    puts(outFile, CRLF)*/
+    }
+    outFile.WriteString("\n")
 
     utils.INFO(fmt.Sprintf("Size of effect tables: %d bytes\n", tableSize))
-    //INFO(fmt.Sprintf("Size of waveform table: %d bytes\n", wavSize))
+    utils.INFO(fmt.Sprintf("Size of waveform table: %d bytes\n", wavSize))
 
     /*patSize = 0
     for n = 1 to length(patterns[2]) do
@@ -562,7 +562,10 @@ func (t *TargetGBC) Output(outputVgm int) {
     songs := t.CompilerItf.GetSongs()
     for n, sng := range songs {
         channels := sng.GetChannels()
-        for _, chn := range channels {  // ToDo: don't iterate over the last channel (pattern)
+        for _, chn := range channels {  
+            /*if i == len(channels) - 1 {
+                continue        // Skip the last channel (the pattern)
+            }*/
             outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
             commands := chn.GetCommands()
             for j, cmd := range commands {
@@ -583,13 +586,16 @@ func (t *TargetGBC) Output(outputVgm int) {
     outFile.WriteString("\nxpmp_song_tbl:\n")
     for n, sng := range songs {
         channels := sng.GetChannels()
-        for _, chn := range channels {  // ToDo: don't iterate over the last channel (pattern)
+        for _, chn := range channels { 
+            /*if i == len(channels) - 1 {
+                continue        // Skip the last channel (the pattern)
+            }*/
             outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
             songSize += 2
         }
     }
 
-    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize)) // ToDo: + patSize + cbSize )
+    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize)) // ToDo: + patSize )
     
     outFile.WriteString(".ENDIF")
     outFile.Close()

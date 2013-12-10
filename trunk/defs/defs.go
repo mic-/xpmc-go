@@ -199,4 +199,5 @@ type ICompiler interface {
     GetNumSongs() int
     GetSong(num int) ISong
     GetSongs() []ISong
+    GetCallbacks() []string
 }

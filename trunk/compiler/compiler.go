@@ -172,6 +172,10 @@ func (comp *Compiler) GetSongs() []defs.ISong {
     return songs
 }
 
+func (comp *Compiler) GetCallbacks() []string {
+    return comp.callbacks
+}
+
 func (comp *Compiler) Init(target int) {
     comp.patterns = &MmlPatternMap{}
     
