@@ -59,57 +59,40 @@ func (m *MmlPatternMap) HasAnyNote(key string) bool {
     return false
 }
 
-type BoolStack struct {
+type GenericStack struct {
     data *list.List
 }
 
-func (s *BoolStack) Push(b bool) {
-    _ = s.data.PushBack(b)
+func (s *GenericStack) Push(x interface{}) {
+    _ = s.data.PushBack(x)
 }
 
-func (s *BoolStack) Pop() bool {
+func (s *GenericStack) PopBool() bool {
     e := s.data.Back()
     return s.data.Remove(e).(bool)
 }
 
-func (s *BoolStack) Peek() bool {
+func (s *GenericStack) PeekBool() bool {
     e := s.data.Back()
     return e.Value.(bool)
 }
 
-func (s *BoolStack) Len() int {
-    return s.data.Len()
-}
-
-func NewBoolStack() *BoolStack {
-    return &BoolStack{list.New()}
-}
-
-
-type IntStack struct {
-    data *list.List
-}
-
-func (s *IntStack) Push(i int) {
-    _ = s.data.PushBack(i)
-}
-
-func (s *IntStack) Pop() int {
+func (s *GenericStack) PopInt() int {
     e := s.data.Back()
     return s.data.Remove(e).(int)
 }
 
-func (s *IntStack) Peek() int {
+func (s *GenericStack) PeekInt() int {
     e := s.data.Back()
     return e.Value.(int)
 }
 
-func (s *IntStack) Len() int {
+func (s *GenericStack) Len() int {
     return s.data.Len()
 }
 
-func NewIntStack() *IntStack {
-    return &IntStack{list.New()}
+func NewGenericStack() *GenericStack {
+    return &GenericStack{list.New()}
 }
 
                     
@@ -131,8 +114,8 @@ type Compiler struct {
     lastWasChannelSelect bool
     //var workDir string 
 
-    dontCompile *IntStack
-    hasElse *BoolStack
+    dontCompile *GenericStack
+    hasElse *GenericStack
     pattern *MmlPattern
     patterns *MmlPatternMap
     keepChannelsActive bool
@@ -183,8 +166,8 @@ func (comp *Compiler) Init(target int) {
     comp.CurrSong = song.NewSong(target, comp)
     comp.Songs[1] = comp.CurrSong
     
-    comp.dontCompile = NewIntStack()
-    comp.hasElse = NewBoolStack()
+    comp.dontCompile = NewGenericStack()
+    comp.hasElse = NewGenericStack()
     
     comp.dontCompile.Push(0)
     comp.hasElse.Push(false)
@@ -350,26 +333,26 @@ func evalIfdefExpr(polarity int) int {
 
 // Handle commands starting with '#', i.e. a meta command 
 func (comp *Compiler) handleMetaCommand() {
-    if comp.dontCompile.Peek() != 0 {
+    if comp.dontCompile.PeekInt() != 0 {
         s := Parser.GetString()
         switch s {
         case "IFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
-            comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.Peek())
+            comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.PeekInt())
             comp.hasElse.Push(false)
 
         case "IFNDEF":
             expr := evalIfdefExpr(POLARITY_NEGATIVE)
-            comp.dontCompile.Push(expr | comp.dontCompile.Peek())
+            comp.dontCompile.Push(expr | comp.dontCompile.PeekInt())
             comp.hasElse.Push(false)             
 
         case "ELSIFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
             if comp.dontCompile.Len() > 1 {
-                if !comp.hasElse.Peek() {
-                    if (comp.dontCompile.Peek() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
-                        _ = comp.dontCompile.Pop()
-                        comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.Peek())
+                if !comp.hasElse.PeekBool() {
+                    if (comp.dontCompile.PeekInt() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
+                        _ = comp.dontCompile.PopInt()
+                        comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.PeekInt())
                     }
                 } else {
                     ERROR("ELSIFDEF found after ELSE")
@@ -381,12 +364,12 @@ func (comp *Compiler) handleMetaCommand() {
 
         case "ELSE":
             if comp.dontCompile.Len() > 1 {
-                if !comp.hasElse.Peek() {
-                    if (comp.dontCompile.Peek() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
-                        x := comp.dontCompile.Pop()
-                        comp.dontCompile.Push(x | comp.dontCompile.Peek())
+                if !comp.hasElse.PeekBool() {
+                    if (comp.dontCompile.PeekInt() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
+                        x := comp.dontCompile.PopInt()
+                        comp.dontCompile.Push(x | comp.dontCompile.PeekInt())
                     }
-                    _ = comp.hasElse.Pop()
+                    _ = comp.hasElse.PopBool()
                     comp.hasElse.Push(true)
                 } else {
                     ERROR("Only one ELSE allowed per IFDEF")
@@ -397,8 +380,8 @@ func (comp *Compiler) handleMetaCommand() {
 
         case "ENDIF":
             if comp.dontCompile.Len() > 1 {
-                _ = comp.dontCompile.Pop()
-                _ = comp.hasElse.Pop()
+                _ = comp.dontCompile.PopInt()
+                _ = comp.hasElse.PopBool()
             } else {
                 ERROR("ENDIF with no matching IFDEF")
             }
@@ -413,19 +396,19 @@ func (comp *Compiler) handleMetaCommand() {
         switch cmd {
         case "IFDEF":
             expr := evalIfdefExpr(POLARITY_POSITIVE)
-            comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.Peek())
+            comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.PeekInt())
             comp.hasElse.Push(false)
 
         case "IFNDEF":
             expr := evalIfdefExpr(POLARITY_NEGATIVE)
-            comp.dontCompile.Push(expr | comp.dontCompile.Peek())
+            comp.dontCompile.Push(expr | comp.dontCompile.PeekInt())
             comp.hasElse.Push(false)
 
         case "ELSIFDEF":
             if comp.dontCompile.Len() > 1 {
-                if !comp.hasElse.Peek() {
+                if !comp.hasElse.PeekBool() {
                     _ = Parser.GetStringUntil("\r\n")
-                    _ = comp.dontCompile.Pop()
+                    _ = comp.dontCompile.PopInt()
                     // Getting here means that the current IFDEF/ELSIFDEF was true,
                     // so whatever is in subsequent ELSIFDEF/ELSE clauses should not
                     // be compiled.
@@ -439,10 +422,10 @@ func (comp *Compiler) handleMetaCommand() {
 
         case "ELSE":
             if comp.dontCompile.Len() > 1 {
-                if !comp.hasElse.Peek() {
-                    _ = comp.dontCompile.Pop()
+                if !comp.hasElse.PeekBool() {
+                    _ = comp.dontCompile.PopInt()
                     comp.dontCompile.Push(1)
-                    _ = comp.hasElse.Pop()
+                    _ = comp.hasElse.PopBool()
                     comp.hasElse.Push(true)
                 } else {
                     ERROR("Only one ELSE allowed per IFDEF")
@@ -453,8 +436,8 @@ func (comp *Compiler) handleMetaCommand() {
 
         case "ENDIF":
             if comp.dontCompile.Len() > 1 {
-                _ = comp.dontCompile.Pop()
-                _ = comp.hasElse.Pop()
+                _ = comp.dontCompile.PopInt()
+                _ = comp.hasElse.PopBool()
             } else {
                 ERROR("ENDIF with no matching IFDEF")
             }
@@ -1006,7 +989,7 @@ func (comp *Compiler) CompileFile(fileName string) {
 
         /* Meta-commands */
         
-        if comp.dontCompile.Peek() != 0 {
+        if comp.dontCompile.PeekInt() != 0 {
             if c == '#' {
                 comp.handleMetaCommand()
             } 
