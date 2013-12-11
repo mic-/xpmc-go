@@ -39,31 +39,50 @@ type ParamList struct {
     LoopedPart []int
 }
 
-
-type ParserStateStack struct {
+type GenericStack struct {
     data *list.List
 }
 
-func (s *ParserStateStack) Push(e *ParserState) {
-    _ = s.data.PushBack(e)
+func (s *GenericStack) Push(x interface{}) {
+    _ = s.data.PushBack(x)
 }
 
-func (s *ParserStateStack) Pop() *ParserState {
+func (s *GenericStack) PopBool() bool {
+    e := s.data.Back()
+    return s.data.Remove(e).(bool)
+}
+
+func (s *GenericStack) PeekBool() bool {
+    e := s.data.Back()
+    return e.Value.(bool)
+}
+
+func (s *GenericStack) PopInt() int {
+    e := s.data.Back()
+    return s.data.Remove(e).(int)
+}
+
+func (s *GenericStack) PeekInt() int {
+    e := s.data.Back()
+    return e.Value.(int)
+}
+
+func (s *GenericStack) PopParserState() *ParserState {
     e := s.data.Back()
     return s.data.Remove(e).(*ParserState)
 }
 
-func (s *ParserStateStack) Peek() *ParserState {
+func (s *GenericStack) PeekParserState() *ParserState {
     e := s.data.Back()
     return e.Value.(*ParserState)
 }
 
-func (s *ParserStateStack) Len() int {
+func (s *GenericStack) Len() int {
     return s.data.Len()
 }
 
-func NewParserStateStack() *ParserStateStack {
-    return &ParserStateStack{list.New()}
+func NewGenericStack() *GenericStack {
+    return &GenericStack{list.New()}
 }
 
 func (s *ParserState) Init(fileName string) error {
@@ -101,7 +120,7 @@ func NewParserState(fileName string) (parser *ParserState, err error) {
 // Global variables
 
 var Parser *ParserState
-var OldParsers *ParserStateStack
+var OldParsers *GenericStack
 
 // Local variables
 
@@ -173,9 +192,24 @@ func (p *ParserState) Ungetch() {
     }
 }
 
+func (p *ParserState) PeekString(maxChars int) string {
+    str := ""
+    for i := 0; i < maxChars; i++ {
+        if (p.fileDataPos + i) >= len(p.fileData) {
+            break
+        }
+        str += string(p.fileData[p.fileDataPos + i])
+    }
+    return str
+}
 
 func IsNumeric(c int) bool {
     return strings.ContainsRune("0123456789", rune(c))
+}
+
+
+func (p *ParserState) SkipN(n int) {
+    p.fileDataPos += n
 }
 
 
