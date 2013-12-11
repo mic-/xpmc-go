@@ -4,6 +4,42 @@ import (
     "../utils"
 )
 
+var fileData []byte
+var fileDataPos
+
+// Get an unsigned word (16 bits)
+func getWord() int {
+    var w int
+    w = fileData[fileDataPos++]
+    w += (fileData[fileDataPos++] * 0x100)
+    return w
+}
+
+// Get a signed word (16 bits) from file fh
+func getSword() int {
+    var w int
+    if fileDataPos >= len(fileData) {
+        return 65536
+    }
+    w = fileData[fileDataPos++]
+    w += (fileData[fileDataPos++] * 0x100)
+    if (w & 0x8000) != 0 {
+        return -(32768 - (w & 0x7FFF))
+    }
+    return w
+}
+
+// Get a dword (32 bits)
+func getDword() int {
+    var dw int
+    
+    dw = fileData[fileDataPos++]
+    dw += (fileData[fileDataPos++] * 0x100)
+    dw += (fileData[fileDataPos++] * 0x10000)
+    dw += (fileData[fileDataPos++] * 0x1000000)
+    return dw
+}
+
 
 // Extract the sample data from a WAV file and convert it to mono with a given sample rate and volume
 func ConvertWav(fname string, sampleRate int, volume int) []int {
@@ -18,12 +54,14 @@ func ConvertWav(fname string, sampleRate int, volume int) []int {
         ERROR("Unable to open file: " & fname, lineNum)
     end if
 
+    fileData, err = ioutil.ReadFile(fname)
+
     s = get_bytes(fn, 4)
     if not equal(s, "RIFF") then
         ERROR("No RIFF tag found in " & fname, -1)
     end if
     
-    if get_dword(fn) then end if
+    _ := getDword()
     
     s = get_bytes(fn,4)
     if not equal(s, "WAVE") then
@@ -42,19 +80,19 @@ func ConvertWav(fname string, sampleRate int, volume int) []int {
         end if
 
         // Get the chunk size
-        dw = get_dword(fn)
+        dw = getDword()
     
-        if equal(s, "fmt ") then
-            wavFormat = get_word(fn)
-            wavChannels = get_word(fn)
-            wavSamplesPerSec = get_dword(fn)
-            wavAvgBytesPerSec = get_dword(fn)
-            wavBlockAlign = get_word(fn)
-            wavBitsPerSample = get_word(fn)
+        if equal(s, "fmt ") {
+            wavFormat         = getWord()
+            wavChannels       = getWord()
+            wavSamplesPerSec  = getDword()
+            wavAvgBytesPerSec = getDword()
+            wavBlockAlign     = getWord()
+            wavBitsPerSample  = getWord()
         
-            if wavFormat!=1 or (wavBitsPerSample!=8 and wavBitsPerSample!=16) or wavChannels > 2 then
+            if wavFormat != 1 || (wavBitsPerSample != 8 && wavBitsPerSample != 16) || wavChannels > 2 {
                 utils.ERROR("Unsupported wav format in " & fname, -1)
-            end if
+            }
         
             deltaPos := 1.0
             if sampleRate > 0 {
@@ -74,35 +112,35 @@ func ConvertWav(fname string, sampleRate int, volume int) []int {
                 utils.INFO("Converting sample to 8-bit unsigned")
             }
             
-        elsif equal(s, "data") then
+        } else if equal(s, "data") {
             dataStart = where(fn)
             dataSize = dw
             
             sampleDiv = 0
                        
-            if wavBitsPerSample = 8 then
-                if wavChannels = 1 then
+            if wavBitsPerSample == 8 {
+                if wavChannels == 1 {
                     samplesInChunk = dataSize
                     wavData = []float64{}
-                    while floor(pos) <= samplesInChunk do
+                    for floor(pos) <= samplesInChunk {
                         nextPos = floor(pos + deltaPos)
-                        if floor(pos) < nextPos then
+                        if floor(pos) < nextPos {
                             b = 0
                             sampleDiv = 0
-                            while floor(pos) < nextPos do
+                            for floor(pos) < nextPos {
                                 b += getc(fn)
                                 pos += 1 
                                 sampleDiv += 1
-                            end while
-                        end if
-                        if sampleDiv then
+                            }
+                        }
+                        if sampleDiv != 0 {
                             wavData = append(wavData, math.Floor(b / sampleDiv))
-                        end if
-                    end while
-                elsif wavChannels = 2 then
-                    samplesInChunk = floor(dataSize / 2)
+                        }
+                    }
+                } else if wavChannels == 2 {
+                    samplesInChunk = dataSize / 2
                     wavData = []float64{}
-                    while floor(pos) <= samplesInChunk do
+                    for floor(pos) <= samplesInChunk {
                         nextPos = floor(pos + deltaPos)
                         if floor(pos) < nextPos then
                             b = 0
@@ -113,63 +151,59 @@ func ConvertWav(fname string, sampleRate int, volume int) []int {
                                 sampleDiv += 1
                             end while
                         end if
-                        if sampleDiv then
+                        if sampleDiv != 0 {
                             wavData = append(wavData, math.Floor(b / (sampleDiv * 2.0)))
-                        end if
-                    end while
+                        }
+                    }
                 end if
             else
-                if wavChannels = 1 then
+                if wavChannels == 1 {
                     samplesInChunk = floor(dataSize / 2)
                     wavData = []float64{}
-                    while floor(pos) <= samplesInChunk do
+                    for floor(pos) <= samplesInChunk {
                         nextPos = floor(pos + deltaPos)
-                        if floor(pos) < nextPos then
+                        if floor(pos) < nextPos {
                             w = 0
                             sampleDiv = 0
-                            while floor(pos) < nextPos do
-                                w += floor((get_sword(fn) + 32768) / 256)
+                            for floor(pos) < nextPos {
+                                w += floor((getSword() + 32768) / 256)
                                 pos += 1 
                                 sampleDiv += 1
-                            end while
-                        end if
-                        if sampleDiv then
-                            wavData &= floor(w / sampleDiv)
-                        end if
-                    end while
-                elsif wavChannels = 2 then
+                            }
+                        }
+                        if sampleDiv != 0 {
+                            wavData = append(wavData, math.Floor(w / sampleDiv))
+                        }
+                    }
+                } else if wavChannels == 2 {
                     samplesInChunk = floor(dataSize / 4)
                     wavData = []float64{}
-                    while floor(pos) <= samplesInChunk do
+                    for floor(pos) <= samplesInChunk {
                         nextPos = floor(pos + deltaPos)
                         if floor(pos) < nextPos then
                             w = 0
                             sampleDiv = 0
                             while floor(pos) < nextPos do
-                                w += floor((get_sword(fn) + 32768) / 256) + floor((get_sword(fn) + 32768) / 256) 
+                                w += floor((getSword() + 32768) / 256) + floor((getSword() + 32768) / 256) 
                                 pos += 1 
                                 sampleDiv += 1
                             end while
                         end if
-                        if sampleDiv then
-                            wavData &= floor(w / (sampleDiv * 2))
-                        end if
-                    end while
-                end if
+                        if sampleDiv != 0 {
+                            wavData = append(wavData, math.Floor(w / (sampleDiv * 2.0)))
+                        }
+                    }
+                }
             
-            end if
+            }
 
         } else {
             // Unhandled chunk type, just skip it.
-            for i = 1 to dw do
-                b = getc(fn)
-            end for
-        end if
+            fileDataPos += dw
+        }
     }
-    
-    close(fn)
-    
-    utils.INFO("Size of converted sample: %d bytes\n", length(wavData))
+       
+    utils.INFO(fmt.Sprintf("Size of converted sample: %d bytes\n", len(wavData)))
     
     wavDataInt = make([]int, len(wavData))
     for i := range wavData {
