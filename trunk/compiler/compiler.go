@@ -1,7 +1,7 @@
 package compiler
 
 import (
-    "container/list"
+    //"container/list"
     "fmt"
     "sort"
     "strconv"
@@ -58,42 +58,6 @@ func (m *MmlPatternMap) HasAnyNote(key string) bool {
         return m.data[pos].HasAnyNote
     }
     return false
-}
-
-type GenericStack struct {
-    data *list.List
-}
-
-func (s *GenericStack) Push(x interface{}) {
-    _ = s.data.PushBack(x)
-}
-
-func (s *GenericStack) PopBool() bool {
-    e := s.data.Back()
-    return s.data.Remove(e).(bool)
-}
-
-func (s *GenericStack) PeekBool() bool {
-    e := s.data.Back()
-    return e.Value.(bool)
-}
-
-func (s *GenericStack) PopInt() int {
-    e := s.data.Back()
-    return s.data.Remove(e).(int)
-}
-
-func (s *GenericStack) PeekInt() int {
-    e := s.data.Back()
-    return e.Value.(int)
-}
-
-func (s *GenericStack) Len() int {
-    return s.data.Len()
-}
-
-func NewGenericStack() *GenericStack {
-    return &GenericStack{list.New()}
 }
 
                     
@@ -2624,141 +2588,128 @@ func (comp *Compiler) CompileFile(fileName string) {
                       strings.ContainsRune("ACDEFKLMOPRSWnpw", rune(c)) {
                 comp.writeAllPendingNotes(true)
                 
-                if c == 'A' {
+                Parser.Ungetch()    // To make PeekString work
+                                  
+                if Parser.PeekString(4) == "ADSR" {
+                    Parser.SkipN(4)
+                    s := ""
+                    characterHandled = true
+                    //Parser.Ungetch()    // why? is this correct?
+                    num := 0
+                    err := error(nil)
                     m := Parser.Getch()
-                    s := string(byte(m))
-                    s += string(byte(Parser.Getch()))
-                    s += string(byte(Parser.Getch()))
-                    
-                    if s == "DSR" {
-                        characterHandled = true
-                        Parser.Ungetch()
-                        num := 0
-                        err := error(nil)
-                        m = Parser.Getch()
-                        if m == '(' {
-                            // Implicit ADSR declaration
-                            Parser.SetListDelimiters("()")
-                            lst, err := Parser.GetList()
-                            key := -1
-                            if err == nil {
-                                if len(lst.LoopedPart) == 0 {
-                                    if len(lst.MainPart) == comp.CurrSong.Target.GetAdsrLen() {
-                                        if inRange(lst.MainPart, 0, comp.CurrSong.Target.GetAdsrMax()) {
-                                            key = effects.ADSRs.GetKeyFor(lst)
-                                            if key == -1 {
-                                                effects.ADSRs.Append(comp.implicitAdsrId, lst)
-                                                num = comp.implicitAdsrId
-                                                comp.implicitAdsrId++
-                                            } else {
-                                                num = key
-                                            }
-                                        } else {
-                                            ERROR("ADSR parameters out of range: " + lst.Format())
-                                        }
-                                    } else {
-                                        ERROR("Bad number of ADSR parameters: " + lst.Format())
-                                    }
-                                } else {
-                                    ERROR("Bad ADSR: " + lst.Format())
-                                }
-                            } else {
-                                ERROR("Bad ADSR: Unable to parse parameter list")
-                            }
-                        } else {
-                            // Use a previously declared ADSR
-                            s = Parser.GetNumericString()
-                            num, err = strconv.Atoi(s)
-                        }
-                        
+                    if m == '(' {
+                        // Implicit ADSR declaration
+                        Parser.SetListDelimiters("()")
+                        lst, err := Parser.GetList()
+                        key := -1
                         if err == nil {
-                            idx := effects.ADSRs.FindKey(num)
-                            if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                ERROR("ADSR requires at least one active channel")
-                            } else if idx >= 0 {
-                                for _, chn := range comp.CurrSong.Channels {
-                                    if chn.Active {
-                                        if chn.SupportsADSR() {
-                                            chn.AddCmd([]int{defs.CMD_ADSR, idx})
-                                            effects.ADSRs.AddRef(num)
+                            if len(lst.LoopedPart) == 0 {
+                                if len(lst.MainPart) == comp.CurrSong.Target.GetAdsrLen() {
+                                    if inRange(lst.MainPart, 0, comp.CurrSong.Target.GetAdsrMax()) {
+                                        key = effects.ADSRs.GetKeyFor(lst)
+                                        if key == -1 {
+                                            effects.ADSRs.Append(comp.implicitAdsrId, lst)
+                                            num = comp.implicitAdsrId
+                                            comp.implicitAdsrId++
                                         } else {
-                                            WARNING("Unsupported command for this channel: ADSR")
+                                            num = key
                                         }
-                                    }
-                                }
-                            } else {
-                                ERROR("Undefined macro: ADSR" + s)
-                            }
-                        } else {
-                            ERROR("Expected a number: " + s)
-                        }
-                    } else if m == 'M' {
-                        Parser.Ungetch()
-                        Parser.Ungetch()
-                        s = Parser.GetNumericString()
-                        if len(s) > 0 {
-                            characterHandled = true
-                            num, err := strconv.Atoi(s)
-                            if err == nil {
-                                if inRange(num, 0, 1) {
-                                    if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                        ERROR("AM requires at least one active channel")
                                     } else {
-                                        comp.applyCmdOnAllActiveFM("AM", []int{defs.CMD_HWAM, num})
+                                        ERROR("ADSR parameters out of range: " + lst.Format())
                                     }
                                 } else {
-                                    ERROR("AM out of range")
+                                    ERROR("Bad number of ADSR parameters: " + lst.Format())
                                 }
                             } else {
-                                ERROR("Bad AM: " + s)
+                                ERROR("Bad ADSR: " + lst.Format())
                             }
                         } else {
-                            Parser.Ungetch()
-                            comp.assertIsChannelName(c)
-                        }                       
+                            ERROR("Bad ADSR: Unable to parse parameter list")
+                        }
                     } else {
-                        Parser.Ungetch()
-                        Parser.Ungetch()
-                        Parser.Ungetch()
-                        comp.assertIsChannelName(c)
+                        // Use a previously declared ADSR
+                        s = Parser.GetNumericString()
+                        num, err = strconv.Atoi(s)
                     }
 
-
-                } else if c == 'C' {
-                    m := Parser.Getch()
-                    if m == 'S' {
-                        characterHandled = true
-                        num, idx, err := comp.assertEffectIdExistsAndChannelsActive("CS", effects.PanMacros)
-                        
-                        if err == nil {
-                            if comp.CurrSong.Target.SupportsPan() {
-                                idx |= effects.PanMacros.GetInt(num) * 0x80
-                                for _, chn := range comp.CurrSong.Channels {
-                                    if chn.Active {
-                                        chn.AddCmd([]int{defs.CMD_PANMAC, idx + 1})
-                                        effects.PanMacros.AddRef(num)
+                    if err == nil {
+                        idx := effects.ADSRs.FindKey(num)
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            ERROR("ADSR requires at least one active channel")
+                        } else if idx >= 0 {
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if chn.SupportsADSR() {
+                                        chn.AddCmd([]int{defs.CMD_ADSR, idx})
+                                        effects.ADSRs.AddRef(num)
+                                    } else {
+                                        WARNING("Unsupported command for this channel: ADSR")
                                     }
                                 }
-                            } else {
-                                WARNING("Unsupported command for this target: CS")
                             }
                         } else {
-                            m = Parser.Getch()
-                            t := string(byte(m)) + string(byte(Parser.Getch()))
-                            if t == "OF" {
-                                if comp.CurrSong.Target.SupportsPan() {
-                                    comp.applyCmdOnAllActive("CS", []int{defs.CMD_PANMAC, 0})
-                                }
-                            } else {
-                                ERROR("Syntax error: CS" + t)
-                            }
+                            ERROR("Undefined macro: ADSR" + s)
                         }
                     } else {
-                        Parser.Ungetch()
+                        ERROR("Expected a number: " + s)
+                    }
+                } else if Parser.PeekString(2) == "AM" {
+                    Parser.SkipN(2)
+                    s := Parser.GetNumericString()
+                    if len(s) > 0 {
+                        characterHandled = true
+                        num, err := strconv.Atoi(s)
+                        if err == nil {
+                            if inRange(num, 0, 1) {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
+                                    ERROR("AM requires at least one active channel")
+                                } else {
+                                    comp.applyCmdOnAllActiveFM("AM", []int{defs.CMD_HWAM, num})
+                                }
+                            } else {
+                                ERROR("AM out of range")
+                            }
+                        } else {
+                            ERROR("Bad AM: " + s)
+                        }
+                    } else {
+                        //Parser.Ungetch()
                         comp.assertIsChannelName(c)
+                    }                       
+  
+
+                } else if Parser.PeekString(2) == "CS" {
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    num, idx, err := comp.assertEffectIdExistsAndChannelsActive("CS", effects.PanMacros)
+
+                    if err == nil {
+                        if comp.CurrSong.Target.SupportsPan() {
+                            idx |= effects.PanMacros.GetInt(num) * 0x80
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    chn.AddCmd([]int{defs.CMD_PANMAC, idx + 1})
+                                    effects.PanMacros.AddRef(num)
+                                }
+                            }
+                        } else {
+                            WARNING("Unsupported command for this target: CS")
+                        }
+                    } else {
+                        m := Parser.Getch()
+                        t := string(byte(m)) + string(byte(Parser.Getch()))
+                        if t == "OF" {
+                            if comp.CurrSong.Target.SupportsPan() {
+                                comp.applyCmdOnAllActive("CS", []int{defs.CMD_PANMAC, 0})
+                            }
+                        } else {
+                            ERROR("Syntax error: CS" + t)
+                        }
                     }
                 
                 } else if c == 'D' {
+                    Parser.SkipN(1)
                     m := Parser.Getch()
                     if m == '-' || IsNumeric(m) {
                         characterHandled = true
@@ -2801,10 +2752,12 @@ func (comp *Compiler) CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
+                        Parser.Ungetch()
                         comp.assertIsChannelName(c)
                     }                       
 
                 } else if c == 'K' {
+                    Parser.SkipN(1)
                     m := Parser.Getch()
                     if m == '-' || IsNumeric(m) {
                         characterHandled = true
@@ -2826,182 +2779,176 @@ func (comp *Compiler) CompileFile(fileName string) {
                         }
                     } else {
                         Parser.Ungetch()
-                        comp.assertIsChannelName(c)
-                    }       
-                    
-                } else if c == 'E' {
-                    m := Parser.Getch()
-                    if m == 'N' {
-                        characterHandled = true
-                        num, idx, err := comp.assertEffectIdExistsAndChannelsActive("EN", effects.Arpeggios)
-                        
-                        if err == nil {
-                            for _, chn := range comp.CurrSong.Channels {
-                                if chn.Active {
-                                    if !effects.Arpeggios.IsEmpty(num) {
-                                        effects.Arpeggios.AddRef(num)
-                                        idx |= effects.Arpeggios.GetInt(num) * 0x80
-                                        if comp.enRev == 0 {
-                                            chn.AddCmd([]int{defs.CMD_ARPMAC, idx})
-                                            //ToDo fix: usesEN[1] += 1
-                                            chn.UsesEffect["EN"] = true
-                                        } else {
-                                            chn.AddCmd([]int{defs.CMD_APMAC2, idx})
-                                            //ToDo: fix: usesEN[2] += 1
-                                            chn.UsesEffect["EN2"] = true
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            comp.assertDisablingEffect("EN", defs.CMD_ARPOFF)
-                        }
-
-                    } else if m == 'P' {
-                        characterHandled = true
-                        num, idx, err := comp.assertEffectIdExistsAndChannelsActive("EP", effects.PitchMacros)
-
-                        if err == nil {
-                            for _, chn := range comp.CurrSong.Channels {
-                                if chn.Active {
-                                    if !effects.PitchMacros.IsEmpty(num) {
-                                        idx |= effects.PitchMacros.GetInt(num) * 0x80
-                                        chn.AddCmd([]int{defs.CMD_SWPMAC, idx})
-                                        effects.PitchMacros.AddRef(num)
-                                        chn.UsesEffect["EP"] = true
-                                    }
-                                }
-                            }
-                        } else {
-                            comp.assertDisablingEffect("EP", defs.CMD_SWPMAC)
-                        }
-
-                    } else {
                         Parser.Ungetch()
                         comp.assertIsChannelName(c)
+                    }       
+                
+                // Arpeggio select ("EN<num>")
+                } else if Parser.PeekString(2) == "EN" {
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    num, idx, err := comp.assertEffectIdExistsAndChannelsActive("EN", effects.Arpeggios)
+
+                    if err == nil {
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.Active {
+                                if !effects.Arpeggios.IsEmpty(num) {
+                                    effects.Arpeggios.AddRef(num)
+                                    idx |= effects.Arpeggios.GetInt(num) * 0x80
+                                    if comp.enRev == 0 {
+                                        chn.AddCmd([]int{defs.CMD_ARPMAC, idx})
+                                        //ToDo fix: usesEN[1] += 1
+                                        chn.UsesEffect["EN"] = true
+                                    } else {
+                                        chn.AddCmd([]int{defs.CMD_APMAC2, idx})
+                                        //ToDo: fix: usesEN[2] += 1
+                                        chn.UsesEffect["EN2"] = true
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        comp.assertDisablingEffect("EN", defs.CMD_ARPOFF)
+                    }
+
+                // Pitch macro select ("PT<num>")
+                } else if Parser.PeekString(2) == "EP" {
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    num, idx, err := comp.assertEffectIdExistsAndChannelsActive("EP", effects.PitchMacros)
+
+                    if err == nil {
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.Active {
+                                if !effects.PitchMacros.IsEmpty(num) {
+                                    idx |= effects.PitchMacros.GetInt(num) * 0x80
+                                    chn.AddCmd([]int{defs.CMD_SWPMAC, idx})
+                                    effects.PitchMacros.AddRef(num)
+                                    chn.UsesEffect["EP"] = true
+                                }
+                            }
+                        }
+                    } else {
+                        comp.assertDisablingEffect("EP", defs.CMD_SWPMAC)
                     }
 
                 // FM feedback select
-                } else if c == 'F' {
-                    m := Parser.Getch()
-                    if m == 'B' {
-                        s := Parser.GetNumericString()
-                        if len(s) > 0 {
-                            characterHandled = true
-                            num, err := strconv.Atoi(s)
-                            if err == nil {
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    ERROR("FB requires at least one active channel")
-                                } else {
-                                    if inRange(num, 0, 7) {
-                                        comp.applyCmdOnAllActiveFM("FB", []int{defs.CMD_FEEDBK | num})
-                                    } else {
-                                        ERROR(fmt.Sprintf("Feedback value out of range: %d", num))
-                                    }
-                                }
+                } else if Parser.PeekString(2) == "FB" {
+                    Parser.SkipN(2)
+                    s := Parser.GetNumericString()
+                    if len(s) > 0 {
+                        characterHandled = true
+                        num, err := strconv.Atoi(s)
+                        if err == nil {
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
+                                ERROR("FB requires at least one active channel")
                             } else {
-                                ERROR("Bad feedback value: " +  s)
+                                if inRange(num, 0, 7) {
+                                    comp.applyCmdOnAllActiveFM("FB", []int{defs.CMD_FEEDBK | num})
+                                } else {
+                                    ERROR(fmt.Sprintf("Feedback value out of range: %d", num))
+                                }
                             }
                         } else {
-                            m = Parser.Getch()
-                            if m == 'M' {
-                                s = Parser.GetNumericString()
-                                if len(s) > 0 {
-                                    characterHandled = true
-                                    num, err := strconv.Atoi(s)
-                                    if err == nil {
-                                        if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                            ERROR("FBM requires at least one active channel")
-                                        } else {
-                                            idx := effects.FeedbackMacros.FindKey(num)
-                                            if idx >= 0 {
-                                                idx |= effects.FeedbackMacros.GetInt(num) * 0x80                
-                                                for _, chn := range comp.CurrSong.Channels {
-                                                    if chn.Active {
-                                                        if chn.SupportsFM() {
-                                                            //if o[2] >=0 and o[2] <= 7 then
-                                                                chn.AddCmd([]int{defs.CMD_FBKMAC, idx})
-                                                                effects.FeedbackMacros.AddRef(num)
+                            ERROR("Bad feedback value: " +  s)
+                        }
+                    } else {
+                        m := Parser.Getch()
+                        if m == 'M' {
+                            s = Parser.GetNumericString()
+                            if len(s) > 0 {
+                                characterHandled = true
+                                num, err := strconv.Atoi(s)
+                                if err == nil {
+                                    if comp.CurrSong.GetNumActiveChannels() == 0 {
+                                        ERROR("FBM requires at least one active channel")
+                                    } else {
+                                        idx := effects.FeedbackMacros.FindKey(num)
+                                        if idx >= 0 {
+                                            idx |= effects.FeedbackMacros.GetInt(num) * 0x80                
+                                            for _, chn := range comp.CurrSong.Channels {
+                                                if chn.Active {
+                                                    if chn.SupportsFM() {
+                                                        //if o[2] >=0 and o[2] <= 7 then
+                                                            chn.AddCmd([]int{defs.CMD_FBKMAC, idx})
+                                                            effects.FeedbackMacros.AddRef(num)
 
-                                                            //else
-                                                            //  ERROR(sprintf("Feedback value out of range: %d", o[2]))
-                                                            //end if
-                                                        } else {
-                                                            WARNING("FBM commands on non-FM channels are ignored")
-                                                        }
+                                                        //else
+                                                        //  ERROR(sprintf("Feedback value out of range: %d", o[2]))
+                                                        //end if
+                                                    } else {
+                                                        WARNING("FBM commands on non-FM channels are ignored")
                                                     }
                                                 }
-                                            } else {
-                                                ERROR("Undefined macro: FBM" + s)
                                             }
+                                        } else {
+                                            ERROR("Undefined macro: FBM" + s)
                                         }
-                                    } else {
-                                        ERROR("Bad feedback value:" + s)
                                     }
                                 } else {
-                                    Parser.Ungetch()
-                                    Parser.Ungetch()
-                                    comp.assertIsChannelName(c)
+                                    ERROR("Bad feedback value:" + s)
                                 }
                             } else {
                                 Parser.Ungetch()
                                 Parser.Ungetch()
                                 comp.assertIsChannelName(c)
                             }
-                        }
-
-                    } else if m == 'T' {
-                        characterHandled = true
-                        s := Parser.GetNumericString()
-                        num, err := strconv.Atoi(s)
-                        if err == nil {
-                            idx := -1
-                            if comp.CurrSong.Target.GetID() != targets.TARGET_AT8 {
-                                idx = effects.Filters.FindKey(num)
-                            }
-                            if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                ERROR("FT requires at least one active channel")
-                            } else if idx >= 0 {
-                                for _, chn := range comp.CurrSong.Channels {
-                                    if chn.Active {
-                                        if chn.SupportsFilter() {
-                                            chn.AddCmd([]int{defs.CMD_FILTER, idx + 1})
-                                            effects.Filters.AddRef(num)
-                                        } else {
-                                            WARNING("Unsupported command for this channel: FT")
-                                        }
-                                    }
-                                }
-                            } else if comp.CurrSong.Target.GetID() == targets.TARGET_AT8 && num == 0 {
-                                comp.applyCmdOnAllActive("FT", []int{defs.CMD_FILTER, 1})
-                            } else {
-                                ERROR("Undefined macro: FT" + s)
-                            }
                         } else {
-                            m = Parser.Getch()
-                            t := string(byte(m)) + string(byte(Parser.Getch()))
-                            if t == "OF" {
-                                for _, chn := range comp.CurrSong.Channels {
-                                    if chn.Active {
-                                        if chn.SupportsFilter() {
-                                            chn.AddCmd([]int{defs.CMD_FILTER, 0})
-                                        }
+                            Parser.Ungetch()
+                            Parser.Ungetch()
+                            comp.assertIsChannelName(c)
+                        }
+                    }
+
+                // Filter select ("FT<num>")
+                } else if Parser.PeekString(2) == "FT" {
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    s := Parser.GetNumericString()
+                    num, err := strconv.Atoi(s)
+                    if err == nil {
+                        idx := -1
+                        if comp.CurrSong.Target.GetID() != targets.TARGET_AT8 {
+                            idx = effects.Filters.FindKey(num)
+                        }
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            ERROR("FT requires at least one active channel")
+                        } else if idx >= 0 {
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if chn.SupportsFilter() {
+                                        chn.AddCmd([]int{defs.CMD_FILTER, idx + 1})
+                                        effects.Filters.AddRef(num)
+                                    } else {
+                                        WARNING("Unsupported command for this channel: FT")
                                     }
                                 }
-                            } else {
-                                ERROR("Syntax error: FT" + s)
+                            }
+                        } else if comp.CurrSong.Target.GetID() == targets.TARGET_AT8 && num == 0 {
+                            comp.applyCmdOnAllActive("FT", []int{defs.CMD_FILTER, 1})
+                        } else {
+                            ERROR("Undefined macro: FT" + s)
+                        }
+                    } else if Parser.PeekString(2) == "OF" {
+                        Parser.SkipN(2)
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.Active {
+                                if chn.SupportsFilter() {
+                                    chn.AddCmd([]int{defs.CMD_FILTER, 0})
+                                }
                             }
                         }
                     } else {
-                        Parser.Ungetch()
-                        comp.assertIsChannelName(c)
-                    }                   
-
+                        ERROR("Syntax error: expected FT<num> or FTOF")
+                    }
+         
+                // Loop
                 } else if c == 'L' {
+                    Parser.SkipN(1)
                     if comp.CurrSong.GetNumActiveChannels() == 0 || comp.lastWasChannelSelect {
                         if !strings.ContainsRune(comp.CurrSong.Target.GetChannelNames(), rune(c)) {
                             comp.writeAllPendingNotes(true)
-                            WARNING("Trying to set a loop point with no active channels")
+                            WARNING(fmt.Sprintf("Trying to set a loop point with no active channels (last=%d)", comp.lastWasChannelSelect))
                             characterHandled = true
                         }
                     } else {
@@ -3024,117 +2971,117 @@ func (comp *Compiler) CompileFile(fileName string) {
 
         
                 // Vibrato select                       
-                } else if c == 'M' {
-                    m := Parser.Getch()
-                    if m == 'P' {
+                } else if Parser.PeekString(2) == "MP" {
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    num, idx, err := comp.assertEffectIdExistsAndChannelsActive("MP", effects.Vibratos)
+
+                    if err == nil {
+                        idx |= effects.Vibratos.GetInt(num) * 0x80
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.Active {
+                                chn.AddCmd([]int{defs.CMD_VIBMAC, idx + 1})
+                                effects.Vibratos.AddRef(num)
+                                chn.UsesEffect["MP"] = true
+                            }
+                        }
+                    } else {
+                        comp.assertDisablingEffect("MP", defs.CMD_VIBMAC);
+                    }
+
+                } else if Parser.PeekString(2) == "MF" {
+                    Parser.SkipN(2)
+                    s := Parser.GetNumericString()
+                    if len(s) > 0 {
                         characterHandled = true
-                        num, idx, err := comp.assertEffectIdExistsAndChannelsActive("MP", effects.Vibratos)
-                        
+                        num, err := strconv.Atoi(s)
                         if err == nil {
-                            idx |= effects.Vibratos.GetInt(num) * 0x80
-                            for _, chn := range comp.CurrSong.Channels {
-                                if chn.Active {
-                                    chn.AddCmd([]int{defs.CMD_VIBMAC, idx + 1})
-                                    effects.Vibratos.AddRef(num)
-                                    chn.UsesEffect["MP"] = true
-                                }
-                            }
-                        } else {
-                            comp.assertDisablingEffect("MP", defs.CMD_VIBMAC);
-                        }
-                    } else if m == 'F' {
-                        s := Parser.GetNumericString()
-                        if len(s) > 0 {
-                            characterHandled = true
-                            num, err := strconv.Atoi(s)
-                            if err == nil {
-                                if inRange(num, 0, 15) {
-                                    if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                        ERROR("MF requires at least one active channel")
-                                    } else {
-                                        for _, chn := range comp.CurrSong.Channels {
-                                            if chn.Active {
-                                                if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_POKEY {
-                                                    if chn.GetChipID() == specs.CHIP_POKEY {
-                                                        if num == 0 {           // 15 kHz
-                                                            num = 1
-                                                        } else if num == 1 {    // 64 kHz
-                                                            num = 2
-                                                        } else if num == 2 {
-                                                            num = 3             // CPU clock    
-                                                        }
-                                                    }
-                                                    chn.AddCmd([]int{defs.CMD_MULT, num})
-                                                } else {
-                                                    WARNING("MF ignored for non-FM channel")
-                                                }
-                                            }
-                                        }
-                                    }
+                            if inRange(num, 0, 15) {
+                                if comp.CurrSong.GetNumActiveChannels() == 0 {
+                                    ERROR("MF requires at least one active channel")
                                 } else {
-                                    ERROR("MF out of range: " + s)
-                                } 
-                            } else {
-                                ERROR("Bad MF: " + s)
-                            }
-                        } else {
-                            Parser.Ungetch()
-                            comp.assertIsChannelName(c)
-                        }
-                    } else if m == 'O' {
-                        m = Parser.Getch()
-                        if m == 'D' {
-                            // Modulator select ("MOD<num>")
-                            s := Parser.GetNumericString()
-                            if len(s) > 0 {
-                                characterHandled = true
-                                num, err := strconv.Atoi(s)
-                                if err == nil {
-                                    idx := effects.MODs.FindKey(num)
-                                    if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                        ERROR("MOD requires at least one active channel")
-                                    } else if idx >= 0 {
-                                        for _, chn := range comp.CurrSong.Channels {
-                                            if chn.Active {
-                                                if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_HUC6280 {
-                                                    chn.AddCmd([]int{defs.CMD_MODMAC, idx + 1})
-                                                    effects.MODs.AddRef(num)
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        ERROR("Undefined macro: MOD" + s)
-                                    }
-                                } else {
-                                    ERROR("Bad MOD: " + s)
-                                }
-                            } else {
-                                m = Parser.Getch()
-                                t := string(byte(m)) + string(byte(Parser.Getch()))
-                                if t == "OF" {
-                                    // Modulator off ("MODOF")
-                                    characterHandled = true
                                     for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
-                                            if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_HUC6280 {
-                                                chn.AddCmd([]int{defs.CMD_MODMAC, 0})
+                                            if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_POKEY {
+                                                if chn.GetChipID() == specs.CHIP_POKEY {
+                                                    if num == 0 {           // 15 kHz
+                                                        num = 1
+                                                    } else if num == 1 {    // 64 kHz
+                                                        num = 2
+                                                    } else if num == 2 {
+                                                        num = 3             // CPU clock    
+                                                    }
+                                                }
+                                                chn.AddCmd([]int{defs.CMD_MULT, num})
+                                            } else {
+                                                WARNING("MF ignored for non-FM channel")
                                             }
                                         }
                                     }
-                                } else {
-                                    Parser.Ungetch()
-                                    Parser.Ungetch()
-                                    Parser.Ungetch()
-                                    Parser.Ungetch()
-                                    comp.assertIsChannelName(c)
+                                }
+                            } else {
+                                ERROR("MF out of range: " + s)
+                            } 
+                        } else {
+                            ERROR("Bad MF: " + s)
+                        }
+                     } else {
+                        Parser.Ungetch()
+                        comp.assertIsChannelName(c)
+                    }
+
+                // Modulator select ("MOD<num>")
+                } else if Parser.PeekString(3) == "MOD" {
+                    Parser.SkipN(3)
+                    s := Parser.GetNumericString()
+                    if len(s) > 0 {
+                        characterHandled = true
+                        num, err := strconv.Atoi(s)
+                        if err == nil {
+                            idx := effects.MODs.FindKey(num)
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
+                                ERROR("MOD requires at least one active channel")
+                            } else if idx >= 0 {
+                                for _, chn := range comp.CurrSong.Channels {
+                                    if chn.Active {
+                                        if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_HUC6280 {
+                                            chn.AddCmd([]int{defs.CMD_MODMAC, idx + 1})
+                                            effects.MODs.AddRef(num)
+                                        }
+                                    }
+                                }
+                            } else {
+                                ERROR("Undefined macro: MOD" + s)
+                            }
+                        } else {
+                            ERROR("Bad MOD: " + s)
+                        }
+                    } else {
+                        m := Parser.Getch()
+                        t := string(byte(m)) + string(byte(Parser.Getch()))
+                        if t == "OF" {
+                            // Modulator off ("MODOF")
+                            characterHandled = true
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if chn.SupportsFM() || chn.GetChipID() == specs.CHIP_HUC6280 {
+                                        chn.AddCmd([]int{defs.CMD_MODMAC, 0})
+                                    }
                                 }
                             }
                         } else {
                             Parser.Ungetch()
                             Parser.Ungetch()
+                            Parser.Ungetch()
+                            Parser.Ungetch()
                             comp.assertIsChannelName(c)
                         }
-                    } else if IsNumeric(m) {
+                    }
+
+                } else if c == 'M' {
+                    Parser.SkipN(1)
+                    m := Parser.Getch()
+                    if IsNumeric(m) {
                         // Mode change ("M<num>")
                         characterHandled = true
                         Parser.Ungetch()
@@ -3157,9 +3104,9 @@ func (comp *Compiler) CompileFile(fileName string) {
                     }
 
                 // FM operator select
-                } else if c == 'O' {
-                    m := Parser.Getch()
-                    if m == 'P' && !comp.lastWasChannelSelect {
+                } else if Parser.PeekString(2) == "OP" {
+                    Parser.SkipN(2)
+                    if !comp.lastWasChannelSelect {
                         s := Parser.GetNumericString()
                         if len(s) > 0 {
                             characterHandled = true
@@ -3187,248 +3134,210 @@ func (comp *Compiler) CompileFile(fileName string) {
                     }
 
                 // Portamento select
-                } else if c == 'P' {
-                    m := Parser.Getch()
-                    if m == 'T' {
-                        characterHandled = true
-                        s := Parser.GetNumericString()
-                        num, err := strconv.Atoi(s)
-                        if err == nil {
-                            idx := effects.Portamentos.FindKey(num)
-                            if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                ERROR("PT requires at least one active channel")
-                            } else if idx >= 0 {
-                                // TODO: set portamento
-                                WARNING("PT command not yet implemented")
-                            } else {
-                                ERROR("Undefined macro: PT" + s)
-                            }
+                } else if Parser.PeekString(2) == "PT" {
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    s := Parser.GetNumericString()
+                    num, err := strconv.Atoi(s)
+                    if err == nil {
+                        idx := effects.Portamentos.FindKey(num)
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            ERROR("PT requires at least one active channel")
+                        } else if idx >= 0 {
+                            // TODO: set portamento
+                            WARNING("PT command not yet implemented")
                         } else {
-                            m = Parser.Getch()
-                            t := string(byte(m)) + string(byte(Parser.Getch()))
-                            if t == "OF" {
-                                // TODO: deactivate portamento
-                            } else {
-                                ERROR("Syntax error: PT" + s)
-                            }
+                            ERROR("Undefined macro: PT" + s)
                         }
                     } else {
-                        Parser.Ungetch()
-                        comp.assertIsChannelName(c)
+                        m := Parser.Getch()
+                        t := string(byte(m)) + string(byte(Parser.Getch()))
+                        if t == "OF" {
+                            // TODO: deactivate portamento
+                        } else {
+                            ERROR("Syntax error: PT" + s)
+                        }
                     }
 
-                // Rate scale / Ring modulation
-                } else if c == 'R' {
-                    m := Parser.Getch()
-                    if m == 'I' {
-                        s := string(byte(Parser.Getch()))
-                        s += string(byte(Parser.Getch()))
-                        if s == "NG" {
-                            // Ring modulation select ("RING<num>")
-                            characterHandled = true
-                            s = Parser.GetNumericString()
-                            num, err := strconv.Atoi(s)
-                            if err == nil {
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    ERROR("RING requires at least one active channel")
-                                } else if inRange(num, 0, 1) {
-                                    for _, chn := range comp.CurrSong.Channels {
-                                        if chn.Active {
-                                            if chn.SupportsRingMod() {
-                                                chn.AddCmd([]int{defs.CMD_HWRM, num})
-                                            } else {
-                                                WARNING("Unsupported command for this channel: RING")
-                                            }
-                                        }
+
+                // Ring modulation select ("RING<num>")
+                } else if Parser.PeekString(4) == "RING" {
+                    Parser.SkipN(4)
+                    characterHandled = true
+                    s := Parser.GetNumericString()
+                    num, err := strconv.Atoi(s)
+                    if err == nil {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            ERROR("RING requires at least one active channel")
+                        } else if inRange(num, 0, 1) {
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if chn.SupportsRingMod() {
+                                        chn.AddCmd([]int{defs.CMD_HWRM, num})
+                                    } else {
+                                        WARNING("Unsupported command for this channel: RING")
                                     }
-                                } else {
-                                    ERROR("RING out of range: " + s)
                                 }
-                            } else {
-                                ERROR("Syntax error: RING" + s)
                             }
                         } else {
-                            Parser.Ungetch()
-                            Parser.Ungetch()
-                            Parser.Ungetch()
-                            comp.assertIsChannelName(c)
+                            ERROR("RING out of range: " + s)
                         }
+                    } else {
+                        ERROR("Syntax error: RING" + s)
+                    }
                         
-                    } else if m == 'S' && !comp.lastWasChannelSelect {
-                        // Rate scaling ("RS<num>")
-                        characterHandled = true
-                        s := Parser.GetNumericString()
-                        num, err := strconv.Atoi(s)
-                        if err == nil {
+                // Rate scaling ("RS<num>")
+                } else if Parser.PeekString(2) == "RS" && !comp.lastWasChannelSelect {
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    s := Parser.GetNumericString()
+                    num, err := strconv.Atoi(s)
+                    if err == nil {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            ERROR("RS requires at least one active channel")
+                        } else if inRange(num, 0, 3) {
+                            comp.applyCmdOnAllActiveFM("RS", []int{defs.CMD_RSCALE, num})
+                        } else {
+                            ERROR("RS out of range: " + s)
+                        }
+                    } else {
+                        ERROR("Syntax error: RS" + s)
+                    }
+
+                // Hard sync ("SYNC<num>")
+                } else if Parser.PeekString(4) == "SYNC" {
+                    Parser.SkipN(4)
+                    characterHandled = true
+                    s := Parser.GetNumericString()
+                    num, err := strconv.Atoi(s)
+                    if err == nil {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            ERROR("SYNC requires at least one active channel")
+                        } else if inRange(num, 0, 1) {
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if chn.SupportsRingMod() {
+                                        chn.AddCmd([]int{defs.CMD_SYNC, num})
+                                    } else {
+                                        WARNING("Unsupported command for this channel: SYNC")
+                                    }
+                                }
+                            }
+                        } else {
+                            ERROR("SYNC out of range: " + s)
+                        }
+                    } else {
+                        ERROR("Syntax error: SYNC" + s)
+                    }
+                
+                // SSG Envelope Generator mode ("SSG<num>")
+                } else if Parser.PeekString(3) == "SSG" {
+                    Parser.SkipN(3)
+                    characterHandled = true
+                    s := Parser.GetNumericString()
+                    num, err := strconv.Atoi(s)
+                    if err == nil {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            ERROR("SSG requires at least one active channel")
+                        } else if inRange(num, 0, 7) {
+                            comp.applyCmdOnAllActiveFM("SSG", []int{defs.CMD_SSG, num + 1})
+                        } else {
+                            ERROR("SSG out of range: " + s)
+                        }
+                    } else {
+                        m := Parser.Getch()
+                        t := string(byte(m)) + string(byte(Parser.Getch()))
+                        if t == "OF" {
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if chn.SupportsFM() {
+                                        chn.AddCmd([]int{defs.CMD_SSG, 0})
+                                    } else {
+                                        WARNING("SSG commands not supported for channel " + chn.GetName())
+                                    }
+                                }
+                            }
+                        } else {
+                            ERROR("Syntax error: SSG" + s)
+                        }
+                    }
+
+                } else if Parser.PeekString(2) == "WT" {
+                    // WT / WTM
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    isWTM := false
+                    m := Parser.Getch()
+                    if m == 'M' {
+                        isWTM = true
+                    } else {
+                        Parser.Ungetch()
+                    }
+                    s := Parser.GetNumericString()
+                    num, err := strconv.Atoi(s)
+                    if err == nil {
+                        if !isWTM {
+                            idx := effects.Waveforms.FindKey(num)
                             if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                ERROR("RS requires at least one active channel")
-                            } else if inRange(num, 0, 3) {
-                                comp.applyCmdOnAllActiveFM("RS", []int{defs.CMD_RSCALE, num})
-                            } else {
-                                ERROR("RS out of range: " + s)
+                                ERROR("WT requires at least one active channel")
+                            } else if idx >= 0 {
+                                if comp.CurrSong.GetNumActiveChannels() > 0 {
+                                    comp.applyEffectOnAllActiveSupported("WT", []int{defs.CMD_LDWAVE, idx + 1},
+                                                                    func(c *channel.Channel) bool { return c.SupportsWaveTable() },
+                                                                    effects.Waveforms, num)
+                                } else {
+                                    WARNING("Trying to use WT with no channels active")
+                                }
+                            } else if comp.CurrSong.Target.SupportsWaveTable() {
+                                ERROR("Undefined macro: WT" + s)
                             }
                         } else {
-                            ERROR("Syntax error: RS" + s)
-                        }
-                    } else {
-                        Parser.Ungetch()
-                        comp.assertIsChannelName(c)
-                    }
-
-                // SSG-EG mode / Hard sync
-                } else if c == 'S' {
-                    m := Parser.Getch()
-                    if m == 'Y' {
-                        s := string(byte(Parser.Getch()))
-                        s += string(byte(Parser.Getch()))
-                        if s == "NC" {
-                            // Hard sync ("SYNC<num>")
-                            characterHandled = true
-                            s = Parser.GetNumericString()
-                            num, err := strconv.Atoi(s)
-                            if err == nil {
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    ERROR("SYNC requires at least one active channel")
-                                } else if inRange(num, 0, 1) {
-                                    for _, chn := range comp.CurrSong.Channels {
-                                        if chn.Active {
-                                            if chn.SupportsRingMod() {
-                                                chn.AddCmd([]int{defs.CMD_SYNC, num})
-                                            } else {
-                                                WARNING("Unsupported command for this channel: SYNC")
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    ERROR("SYNC out of range: " + s)
-                                }
-                            } else {
-                                ERROR("Syntax error: SYNC" + s)
-                            }
-                        } else {
-                            Parser.Ungetch()
-                            Parser.Ungetch()
-                            Parser.Ungetch()
-                            comp.assertIsChannelName(c)
-                        }
-                    
-                    } else if m == 'S' {
-                        s := string(byte(m))
-                        s += string(byte(Parser.Getch()))
-                        if s == "SG" {
-                            characterHandled = true
-                            s = Parser.GetNumericString()
-                            num, err := strconv.Atoi(s)
-                            if err == nil {
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    ERROR("SSG requires at least one active channel")
-                                } else if inRange(num, 0, 7) {
-                                    comp.applyCmdOnAllActiveFM("SSG", []int{defs.CMD_SSG, num + 1})
-                                } else {
-                                    ERROR("SSG out of range: " + s)
-                                }
-                            } else {
-                                m = Parser.Getch()
-                                t := string(byte(m)) + string(byte(Parser.Getch()))
-                                if t == "OF" {
-                                    for _, chn := range comp.CurrSong.Channels {
-                                        if chn.Active {
-                                            if chn.SupportsFM() {
-                                                chn.AddCmd([]int{defs.CMD_SSG, 0})
-                                            } else {
-                                                WARNING("SSG commands not supported for channel " + chn.GetName())
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    ERROR("Syntax error: SSG" + s)
-                                }
-                            }
-                        }
-                    } else {
-                        Parser.Ungetch()
-                        comp.assertIsChannelName(c)
-                    }
-
-                } else if c == 'W' {
-                    m := Parser.Getch()
-                    if m == 'T' {
-                        characterHandled = true
-                        isWTM := false
-                        m = Parser.Getch()
-                        if m == 'M' {
-                            isWTM = true
-                        } else {
-                            Parser.Ungetch()
-                        }
-                        s := Parser.GetNumericString()
-                        num, err := strconv.Atoi(s)
-                        if err == nil {
-                            if !isWTM {
-                                idx := effects.Waveforms.FindKey(num)
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    ERROR("WT requires at least one active channel")
-                                } else if idx >= 0 {
-                                    if comp.CurrSong.GetNumActiveChannels() > 0 {
-                                        comp.applyEffectOnAllActiveSupported("WT", []int{defs.CMD_LDWAVE, idx + 1},
-                                                                        func(c *channel.Channel) bool { return c.SupportsWaveTable() },
-                                                                        effects.Waveforms, num)
-                                    } else {
-                                        WARNING("Trying to use WT with no channels active")
-                                    }
-                                } else if comp.CurrSong.Target.SupportsWaveTable() {
-                                    ERROR("Undefined macro: WT" + s)
-                                }
-                            } else {
-                                idx := effects.WaveformMacros.FindKey(num)
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    ERROR("WTM requires at least one active channel")
-                                } else if idx >= 0 {
-                                    if comp.CurrSong.GetNumActiveChannels() > 0 {
-                                        comp.applyEffectOnAllActiveSupported("WTM", []int{defs.CMD_WAVMAC, idx + 1},
-                                                                        func(c *channel.Channel) bool { return c.SupportsWaveTable() },
-                                                                        effects.WaveformMacros, num)
-                                        /*for i = 1 to length(supportedChannels) do
-                                            if activeChannels[i] then
-                                                if supportsWave[i] then
-                                                    chn.AddCmd([]int{defs.CMD_WAVMAC, idx})
-                                                    waveformMacros = assoc_reference(waveformMacros, o[2])
-                                                else
-                                                    WARNING("Unsupported command for channel " & supportedChannels[i] & ": WTM")
-                                                end if
+                            idx := effects.WaveformMacros.FindKey(num)
+                            if comp.CurrSong.GetNumActiveChannels() == 0 {
+                                ERROR("WTM requires at least one active channel")
+                            } else if idx >= 0 {
+                                if comp.CurrSong.GetNumActiveChannels() > 0 {
+                                    comp.applyEffectOnAllActiveSupported("WTM", []int{defs.CMD_WAVMAC, idx + 1},
+                                                                    func(c *channel.Channel) bool { return c.SupportsWaveTable() },
+                                                                    effects.WaveformMacros, num)
+                                    /*for i = 1 to length(supportedChannels) do
+                                        if activeChannels[i] then
+                                            if supportsWave[i] then
+                                                chn.AddCmd([]int{defs.CMD_WAVMAC, idx})
+                                                waveformMacros = assoc_reference(waveformMacros, o[2])
+                                            else
+                                                WARNING("Unsupported command for channel " & supportedChannels[i] & ": WTM")
                                             end if
-                                        end for*/
-                                    } else {
-                                        WARNING("Trying to use WTM with no channels active")
-                                    }
-                                } else if comp.CurrSong.Target.SupportsWaveTable() {
-                                    ERROR("Undefined macro: WTM" + s)
+                                        end if
+                                    end for*/
+                                } else {
+                                    WARNING("Trying to use WTM with no channels active")
                                 }
-                            }
-                        } else {
-                            m = Parser.Getch()
-                            t := string(byte(m)) + string(byte(Parser.Getch()))
-                            if t == "OF" {
-                                for _, chn := range comp.CurrSong.Channels {
-                                    if chn.Active {
-                                        if chn.SupportsWaveTable() {
-                                            chn.AddCmd([]int{defs.CMD_LDWAVE, 0})
-                                        } else {
-                                            WARNING("WT commands not supported for channel " + chn.GetName())
-                                        }
-                                    }
-                                }
-                            } else {
-                                ERROR("Syntax error: WT" + s)
+                            } else if comp.CurrSong.Target.SupportsWaveTable() {
+                                ERROR("Undefined macro: WTM" + s)
                             }
                         }
                     } else {
-                        Parser.Ungetch()
-                        comp.assertIsChannelName(c)
+                        m = Parser.Getch()
+                        t := string(byte(m)) + string(byte(Parser.Getch()))
+                        if t == "OF" {
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if chn.SupportsWaveTable() {
+                                        chn.AddCmd([]int{defs.CMD_LDWAVE, 0})
+                                    } else {
+                                        WARNING("WT commands not supported for channel " + chn.GetName())
+                                    }
+                                }
+                            }
+                        } else {
+                            ERROR("Syntax error: WT" + s)
+                        }
                     }
 
                 // Noise speed
                 } else if c == 'n' {
+                    Parser.SkipN(1)
                     characterHandled = true
                     s := Parser.GetNumericString()
                     num, err := strconv.Atoi(s)
@@ -3455,31 +3364,27 @@ func (comp *Compiler) CompileFile(fileName string) {
                         ERROR("Bad n: " + s)
                     }
                     
-                } else if c == 'p' {
-                    m := Parser.Getch()
-                    if m == 'w' {
-                        characterHandled = true
-                        s := Parser.GetNumericString()
-                        num, err := strconv.Atoi(s)
-                        if err == nil && inRange(num, 0, 15) {
-                            if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                ERROR("pw requires at least one active channel")
-                            } else {
-                                if comp.CurrSong.GetNumActiveChannels() > 0 {
-                                    comp.applyCmdOnAllActive("pw", []int{defs.CMD_PULSE | num})
-                                } else {
-                                    WARNING("Trying to use pw with no channels active")
-                                }
-                            }
+                } else if Parser.PeekString(2) == "pw" {
+                    Parser.SkipN(2)
+                    characterHandled = true
+                    s := Parser.GetNumericString()
+                    num, err := strconv.Atoi(s)
+                    if err == nil && inRange(num, 0, 15) {
+                        if comp.CurrSong.GetNumActiveChannels() == 0 {
+                            ERROR("pw requires at least one active channel")
                         } else {
-                            ERROR("Bad pw: " + s)
+                            if comp.CurrSong.GetNumActiveChannels() > 0 {
+                                comp.applyCmdOnAllActive("pw", []int{defs.CMD_PULSE | num})
+                            } else {
+                                WARNING("Trying to use pw with no channels active")
+                            }
                         }
                     } else {
-                        Parser.Ungetch()
-                        comp.assertIsChannelName(c)
+                        ERROR("Bad pw: " + s)
                     }
                 
                 } else if c == 'w' {
+                    Parser.SkipN(1)
                     wrType := defs.CMD_WRMEM
                     m := Parser.Getch()
                     if m == '(' {
@@ -3531,16 +3436,20 @@ func (comp *Compiler) CompileFile(fileName string) {
                 }
                 
                 if !characterHandled {
+                    Parser.SkipN(1)
+                    comp.assertIsChannelName(c)
+                    //fmt.Printf("Char not handled: '%c' on line %d (c3='%c')\n", c, Parser.LineNum, c3)
                     for _, chn := range comp.CurrSong.Channels {
                         if !comp.lastWasChannelSelect {
-                        chn.Active = false
-                    }
+                            chn.Active = false
+                        }
                         if chn.GetName() == string(byte(c)) {
                             chn.Active = true
                         }
                     }
                 }
             } else if strings.ContainsRune("\t\r\n ", rune(c)) {
+                //fmt.Printf("Whitespace on line %d\n", Parser.LineNum)
                 for _, chn := range comp.CurrSong.Channels {
                     chn.WriteNote(c == 10)
                 }
@@ -3551,12 +3460,17 @@ func (comp *Compiler) CompileFile(fileName string) {
                     ERROR("Unexpected character: " + string(byte(c)))
                 }
             }
-
+            
             comp.lastWasChannelSelect = strings.ContainsRune(comp.CurrSong.Target.GetChannelNames(), rune(c2))
+            /*if comp.lastWasChannelSelect {
+                fmt.Printf("%c on line %d\n", c2, Parser.LineNum)
+            } else {
+                fmt.Printf("'%c' on line %d\n", c2, Parser.LineNum)
+            }*/          
         }               
                 
     }
     
     comp.writeAllPendingNotes(true)
-    Parser = OldParsers.Pop()
+    Parser = OldParsers.PopParserState()
 }

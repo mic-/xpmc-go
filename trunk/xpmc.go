@@ -90,7 +90,7 @@ func main() {
         timing.SupportedLengths = defs.EXTENDED_LENGTHS()
     }
     
-    utils.OldParsers = utils.NewParserStateStack()
+    utils.OldParsers = utils.NewGenericStack()
     
     utils.Verbose(false)
     utils.WarningsAreErrors(false)
