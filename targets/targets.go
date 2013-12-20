@@ -528,8 +528,8 @@ func (t *TargetGBC) Output(outputVgm int) {
     }
     outFile.WriteString("\n")
 
-    utils.INFO(fmt.Sprintf("Size of effect tables: %d bytes\n", tableSize))
-    utils.INFO(fmt.Sprintf("Size of waveform table: %d bytes\n", wavSize))
+    utils.INFO("Size of effect tables: %d bytes", tableSize)
+    utils.INFO("Size of waveform table: %d bytes", wavSize)
 
     /*patSize = 0
     for n = 1 to length(patterns[2]) do
@@ -595,7 +595,7 @@ func (t *TargetGBC) Output(outputVgm int) {
         }
     }
 
-    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize)) // ToDo: + patSize )
+    utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize) // ToDo: + patSize )
     
     outFile.WriteString(".ENDIF")
     outFile.Close()
@@ -696,7 +696,7 @@ func (t *TargetKSS) Output(outputVgm int) {
     // ToDo: finish
     
     outFile.Close()
-    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize)) // ToDo: + patSize + cbSize + wavSize)
+    utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize) // ToDo: + patSize + cbSize + wavSize)
 }
 
 
@@ -838,12 +838,12 @@ func (t *TargetSMS) Output(outputVgm int) {
     }
     outFile.WriteString("\n")
 
-    utils.INFO(fmt.Sprintf("Size of effect tables: %d bytes\n", tableSize))
+    utils.INFO("Size of effect tables: %d bytes", tableSize)
 
         
     songSize := 0
     
-    utils.INFO(fmt.Sprintf("Total size of song(s): %d bytes\n", songSize + tableSize))
+    utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
     outFile.Close()
 }
 
