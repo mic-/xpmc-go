@@ -130,21 +130,23 @@ var definedSymbols map[string]bool
 
 // Compiler messages
 
-func ERROR(msg string) {
-    fmt.Printf("[%s:%d] Error: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
+func ERROR(msg string, args ...interface{}) {
+    fmt.Printf(fmt.Sprintf("[%s:%d] Error: ", Parser.ShortFileName, Parser.LineNum) +
+               fmt.Sprintf(msg + "\n", args...))
     os.Exit(1)
 }
 
-func WARNING(msg string) {
-    fmt.Printf("[%s:%d] Warning: %s\n", Parser.ShortFileName, Parser.LineNum, msg)
+func WARNING(msg string, args ...interface{}) {
+    fmt.Printf(fmt.Sprintf("[%s:%d] Warning: ", Parser.ShortFileName, Parser.LineNum) +
+               fmt.Sprintf(msg + "\n", args...))
     if warningsAreErrors {
         os.Exit(1)
     }
 }
 
-func INFO(msg string) {
+func INFO(msg string, args ...interface{}) {
     if verboseMode {
-        fmt.Printf("Info: %s\n", msg)
+        fmt.Printf("Info: " + msg + "\n", args...)
     }
 }
 
