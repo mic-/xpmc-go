@@ -82,3 +82,13 @@ func (song *Song) GetChannelType(chn int) int {
 func (song *Song) GetSmsTuning() bool {
     return song.TuneSmsPitch
 }
+
+func (song *Song) UsesChip(chipId int) bool {
+    channels := song.GetChannels()
+    for _, chn := range channels {
+        if chn.IsUsed() && chn.GetChipID() == chipId {
+            return true
+        }
+    }
+    return false
+}

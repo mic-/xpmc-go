@@ -5,7 +5,7 @@
  * Contains data/functions representing individual channels
  * of a song.
  *
- * /Mic, 2013
+ * /Mic, 2013-2014
  */
  
 package channel
@@ -105,6 +105,7 @@ type Channel struct {
     UsesEffect map[string]bool
     Loops *LoopStack
     ChannelSpecs defs.ISpecs
+    IsVirtualChannel bool
 }
 
 
@@ -149,6 +150,10 @@ func (chn *Channel) GetChipID() int {
         return chn.ChannelSpecs.GetIDs()[chn.Num]
     }
     return specs.CHIP_UNKNOWN
+}
+
+func (chn *Channel) IsVirtual() bool {
+    return chn.IsVirtualChannel
 }
 
 func (chn *Channel) IsUsed() bool {

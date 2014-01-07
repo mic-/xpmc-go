@@ -4,7 +4,7 @@
  * Part of XPMC.
  * Contains common constants, types and variables.
  *
- * /Mic, 2012-2013
+ * /Mic, 2012-2014
  */
  
 package defs
@@ -179,6 +179,7 @@ type ISong interface {
     GetComposer() string
     GetProgrammer() string
     GetSmsTuning() bool
+    UsesChip(chipId int) bool
 }
 
 type IChannel interface {
@@ -190,6 +191,7 @@ type IChannel interface {
     GetChipID() int
     IsUsed() bool
     IsUsingEffect(effName string) bool
+    IsVirtual() bool
 }
 
 type ICompiler interface {

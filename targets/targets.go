@@ -563,9 +563,9 @@ func (t *TargetGBC) Output(outputVgm int) {
     for n, sng := range songs {
         channels := sng.GetChannels()
         for _, chn := range channels {  
-            /*if i == len(channels) - 1 {
-                continue        // Skip the last channel (the pattern)
-            }*/
+            if chn.IsVirtual() {
+                continue       
+            }
             outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
             commands := chn.GetCommands()
             for j, cmd := range commands {
@@ -587,9 +587,9 @@ func (t *TargetGBC) Output(outputVgm int) {
     for n, sng := range songs {
         channels := sng.GetChannels()
         for _, chn := range channels { 
-            /*if i == len(channels) - 1 {
-                continue        // Skip the last channel (the pattern)
-            }*/
+            if chn.IsVirtual() {
+                continue
+            }
             outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
             songSize += 2
         }
@@ -702,7 +702,142 @@ func (t *TargetKSS) Output(outputVgm int) {
 
 func (t *TargetSGG) Output(outputVgm int) {
     fmt.Printf("TargetSGG.Output\n")
+
+    fileEnding := ".asm"
+    if outputVgm == 1 {
+        fileEnding = ".vgm"
+    } else if outputVgm == 2 {
+        fileEnding = ".vgz"
+    }
+
+    if outputVgm != 0 {
+        // ToDo: output VGM/VGZ
+        return
+    }
+  
+    outFile, err := os.Create(t.CompilerItf.GetShortFileName() + fileEnding)
+    if err != nil {
+        utils.ERROR("Unable to open file: " + t.CompilerItf.GetShortFileName() + fileEnding)
+    }
+
+    now := time.Now()
+    outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
+
+    outFile.WriteString(".DEFINE XPMP_GAME_GEAR\n")
+
+    palNtscString := ".db 0"
+    t.MachineSpeed = 3579545
+
+    // Output the SGC header
+    outFile.WriteString(
+    ".IFDEF XPMP_MAKE_SGC\n\n" +
+    ".MEMORYMAP\n" +
+    "\tDEFAULTSLOT 1\n" +
+    "\tSLOTSIZE $4000\n" +
+    "\tSLOT 0 $0000\n" +
+    "\tSLOT 1 $4000\n" +
+    ".ENDME\n\n")
+    outFile.WriteString(
+    ".ROMBANKSIZE $4000\n" +
+    ".ROMBANKS 2\n" +
+    ".BANK 0 SLOT 0\n" +
+    ".ORGA $00\n\n")
+
+    systemType := 0     // SMS
+    if !t.SupportsPal {
+        systemType = 1  // GG
+    }
+    outFile.WriteString(
+    ".db \"SGC\"\n" +
+    ".db $1A\n" +
+    ".db 1\t\t; Version\n" +
+    palNtscString + "\n" + 
+    ".db 0, 0\n" +
+    ".dw $0400\t; Load address\n" +
+    ".dw $0400\t; Init address\n" +
+    ".dw $0408\t; Play address\n" +
+    ".dw $dff0\t; Stack pointer\n" +
+    ".dw 0\t\t; Reserved\n" +
+    ".dw $040C\t; RST 08\n" +
+    ".dw $040C\t; RST 10\n" +
+    ".dw $040C\t; RST 18\n" +
+    ".dw $040C\t; RST 20\n" +
+    ".dw $040C\t; RST 28\n" +
+    ".dw $040C\t; RST 30\n" +
+    ".dw $040C\t; RST 38\n" +
+    ".db 0, 0, 1, 2\t; Mapper setting (none)\n" +
+    ".db 0\t\t; Start song\n" +
+    fmt.Sprintf(".db %d\t\t; Number of songs\n", len(t.CompilerItf.GetSongs())) +
+    ".db 0, 0\t; Sound effects (none)\n" +
+    fmt.Sprintf(".db %d\t\t; System type\n", systemType) +
+    ".dw 0,0,0,0,0,0,0,0,0,0,0 ; Reserved\n" +
+    ".db 0")
+
+    outputStringWithExactLength(outFile, t.CompilerItf.GetSongs()[0].GetTitle(), 32)
+    outputStringWithExactLength(outFile, t.CompilerItf.GetSongs()[0].GetComposer(), 32)
+    outputStringWithExactLength(outFile, t.CompilerItf.GetSongs()[0].GetProgrammer(), 32)  
+    
+    outFile.WriteString(".INCBIN \"sgc.bin\"\n\n")
+    outFile.WriteString(".ELSE\n\n") 
+    
+    t.outputEffectFlags(outFile, FORMAT_WLA_DX)
+         
+    tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros, true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EP_mac", effects.PitchMacros,  true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EN_mac", effects.Arpeggios,    true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MP_mac", effects.Vibratos,     false, 1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,    true,  1, 0x80)
+    
+    outFile.WriteString("\n")
+
+    utils.INFO("Size of effect tables: %d bytes", tableSize)
+
+        
+    songSize := 0
+
+    songs := t.CompilerItf.GetSongs()
+    for n, sng := range songs {
+        channels := sng.GetChannels()
+        for _, chn := range channels {  
+            if chn.IsVirtual() {
+                continue       
+            }
+            outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
+            commands := chn.GetCommands()
+            for j, cmd := range commands {
+                if (j % 16) == 0 {
+                    outFile.WriteString("\n.db ")
+                }
+                outFile.WriteString(fmt.Sprintf("$%02x", cmd & 0xFF))
+                songSize++
+                if j < len(commands)-1 && (j % 16) != 15 {
+                   outFile.WriteString(",")
+                }
+            }
+            outFile.WriteString("\n")
+            fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", n, chn.GetName(), len(commands), utils.Round2(float64(chn.GetTicks())), utils.Round2(float64(chn.GetLoopTicks())))
+        }
+    }
+    
+    outFile.WriteString("\nxpmp_song_tbl:\n")
+    for n, sng := range songs {
+        channels := sng.GetChannels()
+        for _, chn := range channels { 
+            if chn.IsVirtual() {
+                continue
+            }
+            outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
+            songSize += 2
+        }
+    }
+    
+    utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
+    outFile.Close()    
 }
+
+
+/********************************************************************************/
 
 
 func (t *TargetSMS) Output(outputVgm int) {
@@ -733,10 +868,6 @@ func (t *TargetSMS) Output(outputVgm int) {
     now := time.Now()
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
 
-    if !t.SupportsPal {
-        outFile.WriteString(".DEFINE XPMP_GAME_GEAR\n")
-    }
-
     palNtscString := ".db 0"
     if timing.UpdateFreq == 50 {
         outFile.WriteString(".DEFINE XPMP_50_HZ\n")
@@ -746,7 +877,7 @@ func (t *TargetSMS) Output(outputVgm int) {
         t.MachineSpeed = 3579545
     }
 
-    if t.ID == TARGET_SMS && t.CompilerItf.GetSongs()[0].GetSmsTuning() {
+    if t.CompilerItf.GetSongs()[0].GetSmsTuning() {
         outFile.WriteString(".DEFINE XPMP_TUNE_SMS\n")
     }
 
@@ -804,24 +935,16 @@ func (t *TargetSMS) Output(outputVgm int) {
     
     t.outputEffectFlags(outFile, FORMAT_WLA_DX)
     
-    if t.ID == TARGET_SMS {
-        usesFM := false
-        songs := t.CompilerItf.GetSongs()
-        for _, sng := range songs {
-            channels := sng.GetChannels()
-            for _, chn := range channels {
-                if chn.IsUsed() && chn.GetChipID() == specs.CHIP_YM2413 {
-                    usesFM = true
-                    break
-                }
-            }
-            if usesFM {
-                break
-            }
-        }
+    usesFM := false
+    songs := t.CompilerItf.GetSongs()
+    for _, sng := range songs {
+        usesFM = sng.UsesChip(specs.CHIP_YM2413)
         if usesFM {
-            outFile.WriteString(".DEFINE XPMP_ENABLE_FM\n")
+            break
         }
+    }
+    if usesFM {
+        outFile.WriteString(".DEFINE XPMP_ENABLE_FM\n")
     }
         
     tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
@@ -832,16 +955,53 @@ func (t *TargetSMS) Output(outputVgm int) {
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,    true,  1, 0x80)
     
     outFile.WriteString("xpmp_ADSR_tbl:\n")
-    for _, enve := range envelopes {
-        outFile.WriteString(fmt.Sprintf(".db $%02x,$%02x\n", enve[0], enve[1]))
-        tableSize += 2
+    if usesFM {
+        for _, enve := range envelopes {
+            outFile.WriteString(fmt.Sprintf(".db $%02x,$%02x\n", enve[0], enve[1]))
+            tableSize += 2
+        }
     }
     outFile.WriteString("\n")
 
     utils.INFO("Size of effect tables: %d bytes", tableSize)
-
         
     songSize := 0
+
+    songs = t.CompilerItf.GetSongs()
+    for n, sng := range songs {
+        channels := sng.GetChannels()
+        for _, chn := range channels {  
+            if chn.IsVirtual() {
+                continue       
+            }
+            outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
+            commands := chn.GetCommands()
+            for j, cmd := range commands {
+                if (j % 16) == 0 {
+                    outFile.WriteString("\n.db ")
+                }
+                outFile.WriteString(fmt.Sprintf("$%02x", cmd & 0xFF))
+                songSize++
+                if j < len(commands)-1 && (j % 16) != 15 {
+                   outFile.WriteString(",")
+                }
+            }
+            outFile.WriteString("\n")
+            fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", n, chn.GetName(), len(commands), utils.Round2(float64(chn.GetTicks())), utils.Round2(float64(chn.GetLoopTicks())))
+        }
+    }
+    
+    outFile.WriteString("\nxpmp_song_tbl:\n")
+    for n, sng := range songs {
+        channels := sng.GetChannels()
+        for _, chn := range channels { 
+            if chn.IsVirtual() {
+                continue
+            }
+            outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
+            songSize += 2
+        }
+    }
     
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
     outFile.Close()
