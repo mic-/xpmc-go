@@ -1701,8 +1701,6 @@ func (comp *Compiler) CompileFile(fileName string) {
                                             chn.UsesEffect["MP"] = true
                                             chn.UsesEffect["DM"] = true
                                             chn.UsesEffect["pw"] = true
-                                            /*usesEffect[i] = or_bits(usesEffect[i], {1,1,1,1,1,1})
-                                            songLen[songNum][i] += patterns[4][idx]*/
                                         }
                                     }
                                 } else {
@@ -1752,7 +1750,6 @@ func (comp *Compiler) CompileFile(fileName string) {
                 Parser.SkipWhitespace()
                 m := Parser.Getch()
                 t := ""
-                fmt.Printf("Macro definition, line %d\n", Parser.LineNum)
                 if len(s) > 0 {
                     comp.macro = &MmlMacro{}
                     n := 1
@@ -1788,7 +1785,6 @@ func (comp *Compiler) CompileFile(fileName string) {
                             defaultParm := []string{}
                             idx := comp.macros.FindKey(s)
                             if idx >= 0 {
-                                // ToDo: fix
                                 // Expand the macro
                                 for _, token := range comp.macros.data[idx].data {
                                     if token.typ == CHAR_VERBATIM {
@@ -1820,12 +1816,8 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     }
                                 }
                                 fmt.Printf("Macro expanded to %s on line %d\n", expandedMacro, Parser.LineNum)
-                                // ToDo: fix
-                                /*if fileDataPos <= len(fileData) then
-                                    fileData = fileData[1..fileDataPos-1] & u & fileData[fileDataPos..length(fileData)]
-                                } else {
-                                    fileData &= u
-                                }*/
+
+                                Parser.InsertString(expandedMacro)
 
                                 if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     ERROR("Trying to invoke a macro with no channels active")

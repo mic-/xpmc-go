@@ -176,6 +176,17 @@ func IsDefined(sym string) int {
 
 ////////
 
+func (p *ParserState) InsertString(s string) {
+    if p.fileDataPos < len(p.fileData) {
+        tail := make([]byte, len(p.fileData[p.fileDataPos:]))
+        copy(tail, p.fileData[p.fileDataPos:])
+        p.fileData = append(p.fileData[:p.fileDataPos], []byte(s)...)
+        p.fileData = append(p.fileData, tail...)
+    } else {
+        p.fileData = append(p.fileData, []byte(s)...)
+    }
+}
+
 func (p *ParserState) Getch() int {
     c := -1
     if p.fileDataPos < len(p.fileData) {
