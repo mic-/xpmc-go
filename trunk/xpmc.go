@@ -1,8 +1,10 @@
 package main
 
 import (
+    //"flag"
     "fmt"
     "os"
+    //"runtime/pprof"
     "strings"
     "./compiler"
     "./defs"
@@ -14,7 +16,8 @@ import (
 
 
 var target int
-
+/*var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+var gbc = flag.String("gbc", "", "select GBC target")*/
 
 func showHelp(what string) {
     switch what {
@@ -83,6 +86,16 @@ func removeUnusedEffects(effectMap *effects.EffectMap, effectCmd int)
 
 
 func main() {
+    /*flag.Parse()
+    if *cpuprofile != "" {
+        f, err := os.Create(*cpuprofile)
+        if err != nil {
+            //log.Fatal(err)
+        }
+        pprof.StartCPUProfile(f)
+        defer pprof.StopCPUProfile()
+    }*/
+    
     timing.UpdateFreq = 60.0
     timing.UseFractionalDelays = true
 
