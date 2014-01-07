@@ -22,6 +22,7 @@ type Song struct {
     
     TuneSmsPitch bool
     
+    Num int
     Title string
     Composer string
     Programmer string
@@ -30,10 +31,11 @@ type Song struct {
 }
 
 
-func NewSong(targetId int, icomp defs.ICompiler) *Song {
+func NewSong(num int, targetId int, icomp defs.ICompiler) *Song {
     s := &Song{}
     s.Target = targets.NewTarget(targetId, icomp)
     s.Target.Init()
+    s.Num = num
     chnSpecs := s.Target.GetChannelSpecs()
     for i, _ := range chnSpecs.GetDuty() {
         chn := channel.NewChannel()
@@ -81,6 +83,10 @@ func (song *Song) GetChannelType(chn int) int {
 
 func (song *Song) GetSmsTuning() bool {
     return song.TuneSmsPitch
+}
+
+func (song *Song) GetNum() int {
+    return song.Num
 }
 
 func (song *Song) UsesChip(chipId int) bool {

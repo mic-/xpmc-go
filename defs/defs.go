@@ -179,6 +179,7 @@ type ISong interface {
     GetComposer() string
     GetProgrammer() string
     GetSmsTuning() bool
+    GetNum() int
     UsesChip(chipId int) bool
 }
 

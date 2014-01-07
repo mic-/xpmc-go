@@ -128,7 +128,7 @@ func (comp *Compiler) Init(target int) {
     comp.patterns = &MmlPatternMap{}
     
     comp.Songs = map[int]*song.Song{}
-    comp.CurrSong = song.NewSong(target, comp)
+    comp.CurrSong = song.NewSong(1, target, comp)
     comp.Songs[1] = comp.CurrSong
     
     comp.dontCompile = NewGenericStack()
@@ -483,36 +483,42 @@ func (comp *Compiler) handleMetaCommand() {
             if err == nil {
                 if num > 1 && num < 100 {
                     // ToDo: fix
-                    if true { //integer(songs[o[2]]) {
-                        /*m = -1
-                        l = 0
-                        for _, chn := range CurrSong.Channels {
-                            songLoopLen[songNum][i] = songLen[songNum][i] - songLoopLen[songNum][i]
+                    if _, songExists := comp.Songs[int(num)]; !songExists {
+                        //m = -1
+                        //l = 0
 
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.IsVirtual() {
+                                continue
+                            }
+                            if chn.Loops.Len() > 0 {
+                                utils.ERROR("Open [ loop on channel %s", chn.Name)
+                            }
+                            chn.LoopTicks = chn.Ticks - chn.LoopTicks
                             if chn.LoopPoint == -1 {
                                 chn.AddCmd([]int{defs.CMD_END})
                             } else {
                                 if !chn.HasAnyNote {
                                     chn.AddCmd([]int{defs.CMD_END})
                                 } else {
-                                    chn.AddCmd([]int{defs.CMD_JMP, (chn.LoopPoint & 0xFF), (chn.LoopPoint / 0x100)}
+                                    chn.AddCmd([]int{defs.CMD_JMP, chn.LoopPoint & 0xFF, chn.LoopPoint / 0x100})
                                 }
                             }
-                            loopPoint[i] = -1
-                        end for
-                        if keepChannelsActive or len(patName) {
-                            compiler.ERROR("Missing }")
                         }
-                        songNum = o[2]
+                        
+                        if comp.keepChannelsActive || (len(comp.patName) != 0) {
+                            utils.ERROR("Missing }")
+                        }
+                        
+                        /*songNum = o[2]
                         songs[songNum] = repeat({}, length(supportedChannels))
                         songLen[songNum] = repeat(0, length(supportedChannels))
                         hasAnyNote = repeat(0, length(supportedChannels))
-                        songLoopLen[songNum] = songLen[songNum]
-                        for i = 1 to length(loopStack) do
-                            if length(loopStack[i]) {
-                                ERROR("Open [ on channel ", supportedChannels[i])
-                            }
-                        }*/
+                        songLoopLen[songNum] = songLen[songNum]*/                   
+   
+                        comp.CurrSong = song.NewSong(int(num), comp.CurrSong.Target.GetID(), comp)
+                        comp.Songs[int(num)] = comp.CurrSong
+    
                     } else {
                         ERROR("Song " + s + " already defined")
                     }
@@ -2091,7 +2097,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             if chn.Active {
                                 chn.CurrentLength = 32.0 / float64(num)
                                 chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff, _ = chn.NoteLength(chn.CurrentLength)
-                                fmt.Printf("The new length is %d. %f active frames, %f cutoff frames\n", num, chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff)
+                                //fmt.Printf("The new length is %d. %f active frames, %f cutoff frames\n", num, chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff)
                                 chn.AddCmd([]int{defs.CMD_LEN})
                                 chn.WriteLength()
                             }

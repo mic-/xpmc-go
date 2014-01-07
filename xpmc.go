@@ -147,6 +147,9 @@ func main() {
                 // Insert END markers or jumps at the end of the command sequence for each channel
                 for _, song := range comp.Songs {
                     for _, chn := range song.Channels {
+                        if chn.IsVirtual() {
+                            continue
+                        }
                         chn.LoopTicks = chn.Ticks - chn.LoopTicks
                         if chn.LoopPoint == -1 {
                             chn.AddCmd([]int{defs.CMD_END})
@@ -159,7 +162,24 @@ func main() {
                         }
                     }
                 }
-   
+ 
+                ticks := -1
+                for _, song := range comp.Songs {
+                    for _, chn := range song.Channels {
+                        if chn.IsVirtual() {
+                            continue
+                        }
+                        if chn.HasAnyNote {
+                            if ticks == -1 {
+                                ticks = chn.Ticks
+                            } else if chn.Ticks != ticks {
+                                fmt.Printf("Warning: Mismatch in length between channels in song %d\n", song.Num)
+                                break
+                            }
+                        }
+                    }
+                }
+    
                 comp.CurrSong.Target.Output(0)
                 
                 return

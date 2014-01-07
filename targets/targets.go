@@ -559,41 +559,7 @@ func (t *TargetGBC) Output(outputVgm int) {
         printf(1, "Size of patterns table: %d bytes\n", patSize)
     end if*/
   
-    songs := t.CompilerItf.GetSongs()
-    for n, sng := range songs {
-        channels := sng.GetChannels()
-        for _, chn := range channels {  
-            if chn.IsVirtual() {
-                continue       
-            }
-            outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
-            commands := chn.GetCommands()
-            for j, cmd := range commands {
-                if (j % 16) == 0 {
-                    outFile.WriteString("\n.db ")
-                }
-                outFile.WriteString(fmt.Sprintf("$%02x", cmd & 0xFF))
-                songSize++
-                if j < len(commands)-1 && (j % 16) != 15 {
-                   outFile.WriteString(",")
-                }
-            }
-            outFile.WriteString("\n")
-            fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", n, chn.GetName(), len(commands), utils.Round2(float64(chn.GetTicks())), utils.Round2(float64(chn.GetLoopTicks())))
-        }
-    }
-    
-    outFile.WriteString("\nxpmp_song_tbl:\n")
-    for n, sng := range songs {
-        channels := sng.GetChannels()
-        for _, chn := range channels { 
-            if chn.IsVirtual() {
-                continue
-            }
-            outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
-            songSize += 2
-        }
-    }
+    songSize = t.outputChannelData(outFile, FORMAT_WLA_DX)
 
     utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize) // ToDo: + patSize )
     
@@ -695,6 +661,8 @@ func (t *TargetKSS) Output(outputVgm int) {
     
     // ToDo: finish
     
+    songSize = t.outputChannelData(outFile, FORMAT_WLA_DX)
+    
     outFile.Close()
     utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize) // ToDo: + patSize + cbSize + wavSize)
 }
@@ -794,44 +762,8 @@ func (t *TargetSGG) Output(outputVgm int) {
     utils.INFO("Size of effect tables: %d bytes", tableSize)
 
         
-    songSize := 0
-
-    songs := t.CompilerItf.GetSongs()
-    for n, sng := range songs {
-        channels := sng.GetChannels()
-        for _, chn := range channels {  
-            if chn.IsVirtual() {
-                continue       
-            }
-            outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
-            commands := chn.GetCommands()
-            for j, cmd := range commands {
-                if (j % 16) == 0 {
-                    outFile.WriteString("\n.db ")
-                }
-                outFile.WriteString(fmt.Sprintf("$%02x", cmd & 0xFF))
-                songSize++
-                if j < len(commands)-1 && (j % 16) != 15 {
-                   outFile.WriteString(",")
-                }
-            }
-            outFile.WriteString("\n")
-            fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", n, chn.GetName(), len(commands), utils.Round2(float64(chn.GetTicks())), utils.Round2(float64(chn.GetLoopTicks())))
-        }
-    }
-    
-    outFile.WriteString("\nxpmp_song_tbl:\n")
-    for n, sng := range songs {
-        channels := sng.GetChannels()
-        for _, chn := range channels { 
-            if chn.IsVirtual() {
-                continue
-            }
-            outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
-            songSize += 2
-        }
-    }
-    
+    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
+  
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
     outFile.Close()    
 }
@@ -965,44 +897,8 @@ func (t *TargetSMS) Output(outputVgm int) {
 
     utils.INFO("Size of effect tables: %d bytes", tableSize)
         
-    songSize := 0
-
-    songs = t.CompilerItf.GetSongs()
-    for n, sng := range songs {
-        channels := sng.GetChannels()
-        for _, chn := range channels {  
-            if chn.IsVirtual() {
-                continue       
-            }
-            outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
-            commands := chn.GetCommands()
-            for j, cmd := range commands {
-                if (j % 16) == 0 {
-                    outFile.WriteString("\n.db ")
-                }
-                outFile.WriteString(fmt.Sprintf("$%02x", cmd & 0xFF))
-                songSize++
-                if j < len(commands)-1 && (j % 16) != 15 {
-                   outFile.WriteString(",")
-                }
-            }
-            outFile.WriteString("\n")
-            fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", n, chn.GetName(), len(commands), utils.Round2(float64(chn.GetTicks())), utils.Round2(float64(chn.GetLoopTicks())))
-        }
-    }
-    
-    outFile.WriteString("\nxpmp_song_tbl:\n")
-    for n, sng := range songs {
-        channels := sng.GetChannels()
-        for _, chn := range channels { 
-            if chn.IsVirtual() {
-                continue
-            }
-            outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
-            songSize += 2
-        }
-    }
-    
+    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
+   
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
     outFile.Close()
 }
@@ -1044,6 +940,55 @@ func packMOD(modParams []int, chipType int) [] int {
     }
     
     return packedMod
+}
+
+
+func (t *Target) outputChannelData(outFile *os.File, outputFormat int) int {
+    songDataSize := 0
+    
+    switch outputFormat {
+    case FORMAT_WLA_DX:
+        songs := t.CompilerItf.GetSongs()
+        for n, sng := range songs {
+            channels := sng.GetChannels()
+            if n > 0 {
+                fmt.Printf("\n")
+            }
+            for _, chn := range channels {  
+                if chn.IsVirtual() {
+                    continue       
+                }
+                outFile.WriteString(fmt.Sprintf("xpmp_s%d_channel_%s:", n, chn.GetName()))
+                commands := chn.GetCommands()
+                for j, cmd := range commands {
+                    if (j % 16) == 0 {
+                        outFile.WriteString("\n.db ")
+                    }
+                    outFile.WriteString(fmt.Sprintf("$%02x", cmd & 0xFF))
+                    songDataSize++
+                    if j < len(commands)-1 && (j % 16) != 15 {
+                       outFile.WriteString(",")
+                    }
+                }
+                outFile.WriteString("\n")
+                fmt.Printf("Song %d, Channel %s: %d bytes, %d / %d ticks\n", sng.GetNum(), chn.GetName(), len(commands), utils.Round2(float64(chn.GetTicks())), utils.Round2(float64(chn.GetLoopTicks())))
+            }
+        }
+
+        outFile.WriteString("\nxpmp_song_tbl:\n")
+        for n, sng := range songs {
+            channels := sng.GetChannels()
+            for _, chn := range channels { 
+                if chn.IsVirtual() {
+                    continue
+                }
+                outFile.WriteString(fmt.Sprintf(".dw xpmp_s%d_channel_%s\n", n, chn.GetName()))
+                songDataSize += 2
+            }
+        }
+    }
+    
+    return songDataSize
 }
 
 
