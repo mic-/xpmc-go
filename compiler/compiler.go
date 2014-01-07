@@ -30,8 +30,8 @@ const (
 
 // For macro elements
 const (
-    INT_IMMEDIATE = 1
-    STRING_IMMEDIATE = 2
+    ARG_REFERENCE = 1
+    DEFAULT_PARAM = 2
     CHAR_VERBATIM = 3
 )
 
@@ -39,12 +39,11 @@ const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrtsuvwxyz
 
 type MmlMacroElement struct {
     typ int
-    intValue int
-    charValue byte
+    val interface{}
 }
 
 type MmlMacro struct {
-    data []MmlMacroElement
+    data []*MmlMacroElement
 }
 
 type MmlMacroMap struct {
@@ -68,6 +67,20 @@ func (m *MmlMacroMap) GetData(key string) *MmlMacro {
     }
     return nil
 }
+
+func (m *MmlMacro) AppendArgumentRef(x int) {
+    m.data = append(m.data, &MmlMacroElement{ARG_REFERENCE, x})
+}
+
+func (m *MmlMacro) AppendChar(x byte) {
+    m.data = append(m.data, &MmlMacroElement{CHAR_VERBATIM, x})
+}
+
+func (m *MmlMacro) AppendDefaultParam(x string) {
+    m.data = append(m.data, &MmlMacroElement{DEFAULT_PARAM, x})
+}
+
+/****************************************/
 
 type MmlPattern struct {
     Name string
@@ -1749,8 +1762,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             // Read default parameters
                             for {
                                 t = Parser.GetStringUntil(",)\t\r\n ")
-                                // ToDo: fix
-                                //macro = append(macro, {2, t})
+                                comp.macro.AppendDefaultParam(t)
                                 Parser.SkipWhitespace()
                                 n = Parser.Getch()
                                 if n == -1 || n == ')' {
@@ -1764,8 +1776,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             for {
                                 t = Parser.GetStringUntil(",)\t\r\n ")
                                 if len(t) > 0 {
-                                    // ToDo: fix
-                                    //macro = append(macro, t)
+                                    comp.macro.AppendDefaultParam(t)
                                 }
                                 Parser.SkipWhitespace()
                                 n = Parser.Getch()
@@ -1773,30 +1784,44 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     break
                                 }
                             }
-                            //ToDo: u := ""
-                            //ToDo: defaultParm := []int{}
-                            idx := 0 // ToDo: fix:  macros.FindKey(s)
+                            expandedMacro := ""
+                            defaultParm := []string{}
+                            idx := comp.macros.FindKey(s)
                             if idx >= 0 {
                                 // ToDo: fix
                                 // Expand the macro
-                                /*for i = 1 to length(macros[2][idx]) do
-                                    if macros[2][idx][i][1] = 0 then
+                                for _, token := range comp.macros.data[idx].data {
+                                    if token.typ == CHAR_VERBATIM {
                                         // This character should be appended as-is
-                                        u &= macros[2][idx][i][2]
-                                    } else if macros[2][idx][i][1] = 1 then
+                                        if chr, ok := token.val.(byte); ok {
+                                            expandedMacro += string(chr)
+                                        } else {
+                                            ERROR("Internal error. Failed to expand macro (1)")
+                                        }                                        
+                                    } else if token.typ == ARG_REFERENCE {
                                         // This is an argument reference
-                                        if macros[2][idx][i][2] > 0 and
-                                           macros[2][idx][i][2] <= length(macro) then
-                                            u &= macro[macros[2][idx][i][2]]
-                                        } else if macros[2][idx][i][2] > 0 and
-                                              macros[2][idx][i][2] <= length(defaultParm) then
-                                            u &= defaultParm[macros[2][idx][i][2]]
-                                        end if
-                                    } else if macros[2][idx][i][1] = 2 then
-                                        defaultParm = append(defaultParm, macros[2][idx][i][2])
+                                        if argNum, ok := token.val.(int); ok {
+                                            if argNum >= 0 && argNum < len(comp.macro.data) {
+                                                if argString, ok2 := comp.macro.data[argNum].val.(string); ok2 {
+                                                    expandedMacro += argString
+                                                }
+                                            } else if argNum >= 0 && argNum < len(defaultParm) {
+                                                expandedMacro += defaultParm[argNum]
+                                            }
+                                        } else {
+                                            ERROR("Internal error. Failed to expand macro (2)")
+                                        }
+                                    } else if token.typ == DEFAULT_PARAM {
+                                        if defaultVal, ok := token.val.(string); ok {
+                                            defaultParm = append(defaultParm, defaultVal)
+                                        } else {
+                                            ERROR("Internal error. Failed to expand macro (3)")
+                                        }
                                     }
                                 }
-                                if fileDataPos <= len(fileData) then
+                                fmt.Printf("Macro expanded to %s on line %d\n", expandedMacro, Parser.LineNum)
+                                // ToDo: fix
+                                /*if fileDataPos <= len(fileData) then
                                     fileData = fileData[1..fileDataPos-1] & u & fileData[fileDataPos..length(fileData)]
                                 } else {
                                     fileData &= u
@@ -1826,10 +1851,9 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     n = Parser.Getch()
                                     if n == '%' {
                                         t = Parser.GetNumericString()
-                                        _, err := strconv.Atoi(t)
+                                        num, err := strconv.Atoi(t)
                                         if err == nil {
-                                            // ToDo: fix
-                                            //macro = append(macro, {1, num})
+                                            comp.macro.AppendArgumentRef(num)
                                         } else {
                                             ERROR("Syntax error: " + t)
                                         }
@@ -1842,8 +1866,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     } else if n == 10 {
                                         Parser.LineNum++
                                     } else if n != '\r' {
-                                        // ToDo: fix
-                                        //macro = append(macro, {0, n})
+                                        comp.macro.AppendChar(byte(n))
                                     }
                                 }
                             } else {
