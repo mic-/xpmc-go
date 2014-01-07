@@ -434,6 +434,9 @@ func (t *TargetSMS) Init() {
 }
 
 
+/********************************************************************************/
+
+
 func (t *TargetGBC) Output(outputVgm int) {
     fmt.Printf("TargetGBC.Output\n")
 
@@ -448,8 +451,6 @@ func (t *TargetGBC) Output(outputVgm int) {
 
     now := time.Now()
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
-
-    songSize := 0
     
     outFile.WriteString(
     ".IFDEF XPMP_MAKE_GBS\n\n" +
@@ -494,12 +495,7 @@ func (t *TargetGBC) Output(outputVgm int) {
         outFile.WriteString(".DEFINE XPMP_ALT_GB_VOLCTRL\n")
     }
     
-    tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EP_mac", effects.PitchMacros,  true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EN_mac", effects.Arpeggios,    true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MP_mac", effects.Vibratos,     false, 1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,    true,  1, 0x80)
+    tableSize := outputStandardEffects(outFile)
     
     /*tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)*/
     
@@ -559,7 +555,7 @@ func (t *TargetGBC) Output(outputVgm int) {
         printf(1, "Size of patterns table: %d bytes\n", patSize)
     end if*/
   
-    songSize = t.outputChannelData(outFile, FORMAT_WLA_DX)
+    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
 
     utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize) // ToDo: + patSize )
     
@@ -568,18 +564,19 @@ func (t *TargetGBC) Output(outputVgm int) {
 }
 
 
+/********************************************************************************/
+
+
 func (t *TargetKSS) Output(outputVgm int) {
     fmt.Printf("TargetKSS.Output\n")
 
-   outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
+    outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
     if err != nil {
         utils.ERROR("Unable to open file: " + t.CompilerItf.GetShortFileName() + ".asm")
     }
 
     now := time.Now()
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
-
-    songSize := 0
   
     usesPSG := 0
     usesSCC := 0
@@ -648,24 +645,23 @@ func (t *TargetKSS) Output(outputVgm int) {
         }
     }
     
-    tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,     true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros,   true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EP_mac", effects.PitchMacros,    true,  1, 0x80)
+    tableSize := outputStandardEffects(outFile)
+    
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EN_mac", effects.Arpeggios,      true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MP_mac", effects.Vibratos,       false, 1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,      true,  1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_WT_mac", effects.WaveformMacros, true,  1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",    effects.MODs,           false, 1, 0)
     
     // ToDo: finish
     
-    songSize = t.outputChannelData(outFile, FORMAT_WLA_DX)
+    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
     
     outFile.Close()
     utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize) // ToDo: + patSize + cbSize + wavSize)
 }
+
+
+/********************************************************************************/
 
 
 func (t *TargetSGG) Output(outputVgm int) {
@@ -750,18 +746,12 @@ func (t *TargetSGG) Output(outputVgm int) {
     
     t.outputEffectFlags(outFile, FORMAT_WLA_DX)
          
-    tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EP_mac", effects.PitchMacros,  true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EN_mac", effects.Arpeggios,    true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MP_mac", effects.Vibratos,     false, 1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,    true,  1, 0x80)
+    tableSize := outputStandardEffects(outFile)
     
     outFile.WriteString("\n")
 
     utils.INFO("Size of effect tables: %d bytes", tableSize)
-
-        
+ 
     songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
   
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
@@ -879,12 +869,7 @@ func (t *TargetSMS) Output(outputVgm int) {
         outFile.WriteString(".DEFINE XPMP_ENABLE_FM\n")
     }
         
-    tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EP_mac", effects.PitchMacros,  true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EN_mac", effects.Arpeggios,    true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MP_mac", effects.Vibratos,     false, 1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,    true,  1, 0x80)
+    tableSize := outputStandardEffects(outFile)
     
     outFile.WriteString("xpmp_ADSR_tbl:\n")
     if usesFM {
@@ -1003,6 +988,18 @@ func outputStringWithExactLength(outFile *os.File, str string, exactLength int) 
         outFile.WriteString("\n")
     }
 }
+
+
+func outputStandardEffects(outFile *os.File) int {
+    tableSize := outputTable(outFile, FORMAT_WLA_DX, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_v_mac",  effects.VolumeMacros, true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EP_mac", effects.PitchMacros,  true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_EN_mac", effects.Arpeggios,    true,  1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MP_mac", effects.Vibratos,     false, 1, 0x80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_CS_mac", effects.PanMacros,    true,  1, 0x80)
+    return tableSize
+}
+
 
 func (t *Target) outputEffectFlags(outFile *os.File, outputFormat int) {
     switch outputFormat {
