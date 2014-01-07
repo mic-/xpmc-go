@@ -28,8 +28,46 @@ const (
     ELSIFDEF_TAKEN = 2
 )
 
+// For macro elements
+const (
+    INT_IMMEDIATE = 1
+    STRING_IMMEDIATE = 2
+    CHAR_VERBATIM = 3
+)
+
 const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrtsuvwxyz"
 
+type MmlMacroElement struct {
+    typ int
+    intValue int
+    charValue byte
+}
+
+type MmlMacro struct {
+    data []MmlMacroElement
+}
+
+type MmlMacroMap struct {
+    keys []string
+    data []*MmlMacro
+}
+
+func (m *MmlMacroMap) FindKey(key string) int {
+    return utils.PositionOfString(m.keys, key)
+}
+
+func (m *MmlMacroMap) Append(key string, mac *MmlMacro) {
+    m.keys = append(m.keys, key)
+    m.data = append(m.data, mac)
+}
+
+func (m *MmlMacroMap) GetData(key string) *MmlMacro {
+    pos := m.FindKey(key)
+    if pos >= 0 {
+        return m.data[pos]
+    }
+    return nil
+}
 
 type MmlPattern struct {
     Name string
@@ -50,6 +88,14 @@ func (m *MmlPatternMap) FindKey(key string) int {
 func (m *MmlPatternMap) Append(key string, pat *MmlPattern) {
     m.keys = append(m.keys, key)
     m.data = append(m.data, pat)
+}
+
+func (m *MmlPatternMap) GetNumTicks(key string) int {
+    pos := m.FindKey(key)
+    if pos >= 0 {
+        return m.data[pos].NumTicks
+    }
+    return 0
 }
 
 func (m *MmlPatternMap) HasAnyNote(key string) bool {
@@ -81,8 +127,13 @@ type Compiler struct {
 
     dontCompile *GenericStack
     hasElse *GenericStack
+    
+    macro *MmlMacro
+    macros *MmlMacroMap
+    
     pattern *MmlPattern
     patterns *MmlPatternMap
+    
     keepChannelsActive bool
     callbacks []string
 }
@@ -125,6 +176,7 @@ func (comp *Compiler) GetCallbacks() []string {
 }
 
 func (comp *Compiler) Init(target int) {
+    comp.macros = &MmlMacroMap{}
     comp.patterns = &MmlPatternMap{}
     
     comp.Songs = map[int]*song.Song{}
@@ -940,8 +992,9 @@ func (comp *Compiler) CompileFile(fileName string) {
         if c == -1 {
             break
         }
-        
+                
         c2 := c
+        //fmt.Printf("c2 = '%c' on line %d\n", c2, Parser.LineNum)
         
         if c == 10 {
             Parser.LineNum++
@@ -1628,6 +1681,13 @@ func (comp *Compiler) CompileFile(fileName string) {
                                         if chn.Active {
                                             chn.AddCmd([]int{defs.CMD_JSR, idx - 1})
                                             chn.HasAnyNote = chn.HasAnyNote || comp.patterns.HasAnyNote(s)
+                                            chn.Ticks += comp.patterns.GetNumTicks(s)
+                                            chn.UsesEffect["EN"] = true
+                                            chn.UsesEffect["EN2"] = true
+                                            chn.UsesEffect["EP"] = true
+                                            chn.UsesEffect["MP"] = true
+                                            chn.UsesEffect["DM"] = true
+                                            chn.UsesEffect["pw"] = true
                                             /*usesEffect[i] = or_bits(usesEffect[i], {1,1,1,1,1,1})
                                             songLen[songNum][i] += patterns[4][idx]*/
                                         }
@@ -1641,7 +1701,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         if comp.CurrSong.GetNumActiveChannels() == 0 {
                             comp.patName = s
                             comp.CurrSong.Channels[ len(comp.CurrSong.Channels) - 1 ].Active = true
-                            //songs[songNum][length(songs[songNum])] = {}
+                            comp.CurrSong.Channels[ len(comp.CurrSong.Channels) - 1 ].Cmds = []int{}
                         } else {
                             ERROR("Pattern definitions are not allowed while channels are active")
                         }
@@ -1679,8 +1739,9 @@ func (comp *Compiler) CompileFile(fileName string) {
                 Parser.SkipWhitespace()
                 m := Parser.Getch()
                 t := ""
+                fmt.Printf("Macro definition, line %d\n", Parser.LineNum)
                 if len(s) > 0 {
-                    // ToDo: macro := []int{}
+                    comp.macro = &MmlMacro{}
                     n := 1
                     if m == '(' {
                         if comp.CurrSong.GetNumActiveChannels() == 0 {
@@ -1758,7 +1819,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                     
                     // Macro definition
                     if m == '{' && n > 0 {
-                        idx := 0  // ToDo: fix:  macros.FindKey(s)
+                        idx := comp.macros.FindKey(s)
                         if idx < 0 {
                             if comp.CurrSong.GetNumActiveChannels() == 0 {
                                 for n != '}' {
@@ -1788,9 +1849,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             } else {
                                 ERROR("Macro definitions are not allowed while channels are active")
                             }
-                            // ToDo: fix
-                            //macros[1] = append(macros[1], s)
-                            //macros[2] = append(macros[2], macro)
+                            comp.macros.Append(s, comp.macro)
                         } else {
                             ERROR("Macro already defined: " + s)
                         }
@@ -2759,6 +2818,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                     } else {
                         Parser.Ungetch()
                         Parser.Ungetch()
+                        //fmt.Printf("*D on line %d, m = %c\n", Parser.LineNum, m)
                         comp.assertIsChannelName(c)
                     }                       
 
