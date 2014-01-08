@@ -172,6 +172,7 @@ func (e *EffectMacro) Disable() {
     e.Enabled = false
 }
 
+// "@EN"
 func (e *ArpeggioEffect) Update(c *PlaybackChannel, trigger int) {
     old := c.NoteOffs
     if e.SubType == ARPEGGIO_ABSOLUTE || (e.ID & EFFECT_STEP_MASK) != trigger {
@@ -190,8 +191,10 @@ func (e *ArpeggioEffect) Step(c *PlaybackChannel, trigger int) {
     }
 }
 
+
+// "@EP"
 func (e *FreqSlideEffect) Update(c *PlaybackChannel, trigger int) {
-    if (e.ID & 0x80) != trigger {
+    if (e.ID & EFFECT_STEP_EVERY_NOTE) != trigger {
         c.FreqOffs = e.Params.Peek()
     } else {
         c.FreqOffs += e.Params.Peek()
@@ -201,6 +204,7 @@ func (e *FreqSlideEffect) Update(c *PlaybackChannel, trigger int) {
     }
 }
 
+// "@v"
 func (e *VolSlideEffect) Update(c *PlaybackChannel, trigger int) {
     if len(c.Volume.Op) > 0 {
         if c.Operator != 0 {

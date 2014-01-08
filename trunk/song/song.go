@@ -3,7 +3,7 @@
  *
  * Part of XPMC.
  *
- * /Mic, 2012-2013
+ * /Mic, 2012-2014
  */
  
 package song
@@ -91,6 +91,9 @@ func (song *Song) GetTitle() string {
     return song.Title
 }
 
+/* Returns true if the song is using any of the channels
+ * of the given chip.
+ */
 func (song *Song) UsesChip(chipId int) bool {
     channels := song.GetChannels()
     for _, chn := range channels {
@@ -107,6 +110,8 @@ func (song *Song) GetChannelType(chn int) int {
     return song.Channels[chn].GetChipID()
 }
 
+/* Get the number of currently active channels.
+ */
 func (song *Song) GetNumActiveChannels() (numActive int) {
     numActive = 0
     for _, chn := range song.Channels {
