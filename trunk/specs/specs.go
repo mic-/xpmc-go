@@ -425,6 +425,25 @@ var SpecsYM2612 = Specs{
 }
 
 
+var SpecsUnknown = Specs{
+    Duty:       []int{ 64},    
+    VolChange:  []int{  1},    
+    FM:         []int{  4},    
+    ADSR:       []int{  1},    
+    Filter:     []int{  1},    
+    RingMod:    []int{  1},    
+    WaveTable:  []int{  1},    
+    PCM:        []int{  1},
+    ToneEnv:    []int{  7},
+    VolEnv:     []int{ 63},
+    Detune:     []int{  1},
+    MinOct:     []int{  0},    
+    MaxOct:     []int{ 11},    
+    MaxVol:     []int{127},    
+    MinNote:    []int{  1},  
+    ID:         CHIP_UNKNOWN,
+}
+
 var ChannelSpecs Specs
 
 

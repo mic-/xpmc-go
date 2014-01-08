@@ -12,6 +12,7 @@ import (
     "fmt"
     "../channel"
     "../defs"
+    "../specs"
     "../targets"
 )
 
@@ -44,6 +45,17 @@ func NewSong(num int, targetId int, icomp defs.ICompiler) *Song {
         chn.ChannelSpecs = chnSpecs
         s.Channels = append(s.Channels, chn)
     }
+
+    // Create a "virtual" channel used for patterns    
+    chn := channel.NewChannel()
+    chn.Num = len(s.Channels)
+    chn.Name = "Pattern"
+    targetSpecs := s.Target.GetChannelSpecs().(*specs.Specs)
+    specs.SetChannelSpecs(targetSpecs, 0, len(s.Channels), specs.SpecsUnknown)
+    chn.ChannelSpecs = chnSpecs
+    chn.IsVirtualChannel = true
+    s.Channels = append(s.Channels, chn)
+    
     return s
 }
 
