@@ -35,6 +35,8 @@ type ParserState struct {
 }
 
 type ParamList struct {
+    currentPart int
+    currentPos int
     MainPart []int
     LoopedPart []int
 }
@@ -418,7 +420,7 @@ func (p *ParserState) GetNumericString() string {
 func (p *ParserState) GetList() (*ParamList,error) {
     var startVal, stopVal, stepVal int
     
-    lst := &ParamList{[]int{}, []int{}}
+    lst := &ParamList{0, 0, []int{}, []int{}}
     err := errors.New("Bad list")
     
     commaOk := false            // Not ok to read a comma
@@ -767,16 +769,31 @@ func (lst *ParamList) Format() string {
 
 
 func (lst *ParamList) MoveToStart() {
-    // ToDo: implement
+    lst.currentPart = 0
+    lst.currentPos = 0
 }
 
 func (lst *ParamList) Step() {
-    // ToDo: implement
+    lst.currentPos++
+    if lst.currentPart == 0 {
+        if lst.currentPos >= len(lst.MainPart) {
+            if len(lst.LoopedPart) > 0 {
+                lst.currentPart++
+                lst.currentPos = 0
+            } else {
+                lst.currentPos = len(lst.MainPart) - 1
+            }
+        }
+    } else if lst.currentPos >= len(lst.LoopedPart) {
+        lst.currentPos = 0
+    }
 }
 
 func (lst *ParamList) Peek() int {
-    // ToDo: implement
-    return 0
+    if lst.currentPart == 1 {
+        return lst.LoopedPart[lst.currentPos]
+    }
+    return lst.MainPart[lst.currentPos]
 }
 
 func (lst *ParamList) IsEmpty() bool {
