@@ -196,6 +196,7 @@ type IChannel interface {
 }
 
 type IMmlPattern interface {
+    GetCommands() []int
 }
 
 type ICompiler interface {

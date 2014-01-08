@@ -527,36 +527,10 @@ func (t *TargetGBC) Output(outputVgm int) {
     utils.INFO("Size of effect tables: %d bytes", tableSize)
     utils.INFO("Size of waveform table: %d bytes", wavSize)
 
-    /*patSize = 0
-    for n = 1 to length(patterns[2]) do
-        printf(outFile, "xpmp_pattern%d:", n)
-        for j = 1 to length(patterns[2][n]) do
-            if remainder(j, 16) = 1 then
-                puts(outFile, CRLF & ".db ")
-            end if              
-            printf(outFile, "$%02x", and_bits(patterns[2][n][j], #FF))
-            if j < length(patterns[2][n]) and remainder(j, 16) != 0 then
-                puts(outFile, ",")
-            end if
-
-        end for
-        puts(outFile, CRLF)
-        patSize += length(patterns[2][n])
-    end for
-
-    puts(outFile, {13, 10} & "xpmp_pattern_tbl:" & CRLF)
-    for n = 1 to length(patterns[2]) do
-        printf(outFile, ".dw xpmp_pattern%d" & {13, 10}, n)
-        patSize += 2
-    end for
-    puts(outFile, {13, 10})
-
-    if verbose then
-        printf(1, "Size of patterns table: %d bytes\n", patSize)
-    end if*/
+    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    utils.INFO("Size of patterns table: %d bytes\n", patSize)
   
     songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
-
     utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize) // ToDo: + patSize )
     
     outFile.WriteString(".ENDIF")
@@ -646,18 +620,18 @@ func (t *TargetKSS) Output(outputVgm int) {
     }
     
     tableSize := outputStandardEffects(outFile)
-    
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_WT_mac", effects.WaveformMacros, true,  1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",    effects.MODs,           false, 1, 0)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",    effects.MODs,           false, 1, 0)   
     
-    // ToDo: finish
-    
+    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    utils.INFO("Size of patterns table: %d bytes\n", patSize)
+
     songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
+    utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + patSize) // + cbSize + wavSize)
     
     outFile.Close()
-    utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize) // ToDo: + patSize + cbSize + wavSize)
 }
 
 
@@ -746,15 +720,16 @@ func (t *TargetSGG) Output(outputVgm int) {
     
     t.outputEffectFlags(outFile, FORMAT_WLA_DX)
          
-    tableSize := outputStandardEffects(outFile)
-    
+    tableSize := outputStandardEffects(outFile)  
     outFile.WriteString("\n")
-
     utils.INFO("Size of effect tables: %d bytes", tableSize)
+
+    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    utils.INFO("Size of patterns table: %d bytes\n", patSize)
  
-    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
-  
+    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX) 
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
+
     outFile.Close()    
 }
 
@@ -879,12 +854,14 @@ func (t *TargetSMS) Output(outputVgm int) {
         }
     }
     outFile.WriteString("\n")
-
     utils.INFO("Size of effect tables: %d bytes", tableSize)
+
+    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    utils.INFO("Size of patterns table: %d bytes\n", patSize)
         
-    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
-   
+    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)  
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
+
     outFile.Close()
 }
 
@@ -928,6 +905,40 @@ func packMOD(modParams []int, chipType int) [] int {
 }
 
 
+func (t *Target) outputPatterns(outFile *os.File, outputFormat int) int {
+    patSize := 0
+    
+    switch outputFormat {
+    case FORMAT_WLA_DX:
+        patterns := t.CompilerItf.GetPatterns()
+        for n, pat := range patterns {
+            outFile.WriteString(fmt.Sprintf("xpmp_pattern%d:", n))
+            cmds := pat.GetCommands()
+            for j, cmd := range cmds {
+                if (j % 16) == 0 {
+                    outFile.WriteString("\n.db ")
+                }              
+                outFile.WriteString(fmt.Sprintf("$%02x", cmd & 0xFF))
+                if j < len(cmds)-1 && (j % 16) != 15 {
+                    outFile.WriteString(",")
+                }
+            }
+            outFile.WriteString("\n")
+            patSize += len(cmds)
+        }
+
+        outFile.WriteString("\nxpmp_pattern_tbl:\n")
+        for n := range patterns {
+            outFile.WriteString(fmt.Sprintf(".dw xpmp_pattern%d\n", n))
+            patSize += 2
+        }
+        outFile.WriteString("\n")
+    }
+    
+    return patSize
+}
+
+    
 func (t *Target) outputChannelData(outFile *os.File, outputFormat int) int {
     songDataSize := 0
     
