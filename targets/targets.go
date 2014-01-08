@@ -4,7 +4,7 @@
  * Part of XPMC.
  * Contains data/functions describing different output targets.
  *
- * /Mic, 2012-2013
+ * /Mic, 2012-2014
  */
  
 package targets
@@ -134,6 +134,9 @@ func NewTarget(tID int, icomp ICompiler) ITarget {
     return t
 }
 
+/* Maps target name strings to TARGET_* int constants (e.g.
+ * "sms" -> TARGET_SMS).
+ */
 func NameToID(targetName string) int {
     switch targetName {
     case "at8":
@@ -164,14 +167,23 @@ func (t *Target) SetCompilerItf(icomp ICompiler) {
     t.CompilerItf = icomp
 }
 
+/* Returns the ID (one of the TARGET_* constants) of this
+ * target.
+ */
 func (t *Target) GetID() int {
     return t.ID
 }
 
+/* Returns the number of parameters used for ADSR envelopes
+ * on this target.
+ */
 func (t *Target) GetAdsrLen() int {
     return t.AdsrLen
 }
 
+/* Returns the maximum value supported for any of the ADSR envelope
+ * parameters on this target.
+ */
 func (t *Target) GetAdsrMax() int {
     return t.AdsrMax
 }
@@ -190,6 +202,11 @@ func (t *Target) GetChannelSpecs() ISpecs {
 
 /* Returns which of the specified chip's channels the given channel
  * number corresponds to for this target.
+ * For example, on the SEGA Genesis target the first 4 channels (A..D)
+ * are the PSG (SN76489) channels and the last 6 channels (E..J) are
+ * the FM (YM2612) channels. ChipChannel for channel E and CHIP_YM2612
+ * would therefore return 0, channel D and CHIP_SN76489 would return 3,
+ * and so on.
  */
 func (t *Target) ChipChannel(chn, chipId int) int {
     for i, chnChipId := range t.ChannelSpecs.IDs {
@@ -200,10 +217,16 @@ func (t *Target) ChipChannel(chn, chipId int) int {
     return -1
 }
 
+/* Returns the maximum tempo (quarter notes per minute) supported
+ * by this target.
+ */
 func (t *Target) GetMaxTempo() int {
     return t.MaxTempo
 }
 
+/* Returns the maximum loop depth (the depth to which []-loops can
+ * be nested) for this target.
+ */
 func (t *Target) GetMaxLoopDepth() int {
     return t.MaxLoopDepth
 }
@@ -222,6 +245,10 @@ func (t *Target) GetMaxVolume() int {
     return maxVol
 }
 
+/* Get the minimum supported length for WT samples
+ * for this target (for targets like the GBC and PCE that
+ * have a fixed wavetable size).
+ */
 func (t *Target) GetMinWavLength() int {
     return t.MinWavLength
 }
@@ -234,6 +261,9 @@ func (t *Target) GetMinWavSample() int {
     return t.MinWavSample
 }
 
+/* Get the maximum supported amplitude for WT samples for
+ * this target.
+ */
 func (t *Target) GetMaxWavSample() int {
     return t.MaxWavSample
 }
@@ -440,10 +470,6 @@ func (t *TargetSMS) Init() {
 func (t *TargetGBC) Output(outputVgm int) {
     fmt.Printf("TargetGBC.Output\n")
 
-    /*atom factor,f2,r2,smallestDiff
-    integer f, tableSize, cbSize, songSize, wavSize, patSize, numSongs
-    sequence closest,s*/
-
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
     if err != nil {
         utils.ERROR("Unable to open file: " + t.CompilerItf.GetShortFileName() + ".asm")
@@ -452,6 +478,7 @@ func (t *TargetGBC) Output(outputVgm int) {
     now := time.Now()
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
     
+    // Output the GBS header
     outFile.WriteString(
     ".IFDEF XPMP_MAKE_GBS\n\n" +
     ".MEMORYMAP\n" +
@@ -497,6 +524,7 @@ func (t *TargetGBC) Output(outputVgm int) {
     
     tableSize := outputStandardEffects(outFile)
     
+    // ToDo: output waveform macros (WTM)
     /*tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)*/
     
     wavSize := 0

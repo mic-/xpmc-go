@@ -5,7 +5,7 @@
  * Contains data/functions for dealing with the specifications
  * of different sound chips.
  *
- * /Mic, 2012-2013
+ * /Mic, 2012-2014
  */
  
 package specs

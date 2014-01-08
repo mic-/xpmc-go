@@ -146,6 +146,9 @@ func (chn *Channel) GetLoopTicks() int {
     return chn.LoopTicks
 }
 
+/* Returns the ID (one of the specs.CHIP_* constants) of the sound chip
+ * that this channel is a part of.
+ */
 func (chn *Channel) GetChipID() int {
     if len(chn.ChannelSpecs.GetIDs()) > 0 {
         return chn.ChannelSpecs.GetIDs()[chn.Num]
@@ -300,8 +303,9 @@ func (chn *Channel) AddCmd(cmds []int) {
 }
 
 
-// Calculate the length of a note in frames based on its length in 32nd notes, the current tempo,
-// the current playback speed and the current note cutoff setting.
+/* Calculate the length of a note in frames based on its length in 32nd notes, the current tempo,
+ * the current playback speed and the current note cutoff setting.
+ */
 func (chn *Channel) NoteLength(len float64) (frames, cutoffFrames, scaling float64) {
     var length32 int
 
@@ -309,7 +313,7 @@ func (chn *Channel) NoteLength(len float64) (frames, cutoffFrames, scaling float
     
     if timing.UseFractionalDelays {
         scaling = 256.0
-        length32 = int((frames / 8.0) * scaling)  // frames per 32nd note, scaled by 256
+        length32 = int((frames / 8.0) * scaling)    // frames per 32nd note, scaled by 256
         frames = math.Floor(float64(length32) * len)
         
         if (chn.CurrentCutoff.Typ == defs.CT_FRAMES ||
@@ -347,8 +351,9 @@ func (chn *Channel) NoteLength(len float64) (frames, cutoffFrames, scaling float
 }
 
 
-// Write the length of the current note to the channel's command
-// stream.
+/* Write the length of the current note to the channel's command
+ * stream.
+ */
 func (chn *Channel) WriteLength() {
     
     if timing.UseFractionalDelays {
@@ -369,7 +374,7 @@ func (chn *Channel) WriteLength() {
         }
         
     } else {
-    // ToDo: necessary to handle this?
+        // ToDo: necessary to handle this?
     }
 }
 
@@ -388,7 +393,8 @@ func (chn *Channel) WriteNoteAndLength(note int, noteLen int, minLen int, scalin
 }
 
                                          
-// Output all pending notes on this channel to the current song     
+/* Output all pending notes on this channel to the current song.
+ */
 func (chn *Channel) WriteNote(forceOctChange bool) {
     var frames, cutoffFrames, scaling float64
     var len1, len2 int
@@ -408,6 +414,7 @@ func (chn *Channel) WriteNote(forceOctChange bool) {
                 chn.CurrentNote.Num = chn.CurrentNote.Num % 12
             }
 
+            // Handle any pending octave increase/decrease operations
             if chn.PendingOctChange == 1 {
                 chn.CurrentNote.Num |= defs.CMD_OCTUP
             } else if chn.PendingOctChange == -1 {
@@ -500,6 +507,8 @@ func (chn *Channel) WriteNote(forceOctChange bool) {
         chn.HasAnyNote = true
             
     } else if forceOctChange && chn.PendingOctChange != 0 {
+        // There's no note data to output, but there's been an octave change that
+        // we need to flush to the command array.
         if !chn.Tuple.HasData {
             chn.AddCmd([]int{defs.CMD_OCTAVE | chn.CurrentOctave})
         } else {
