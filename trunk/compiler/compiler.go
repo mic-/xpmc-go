@@ -94,6 +94,10 @@ type MmlPatternMap struct {
     data []*MmlPattern
 }
 
+func (m *MmlPattern) GetCommands() []int {
+    return m.Cmds
+}
+
 func (m *MmlPatternMap) FindKey(key string) int {
     return utils.PositionOfString(m.keys, key)
 }
@@ -1699,7 +1703,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                 if idx >= 0 {
                                     for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
-                                            chn.AddCmd([]int{defs.CMD_JSR, idx - 1})
+                                            chn.AddCmd([]int{defs.CMD_JSR, idx})
                                             chn.HasAnyNote = chn.HasAnyNote || comp.patterns.HasAnyNote(s)
                                             chn.Ticks += comp.patterns.GetNumTicks(s)
                                             chn.UsesEffect["EN"] = true
@@ -1804,9 +1808,12 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     } else if token.typ == ARG_REFERENCE {
                                         // This is an argument reference
                                         if argNum, ok := token.val.(int); ok {
+                                            argNum--
                                             if argNum >= 0 && argNum < len(comp.macro.data) {
                                                 if argString, ok2 := comp.macro.data[argNum].val.(string); ok2 {
                                                     expandedMacro += argString
+                                                } else {
+                                                    ERROR("Internal error. Failed to expand macro")
                                                 }
                                             } else if argNum >= 0 && argNum < len(defaultParm) {
                                                 expandedMacro += defaultParm[argNum]
@@ -2644,15 +2651,22 @@ func (comp *Compiler) CompileFile(fileName string) {
                 }
                 if tupleLen == -1 {
                     if len(comp.patName) > 0 {
-                        comp.CurrSong.Channels[ len(comp.CurrSong.Channels)-1 ].AddCmd([]int{defs.CMD_RTS})
+                        patChan := comp.CurrSong.Channels[ len(comp.CurrSong.Channels) - 1 ]
+                        patChan.AddCmd([]int{defs.CMD_RTS})
+                        comp.pattern.Cmds = make([]int, len(patChan.Cmds))
+                        copy(comp.pattern.Cmds, patChan.Cmds)
+                        comp.pattern.HasAnyNote = patChan.HasAnyNote
+                        comp.pattern.NumTicks = patChan.Ticks
                         comp.patterns.Append(comp.patName, comp.pattern)
+                        fmt.Printf("Pattern ticks: %d\n", patChan.Ticks)
                         /*patterns[1] = append(patterns[1], patName)
                         patterns[2] = append(patterns[2], songs[songNum][length(songs[songNum])])
                         patterns[3] &= hasAnyNote[length(supportedChannels)]
                         patterns[4] &= songLen[songNum][length(supportedChannels)]*/
                         comp.patName = ""
                         //songs[songNum][length(songs[songNum])] = {}
-                        comp.CurrSong.Channels[len(comp.CurrSong.Channels)-1].Active = false
+                        patChan.Active = false
+                        patChan.Cmds = []int{}
                     } else {
                         ERROR("Syntax error: }")
                     }
