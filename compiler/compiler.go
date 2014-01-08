@@ -404,7 +404,7 @@ func (comp *Compiler) handleMetaCommand() {
                 if !comp.hasElse.PeekBool() {
                     if (comp.dontCompile.PeekInt() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
                         x := comp.dontCompile.PopInt()
-                        comp.dontCompile.Push(x | comp.dontCompile.PeekInt())
+                        comp.dontCompile.Push((x ^ 1) | comp.dontCompile.PeekInt())
                     }
                     _ = comp.hasElse.PopBool()
                     comp.hasElse.Push(true)
