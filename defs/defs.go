@@ -175,18 +175,18 @@ type ITarget interface {
 
 type ISong interface {
     GetChannels() []IChannel
-    GetTitle() string
     GetComposer() string
+    GetNum() int            // The song's number (e.g. 2 for "#SONG 2")
     GetProgrammer() string
     GetSmsTuning() bool
-    GetNum() int
+    GetTitle() string
     UsesChip(chipId int) bool
 }
 
 type IChannel interface {
-    GetNum() int
-    GetName() string
     GetCommands() []int
+    GetName() string
+    GetNum() int
     GetTicks() int
     GetLoopTicks() int
     GetChipID() int
@@ -195,12 +195,16 @@ type IChannel interface {
     IsVirtual() bool
 }
 
+type IMmlPattern interface {
+}
+
 type ICompiler interface {
-    GetShortFileName() string
-    GetGbVolCtrlType() int
+    GetCallbacks() []string
     GetGbNoiseType() int
+    GetGbVolCtrlType() int
     GetNumSongs() int
+    GetPatterns() []IMmlPattern
+    GetShortFileName() string
     GetSong(num int) ISong
     GetSongs() []ISong
-    GetCallbacks() []string
 }

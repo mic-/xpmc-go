@@ -136,7 +136,6 @@ type Compiler struct {
     slur bool
     tie bool
     lastWasChannelSelect bool
-    //var workDir string 
 
     dontCompile *GenericStack
     hasElse *GenericStack
@@ -151,20 +150,28 @@ type Compiler struct {
     callbacks []string
 }
 
-func (comp *Compiler) GetShortFileName() string {
-    return comp.ShortFileName
+func (comp *Compiler) GetGbNoiseType() int {
+    return comp.gbNoise
 }
 
 func (comp *Compiler) GetGbVolCtrlType() int {
     return comp.gbVolCtrl
 }
 
-func (comp *Compiler) GetGbNoiseType() int {
-    return comp.gbNoise
+func (comp *Compiler) GetShortFileName() string {
+    return comp.ShortFileName
 }
 
 func (comp *Compiler) GetNumSongs() int {
     return len(comp.Songs)
+}
+
+func (comp *Compiler) GetPatterns() []defs.IMmlPattern {
+    patterns := make([]defs.IMmlPattern, len(comp.patterns.data))
+    for i, pat := range comp.patterns.data {
+        patterns[i] = pat
+    }
+    return patterns
 }
 
 func (comp *Compiler) GetSong(num int) defs.ISong {
