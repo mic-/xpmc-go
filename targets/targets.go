@@ -98,6 +98,10 @@ type TargetNGP struct {
     Target
 }
 
+type TargetPCE struct {
+    Target
+}
+
 type TargetSGG struct {
     Target
 }
@@ -115,12 +119,14 @@ func NewTarget(tID int, icomp ICompiler) ITarget {
         t = &TargetAt8{}
     case TARGET_GBC:
         t = &TargetGBC{}
-    case TARGET_SMD:
-        t = &TargetGen{}
     case TARGET_KSS:
         t = &TargetKSS{}
+    case TARGET_PCE:
+        t = &TargetPCE{}
     case TARGET_SGG:
         t = &TargetSGG{}
+    case TARGET_SMD:
+        t = &TargetGen{}
     case TARGET_SMS:
         t = &TargetSMS{}
     }
@@ -143,6 +149,8 @@ func NameToID(targetName string) int {
         return TARGET_GBC;
     case "kss":
         return TARGET_KSS;
+    case "pce":
+        return TARGET_PCE;
     case "sgg":
         return TARGET_SGG;
     case "smd":
@@ -243,7 +251,7 @@ func (t *Target) GetMaxVolume() int {
     return maxVol
 }
 
-/* Get the minimum supported length for WT samples
+/* Gets the minimum supported length for WT samples
  * for this target (for targets like the GBC and PCE that
  * have a fixed wavetable size).
  */
@@ -259,7 +267,7 @@ func (t *Target) GetMinWavSample() int {
     return t.MinWavSample
 }
 
-/* Get the maximum supported amplitude for WT samples for
+/* Gets the maximum supported amplitude for WT samples for
  * this target.
  */
 func (t *Target) GetMaxWavSample() int {
@@ -323,7 +331,8 @@ func (t *TargetNES) Init() {
 /********************************************************************************/
 
 
-// Pack the parameters for an ADSR envelope into the format used by the given chip
+/* Packs the parameters for an ADSR envelope into the format used by the given chip.
+ */
 func packADSR(adsr []int, chipType int) []int {
     packedAdsr := []int{}
     
@@ -344,7 +353,8 @@ func packADSR(adsr []int, chipType int) []int {
 }
 
 
-// Pack the parameters for a MOD modulator macro into the format used by the given chip
+/* Packs the parameters for a MOD modulator macro into the format used by the given chip.
+ */
 func packMOD(modParams []int, chipType int) [] int {
     packedMod := []int{}
     
@@ -356,12 +366,18 @@ func packMOD(modParams []int, chipType int) [] int {
         packedMod[2] = modParams[2] | 0x80
         packedMod[3] = modParams[3] + modParams[4] * 0x10
         packedMod[4] = modParams[5] + 0xC0
+    case specs.CHIP_YM2612:
+        packedMod = make([]int, 2)
+        packedMod[0] = modParams[0]
+        packedMod[1] = modParams[1] * 8 + modParams[2]
     }
     
     return packedMod
 }
 
 
+/* Outputs the pattern data and addresses.
+ */
 func (t *Target) outputPatterns(outFile *os.File, outputFormat int) int {
     patSize := 0
     
@@ -421,7 +437,10 @@ func (t *Target) outputPatterns(outFile *os.File, outputFormat int) int {
     return patSize
 }
 
-    
+
+/* Outputs the channel data (the actual notes, volume commands, effect invokations, etc)
+ * for all channels and all songs.
+ */
 func (t *Target) outputChannelData(outFile *os.File, outputFormat int) int {
     songDataSize := 0
     
@@ -515,6 +534,10 @@ func (t *Target) outputChannelData(outFile *os.File, outputFormat int) int {
 }
 
 
+/* Outputs a zero-terminated string with a total size of exactLength bytes.
+ * The string will be padded if it's too short, and truncated if it's too
+ * long.
+ */
 func outputStringWithExactLength(outFile *os.File, str string, exactLength int) {
     if len(str) >= exactLength {
         outFile.WriteString(".db \"" + str[:exactLength-1] + "\", 0\n")
@@ -528,6 +551,8 @@ func outputStringWithExactLength(outFile *os.File, str string, exactLength int) 
 }
 
 
+/* Outputs the tables for the standard effects (the ones that are common for most/all targets).
+ */
 func outputStandardEffects(outFile *os.File, outputFormat int) int {
     tableSize := outputTable(outFile, outputFormat, "xpmp_dt_mac", effects.DutyMacros,   true,  1, 0x80)
     tableSize += outputTable(outFile, outputFormat, "xpmp_v_mac",  effects.VolumeMacros, true,  1, 0x80)
@@ -536,6 +561,25 @@ func outputStandardEffects(outFile *os.File, outputFormat int) int {
     tableSize += outputTable(outFile, outputFormat, "xpmp_MP_mac", effects.Vibratos,     false, 1, 0x80)
     tableSize += outputTable(outFile, outputFormat, "xpmp_CS_mac", effects.PanMacros,    true,  1, 0x80)
     return tableSize
+}
+
+
+func (t *Target) outputCallbacks(outFile *os.File, outputFormat int) int {
+    callbacksSize := 0
+
+    switch outputFormat {
+    case FORMAT_WLA_DX:
+        outFile.WriteString("xpmp_callback_tbl:\n")
+        for _, cb := range t.CompilerItf.GetCallbacks() {
+            outFile.WriteString(".dw " + cb + "\n")
+            callbacksSize += 2
+        }
+        outFile.WriteString("\n")
+    }
+
+    utils.INFO("Size of callback table: %d bytes\n", callbacksSize)  
+    
+    return callbacksSize
 }
 
 
