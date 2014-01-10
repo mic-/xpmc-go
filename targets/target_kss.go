@@ -80,14 +80,18 @@ func (t *TargetKSS) Output(outputVgm int) {
         }
     }
     
-    envelopes := make([][]int, len(effects.ADSRs.GetKeys()))
+    envelopes := make([][]interface{}, len(effects.ADSRs.GetKeys()))
     for i, key := range effects.ADSRs.GetKeys() {
         envelopes[i] = packADSR(effects.ADSRs.GetData(key).MainPart, specs.CHIP_YM2151)
+        effects.ADSRs.GetData(key).MainPart = make([]interface{}, len(envelopes[i]))
+        copy(effects.ADSRs.GetData(key).MainPart, envelopes[i])      
     }
     
-    mods := make([][]int, len(effects.MODs.GetKeys()))
+    mods := make([][]interface{}, len(effects.MODs.GetKeys()))
     for i, key := range effects.MODs.GetKeys() {
         mods[i] = packMOD(effects.MODs.GetData(key).MainPart, specs.CHIP_YM2151)
+        effects.MODs.GetData(key).MainPart = make([]interface{}, len(mods[i]))
+        copy(effects.MODs.GetData(key).MainPart, mods[i])        
     }
     
     outFile.WriteString( 
@@ -133,8 +137,8 @@ func (t *TargetKSS) Output(outputVgm int) {
     tableSize := outputStandardEffects(outFile, FORMAT_WLA_DX)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_WT_mac", effects.WaveformMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)    // ToDo: use packed envelopes
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",    effects.MODs,           false, 1, 0)    // ToDo: use packed mods
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)    
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",    effects.MODs,           false, 1, 0)    
     
     patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
     utils.INFO("Size of patterns table: %d bytes\n", patSize)

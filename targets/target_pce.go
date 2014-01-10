@@ -64,11 +64,11 @@ func (t *TargetPCE) Output(outputVgm int) {
     outFile.WriteString("xpmp_waveform_data:")
     for key := range effects.Waveforms.GetKeys() {
         params := effects.Waveforms.GetData(key).MainPart
-        for j := 0; j < len(params); j += 2 {
+        for j := 0; j < len(params); j += 1 {
             if j == 0 {
                 outFile.WriteString("\n.db ")
             }             
-            outFile.WriteString(fmt.Sprintf("$%02x", params[j] * 0x10 + params[j+1]))
+            outFile.WriteString(fmt.Sprintf("$%02x", params[j].(int)))
             wavSize++
             if j < len(params) - 1 {
                 outFile.WriteString(",")
@@ -115,7 +115,7 @@ func (t *TargetPCE) Output(outputVgm int) {
                 if (column % 32) == 1 {
                     outFile.WriteString("\n.db ")
                 }              
-                outFile.WriteString(fmt.Sprintf("$%02x", smp / 8))
+                outFile.WriteString(fmt.Sprintf("$%02x", smp.(int) / 8))
                 pcmSize++
                 if (pcmSize % 0x2000) == 0 {
                     outFile.WriteString(fmt.Sprintf("\n.bank %d slot 6\n.org $0000", pcmBank))
