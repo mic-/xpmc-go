@@ -73,21 +73,18 @@ func (t *TargetGen) Output(outputVgm int) {
     envelopes := make([][]int, len(effects.ADSRs.GetKeys()))
     for i, key := range effects.ADSRs.GetKeys() {
         envelopes[i] = packADSR(effects.ADSRs.GetData(key).MainPart, specs.CHIP_YM2612)
+        effects.ADSRs.GetData(key).MainPart = make([]int, len(envelopes[i]))
+        copy(effects.ADSRs.GetData(key).MainPart, envelopes[i])
     }
 
     // Convert MODmodulation parameters to the format used by the YM2612
     mods := make([][]int, len(effects.MODs.GetKeys()))
     for i, key := range effects.MODs.GetKeys() {
         mods[i] = packMOD(effects.MODs.GetData(key).MainPart, specs.CHIP_YM2612)
-    }
-    
-    /* ToDo: translate
-    for i = 1 to length(mods[ASSOC_DATA]) do
-        s = mods[ASSOC_DATA][i][LIST_MAIN]
-        s[2] = s[2] * 8 + s[3]
-        mods[ASSOC_DATA][i][LIST_MAIN] = s[1..2]
-    end for*/
-    
+        effects.MODs.GetData(key).MainPart = make([]int, len(mods[i]))
+        copy(effects.MODs.GetData(key).MainPart, mods[i])
+    } 
+   
     
     /* ToDo: translate
     for i = 1 to length(feedbackMacros[1]) do
@@ -111,7 +108,7 @@ func (t *TargetGen) Output(outputVgm int) {
 
     tableSize := outputStandardEffects(outFile, FORMAT_GAS_68K)
     tableSize += outputTable(outFile, FORMAT_GAS_68K, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_GAS_68K, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)   // ToDo: use packed envelopes
+    tableSize += outputTable(outFile, FORMAT_GAS_68K, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)  
     tableSize += outputTable(outFile, FORMAT_GAS_68K, "xpmp_MOD",    effects.MODs,           false, 1, 0)  
     
     /*tableSize += output_m68kas_table("xpmp_VS_mac", volumeSlides, 1, 1, 0)     

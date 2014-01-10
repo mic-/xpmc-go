@@ -56,6 +56,8 @@ func (t *TargetSMS) Output(outputVgm int) {
     envelopes := make([][]int, len(effects.ADSRs.GetKeys()))
     for i, key := range effects.ADSRs.GetKeys() {
         envelopes[i] = packADSR(effects.ADSRs.GetData(key).MainPart, specs.CHIP_YM2413)
+        effects.ADSRs.GetData(key).MainPart = make([]int, len(envelopes[i]))
+        copy(effects.ADSRs.GetData(key).MainPart, envelopes[i])        
     }
     
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + fileEnding)
@@ -146,22 +148,26 @@ func (t *TargetSMS) Output(outputVgm int) {
     }
         
     tableSize := outputStandardEffects(outFile, FORMAT_WLA_DX)
-    
-    outFile.WriteString("xpmp_ADSR_tbl:\n")
+    if usesFM {
+        tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_ADSR",   effects.ADSRs, false, 1, 0)  
+    }    
+    /*outFile.WriteString("xpmp_ADSR_tbl:\n")
     if usesFM {
         for _, enve := range envelopes {
             outFile.WriteString(fmt.Sprintf(".db $%02x,$%02x\n", enve[0], enve[1]))
             tableSize += 2
         }
-    }
+    }*/
     outFile.WriteString("\n")
     utils.INFO("Size of effect tables: %d bytes", tableSize)
 
+    cbSize := t.outputCallbacks(outFile, FORMAT_WLA_DX)
+        
     patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
     utils.INFO("Size of patterns table: %d bytes\n", patSize)
         
     songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)  
-    utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
+    utils.INFO("Total size of song(s): %d bytes", songSize + tableSize + cbSize + patSize)
 
     outFile.Close()
 }
