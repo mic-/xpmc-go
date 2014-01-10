@@ -727,7 +727,7 @@ func (comp *Compiler) handleDutyMacDef(num int) {
                 if err == nil {
                     if len(lst.MainPart) != 0 || len(lst.LoopedPart) != 0 {
                         effects.DutyMacros.Append(num, lst)
-                        effects.DutyMacros.PutInt(num, comp.getEffectFrequency())
+                        effects.DutyMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
                     } else {
                         ERROR("Empty list for @")
                     }
@@ -792,7 +792,7 @@ func (comp *Compiler) handlePanMacDef(cmd string) {
                             effects.PanMacros.Append(num, lst)
                             // And store the effect frequency for this particular effect (whether it should
                             // be applied once per frame or once per note).
-                            effects.PanMacros.PutInt(num, comp.getEffectFrequency())
+                            effects.PanMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
                         } else {
                             ERROR("Value of out range (allowed: -63-63): " + lst.Format())
                         }
@@ -893,12 +893,12 @@ func (comp *Compiler) handleEffectDefinition(effName string, mmlString string, e
                         key := effMap.GetKeyFor(lst)
                         if key == -1 {
                            effMap.Append(num, lst)
-                           effMap.PutInt(num, freq)
+                           effMap.PutExtraInt(num, "effect-freq", freq)
                         } else { /*if freq != effMap.GetInt(key) {*/
                             // ToDo: handle the case when we've got an existing identical effect. The references to the new
                             // effects needs to be converted to refer to the old effect.
                            effMap.Append(num, lst)
-                           effMap.PutInt(num, freq)
+                           effMap.PutExtraInt(num, "effect-freq", freq)
                         }
                     }
                 } else {
@@ -1072,7 +1072,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                 if chn.Active {
                                     numChannels++
                                     if chn.SupportsDutyChange() > 0 {
-                                        idx |= effects.DutyMacros.GetInt(num) * 0x80    // Effect frequency
+                                        idx |= effects.DutyMacros.GetExtraInt(num, "effect-freq") * 0x80    // Effect frequency
                                         chn.AddCmd([]int{defs.CMD_DUTMAC, idx})
                                         effects.DutyMacros.AddRef(num)
                                         chn.UsesEffect["DM"] = true
@@ -1536,7 +1536,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                                comp.CurrSong.Target.GetMinVolume(),
                                                                comp.CurrSong.Target.GetMaxVolume()) {
                                                         effects.VolumeMacros.Append(num, lst)
-                                                        effects.VolumeMacros.PutInt(num, comp.getEffectFrequency())
+                                                        effects.VolumeMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
                                                     } else {
                                                         ERROR("Value out of range: " + lst.Format())
                                                     }
@@ -1557,7 +1557,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                         for _, chn := range comp.CurrSong.Channels {
                                             if chn.Active {
                                                 if !effects.VolumeMacros.IsEmpty(num) {
-                                                    if effects.VolumeMacros.GetInt(num) == defs.EFFECT_STEP_EVERY_FRAME {
+                                                    if effects.VolumeMacros.GetExtraInt(num, "effect-freq") == defs.EFFECT_STEP_EVERY_FRAME {
                                                         chn.AddCmd([]int{defs.CMD_VOLMAC, idx})
                                                     } else {
                                                         chn.AddCmd([]int{defs.CMD_VOLMAC, idx | 0x80})
@@ -1589,7 +1589,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                     if inRange(lst.MainPart, 0, 15) &&
                                                        inRange(lst.LoopedPart, 0, 15) {
                                                         effects.PulseMacros.Append(num, lst)
-                                                        effects.PulseMacros.PutInt(num, comp.getEffectFrequency())
+                                                        effects.PulseMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
                                                     } else {
                                                         ERROR("Value out of range: " + lst.Format())
                                                     }
@@ -2787,7 +2787,7 @@ func (comp *Compiler) CompileFile(fileName string) {
 
                     if err == nil {
                         if comp.CurrSong.Target.SupportsPan() {
-                            idx |= effects.PanMacros.GetInt(num) * 0x80
+                            idx |= effects.PanMacros.GetExtraInt(num, "effect-freq") * 0x80
                             for _, chn := range comp.CurrSong.Channels {
                                 if chn.Active {
                                     chn.AddCmd([]int{defs.CMD_PANMAC, idx + 1})
@@ -2896,7 +2896,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             if chn.Active {
                                 if !effects.Arpeggios.IsEmpty(num) {
                                     effects.Arpeggios.AddRef(num)
-                                    idx |= effects.Arpeggios.GetInt(num) * 0x80
+                                    idx |= effects.Arpeggios.GetExtraInt(num, "effect-freq") * 0x80
                                     if comp.enRev == 0 {
                                         chn.AddCmd([]int{defs.CMD_ARPMAC, idx})
                                         //ToDo fix: usesEN[1] += 1
@@ -2923,7 +2923,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 if !effects.PitchMacros.IsEmpty(num) {
-                                    idx |= effects.PitchMacros.GetInt(num) * 0x80
+                                    idx |= effects.PitchMacros.GetExtraInt(num, "effect-freq") * 0x80
                                     chn.AddCmd([]int{defs.CMD_SWPMAC, idx})
                                     effects.PitchMacros.AddRef(num)
                                     chn.UsesEffect["EP"] = true
@@ -2967,7 +2967,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     } else {
                                         idx := effects.FeedbackMacros.FindKey(num)
                                         if idx >= 0 {
-                                            idx |= effects.FeedbackMacros.GetInt(num) * 0x80                
+                                            idx |= effects.FeedbackMacros.GetExtraInt(num, "effect-freq") * 0x80                
                                             for _, chn := range comp.CurrSong.Channels {
                                                 if chn.Active {
                                                     if chn.SupportsFM() {
@@ -3079,7 +3079,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                     num, idx, err := comp.assertEffectIdExistsAndChannelsActive("MP", effects.Vibratos)
 
                     if err == nil {
-                        idx |= effects.Vibratos.GetInt(num) * 0x80
+                        idx |= effects.Vibratos.GetExtraInt(num, "effect-freq") * 0x80
                         for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 chn.AddCmd([]int{defs.CMD_VIBMAC, idx + 1})

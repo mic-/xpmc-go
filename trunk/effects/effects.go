@@ -17,7 +17,7 @@ type EffectMap struct {
     data []*utils.ParamList
     keys []int
     refCount []int
-    extraData []int
+    extraData []map[string]interface{}
 }
 
 
@@ -34,6 +34,13 @@ func (m *EffectMap) GetKeyAt(pos int) int {
         return m.keys[pos]
     }
     return -1
+}
+
+func (m *EffectMap) GetDataAt(pos int) *utils.ParamList {
+    if pos < len(m.data) {
+        return m.data[pos]
+    }
+    return nil
 }
 
 /* Checks if an effect with the given parameter list already exists, and if so
@@ -60,22 +67,37 @@ func (m *EffectMap) Append(key int, lst *utils.ParamList) {
     m.keys = append(m.keys, key)
     m.data = append(m.data, lst)
     m.refCount = append(m.refCount, 0)
-    m.extraData = append(m.extraData, 0)
+    m.extraData = append(m.extraData, map[string]interface{}{})
 }
 
-func (m *EffectMap) PutInt(key, val int) {
+func (m *EffectMap) PutExtraInt(key int, name string, val int) {
     pos := m.FindKey(key)
     if (pos != -1) {
-        m.extraData[pos] = val
+        m.extraData[pos][name] = val
     }
 }
 
-func (m *EffectMap) GetInt(key int) int {
+func (m *EffectMap) GetExtraInt(key int, name string) int {
     pos := m.FindKey(key)
     if (pos != -1) {
-        return m.extraData[pos]
+        return m.extraData[pos][name].(int)
     }
     return 0
+}
+
+func (m *EffectMap) PutExtraString(key int, name string, val string) {
+    pos := m.FindKey(key)
+    if (pos != -1) {
+        m.extraData[pos][name] = val
+    }
+}
+
+func (m *EffectMap) GetExtraString(key int, name string) string {
+    pos := m.FindKey(key)
+    if (pos != -1) {
+        return m.extraData[pos][name].(string)
+    }
+    return ""
 }
 
 func (m *EffectMap) IsReferenced(key int) bool {
