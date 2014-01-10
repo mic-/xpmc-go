@@ -78,6 +78,10 @@ type TargetAt8 struct {
     Target
 }
 
+type TargetC64 struct {
+    Target
+}
+
 type TargetGBC struct {
     Target
 }
@@ -117,6 +121,8 @@ func NewTarget(tID int, icomp ICompiler) ITarget {
     switch tID {
     case TARGET_AT8:
         t = &TargetAt8{}
+    case TARGET_C64:
+        t = &TargetC64{}
     case TARGET_GBC:
         t = &TargetGBC{}
     case TARGET_KSS:
@@ -145,6 +151,8 @@ func NameToID(targetName string) int {
     switch targetName {
     case "at8":
         return TARGET_AT8;
+    case "c64":
+        return TARGET_C64;
     case "gbc":
         return TARGET_GBC;
     case "kss":
@@ -243,8 +251,8 @@ func (t *Target) GetMinVolume() int {
 
 func (t *Target) GetMaxVolume() int {
     maxVol := t.ChannelSpecs.MaxVol[0]
-    for _, v := range t.ChannelSpecs.MaxVol {
-        if v > maxVol {
+    for i, v := range t.ChannelSpecs.MaxVol {
+        if v > maxVol && t.ChannelSpecs.IDs[i] != specs.CHIP_UNKNOWN {
             maxVol = v
         }
     }
@@ -333,20 +341,20 @@ func (t *TargetNES) Init() {
 
 /* Packs the parameters for an ADSR envelope into the format used by the given chip.
  */
-func packADSR(adsr []int, chipType int) []int {
-    packedAdsr := []int{}
+func packADSR(adsr []interface{}, chipType int) []interface{} {
+    packedAdsr := []interface{}{}
     
     switch chipType {
     case specs.CHIP_YM2413:
-        packedAdsr = make([]int, 2)
-        packedAdsr[0] = adsr[0] * 0x10 + adsr[1]
-        packedAdsr[1] = (adsr[2] ^ 15) * 0x10 + adsr[3]
+        packedAdsr = make([]interface{}, 2)
+        packedAdsr[0] = adsr[0].(int) * 0x10 + adsr[1].(int)
+        packedAdsr[1] = (adsr[2].(int) ^ 15) * 0x10 + adsr[3].(int)
     case specs.CHIP_YM2151, specs.CHIP_YM2612:
-        packedAdsr = make([]int, 4)
-        packedAdsr[0] = adsr[1]
-        packedAdsr[1] = adsr[2]
-        packedAdsr[2] = adsr[3]
-        packedAdsr[3] = (adsr[4] / 2) + ((adsr[3] ^ 31) / 2) * 0x10
+        packedAdsr = make([]interface{}, 4)
+        packedAdsr[0] = adsr[1].(int)
+        packedAdsr[1] = adsr[2].(int)
+        packedAdsr[2] = adsr[3].(int)
+        packedAdsr[3] = (adsr[4].(int) / 2) + ((adsr[3].(int) ^ 31) / 2) * 0x10
     }
     
     return packedAdsr
@@ -355,21 +363,21 @@ func packADSR(adsr []int, chipType int) []int {
 
 /* Packs the parameters for a MOD modulator macro into the format used by the given chip.
  */
-func packMOD(modParams []int, chipType int) [] int {
-    packedMod := []int{}
+func packMOD(modParams []interface{}, chipType int) []interface{} {
+    packedMod := []interface{}{}
     
     switch chipType {
     case specs.CHIP_YM2151:
-        packedMod = make([]int, 5)
-        packedMod[0] = modParams[0]
-        packedMod[1] = modParams[1]
-        packedMod[2] = modParams[2] | 0x80
-        packedMod[3] = modParams[3] + modParams[4] * 0x10
-        packedMod[4] = modParams[5] + 0xC0
+        packedMod = make([]interface{}, 5)
+        packedMod[0] = modParams[0].(int)
+        packedMod[1] = modParams[1].(int)
+        packedMod[2] = modParams[2].(int) | 0x80
+        packedMod[3] = modParams[3].(int) + modParams[4].(int) * 0x10
+        packedMod[4] = modParams[5].(int) + 0xC0
     case specs.CHIP_YM2612:
-        packedMod = make([]int, 2)
-        packedMod[0] = modParams[0]
-        packedMod[1] = modParams[1] * 8 + modParams[2]
+        packedMod = make([]interface{}, 2)
+        packedMod[0] = modParams[0].(int)
+        packedMod[1] = modParams[1].(int) * 8 + modParams[2].(int)
     }
     
     return packedMod
@@ -631,7 +639,7 @@ func outputTable(outFile *os.File, outputFormat int, tblName string, effMap *eff
                 outFile.WriteString(fmt.Sprintf(tblName + "_%d:", key))
                 effectData := effMap.GetData(key)
                 for j, param := range effectData.MainPart {
-                    dat = (param * scaling) & 0xFF
+                    dat = (param.(int) * scaling) & 0xFF
                     if canLoop && (dat == loopDelim) {
                         dat++
                     }
@@ -658,7 +666,7 @@ func outputTable(outFile *os.File, outputFormat int, tblName string, effMap *eff
                     }
                     outFile.WriteString(fmt.Sprintf("\n" + tblName + "_%d_loop:\n", key))
                     for j, param := range effectData.LoopedPart {
-                        dat = (param * scaling) & 0xFF
+                        dat = (param.(int) * scaling) & 0xFF
                         if dat == loopDelim && canLoop {
                             dat++
                         }

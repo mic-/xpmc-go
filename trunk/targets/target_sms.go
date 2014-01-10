@@ -53,10 +53,10 @@ func (t *TargetSMS) Output(outputVgm int) {
         return
     }
 
-    envelopes := make([][]int, len(effects.ADSRs.GetKeys()))
+    envelopes := make([][]interface{}, len(effects.ADSRs.GetKeys()))
     for i, key := range effects.ADSRs.GetKeys() {
         envelopes[i] = packADSR(effects.ADSRs.GetData(key).MainPart, specs.CHIP_YM2413)
-        effects.ADSRs.GetData(key).MainPart = make([]int, len(envelopes[i]))
+        effects.ADSRs.GetData(key).MainPart = make([]interface{}, len(envelopes[i]))
         copy(effects.ADSRs.GetData(key).MainPart, envelopes[i])        
     }
     

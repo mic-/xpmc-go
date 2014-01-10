@@ -70,18 +70,18 @@ func (t *TargetGen) Output(outputVgm int) {
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
     
     // Convert ADSR envelopes to the format used by the YM2612
-    envelopes := make([][]int, len(effects.ADSRs.GetKeys()))
+    envelopes := make([][]interface{}, len(effects.ADSRs.GetKeys()))
     for i, key := range effects.ADSRs.GetKeys() {
         envelopes[i] = packADSR(effects.ADSRs.GetData(key).MainPart, specs.CHIP_YM2612)
-        effects.ADSRs.GetData(key).MainPart = make([]int, len(envelopes[i]))
+        effects.ADSRs.GetData(key).MainPart = make([]interface{}, len(envelopes[i]))
         copy(effects.ADSRs.GetData(key).MainPart, envelopes[i])
     }
 
     // Convert MODmodulation parameters to the format used by the YM2612
-    mods := make([][]int, len(effects.MODs.GetKeys()))
+    mods := make([][]interface{}, len(effects.MODs.GetKeys()))
     for i, key := range effects.MODs.GetKeys() {
         mods[i] = packMOD(effects.MODs.GetData(key).MainPart, specs.CHIP_YM2612)
-        effects.MODs.GetData(key).MainPart = make([]int, len(mods[i]))
+        effects.MODs.GetData(key).MainPart = make([]interface{}, len(mods[i]))
         copy(effects.MODs.GetData(key).MainPart, mods[i])
     } 
    

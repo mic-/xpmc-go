@@ -37,8 +37,8 @@ type ParserState struct {
 type ParamList struct {
     currentPart int
     currentPos int
-    MainPart []int
-    LoopedPart []int
+    MainPart []interface{} //int
+    LoopedPart []interface{} //int
 }
 
 type GenericStack struct {
@@ -420,14 +420,14 @@ func (p *ParserState) GetNumericString() string {
 func (p *ParserState) GetList() (*ParamList,error) {
     var startVal, stopVal, stepVal int
     
-    lst := &ParamList{0, 0, []int{}, []int{}}
+    lst := &ParamList{0, 0, []interface{}{}, []interface{}{}}
     err := errors.New("Bad list")
     
     commaOk := false            // Not ok to read a comma
     pipeOk  := true             // Ok to read a |
     gotPipe := false
     endOk   := false            // Not ok to read a }
-    concatTo := []int{}     
+    concatTo := []interface{}{}     
     
     p.SkipWhitespace()
     
@@ -577,7 +577,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                 } else if c == '|' {
                     if pipeOk && !gotPipe {
                         lst.MainPart = append(lst.MainPart, concatTo...)
-                        concatTo = []int{}
+                        concatTo = []interface{}{}
                         commaOk = false
                         pipeOk  = false
                         endOk   = false
@@ -649,12 +649,13 @@ func (p *ParserState) GetList() (*ParamList,error) {
                     num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
                     if e == nil {
                         for i, _ := range lst.MainPart {
+                            curr := lst.MainPart[i].(int)
                             if c == '+' {
-                                lst.MainPart[i] += int(num)
+                                lst.MainPart[i] = curr + int(num)
                             } else if c == '-' {
-                                lst.MainPart[i] -= int(num)
+                                lst.MainPart[i] = curr - int(num)
                             } else if c == '*' {
-                                lst.MainPart[i] *= int(num)
+                                lst.MainPart[i] = curr * int(num)
                             } else if c == '\'' {
                                 if num < 1 {
                                     ERROR("Repeat value must be >= 1")
@@ -662,7 +663,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                                 if num > 100 {
                                     WARNING("Repeat values > 100 are ignored")
                                 } else {
-                                    t := []int{}
+                                    t := []interface{}{}
                                     for j, _ := range lst.MainPart {
                                         for k := 0; k < int(num); k++ {
                                             t = append(t, lst.MainPart[j])
@@ -673,12 +674,13 @@ func (p *ParserState) GetList() (*ParamList,error) {
                             }
                         }
                         for i, _ := range lst.LoopedPart {
+                            curr := lst.LoopedPart[i].(int)
                             if c == '+' {
-                                lst.LoopedPart[i] += int(num)
+                                lst.LoopedPart[i] = curr + int(num)
                             } else if c == '-' {
-                                lst.LoopedPart[i] -= int(num)
+                                lst.LoopedPart[i] = curr - int(num)
                             } else if c == '*' {
-                                lst.LoopedPart[i] *= int(num)
+                                lst.LoopedPart[i] = curr * int(num)
                             } else if c == '\'' {
                                 if num < 1 {
                                     ERROR("Repeat value must be >= 1")
@@ -686,7 +688,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                                 if num > 100 {
                                     WARNING("Repeat values > 100 are ignored")
                                 } else {
-                                    t := []int{}
+                                    t := []interface{}{}
                                     for j, _ := range lst.LoopedPart {
                                         for k := 0; k < int(num); k++ {
                                             t = append(t, lst.LoopedPart[j])
@@ -791,9 +793,9 @@ func (lst *ParamList) Step() {
 
 func (lst *ParamList) Peek() int {
     if lst.currentPart == 1 {
-        return lst.LoopedPart[lst.currentPos]
+        return lst.LoopedPart[lst.currentPos].(int)
     }
-    return lst.MainPart[lst.currentPos]
+    return lst.MainPart[lst.currentPos].(int)
 }
 
 func (lst *ParamList) IsEmpty() bool {

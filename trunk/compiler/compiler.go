@@ -199,6 +199,7 @@ func (comp *Compiler) GetCallbacks() []string {
     return comp.callbacks
 }
 
+
 func (comp *Compiler) Init(target int) {
     comp.macros = &MmlMacroMap{}
     comp.patterns = &MmlPatternMap{}
@@ -247,20 +248,20 @@ func (comp *Compiler) getEffectFrequency() int {
 }
 
 
-/* Check if o is within the range of min and max
-
- Examples:
-   inRange(1, 0, 5) -> 1
-   inRange([]int{1,2,3}, 1, 10) -> 1
-   inRange([]int{1,2}, []int{0,0}, 5) -> 1
-   inRange([]int{1,2}, []int{2,0}, 5) -> 0     (min[0]>o[0])
-   inRange([]int{1,2}, []int{0,0,0}, 5) -> 0   (too many elements in min)
-*/
+/* Checks if o is within the range of min and max
+ *
+ * Examples:
+ *  inRange(1, 0, 5) -> 1
+ *  inRange([]int{1,2,3}, 1, 10) -> 1
+ *  inRange([]int{1,2}, []int{0,0}, 5) -> 1
+ *  inRange([]int{1,2}, []int{2,0}, 5) -> 0     (min[0]>o[0])
+ *  inRange([]int{1,2}, []int{0,0,0}, 5) -> 0   (too many elements in min)
+ */
 func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
     i, isValScalar := o.(int)
     lo, isMinScalar := minimum.(int)
     hi, isMaxScalar := maximum.(int)
-    values, isValSlice := o.([]int)
+    values, isValSlice := o.([]interface{})
     los, isMinSlice := minimum.([]int)
     his, isMaxSlice := maximum.([]int)
     
@@ -273,14 +274,15 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
     } else {
         if isMinScalar && isMaxScalar && isValSlice {
             for _, val := range values {
-                if val < lo || val > hi {
+                if val.(int) < lo || val.(int) > hi {
                     return false
                 }
             }
         } else if isMinScalar && isMaxSlice && isValSlice {
             if len(his) == len(values) {
                 for j, _ := range values {
-                    if values[j] < lo || values[j] > his[j] {
+                    intVal := values[j].(int)
+                    if intVal < lo || intVal > his[j] {
                         return false
                     }
                 }
@@ -290,7 +292,7 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
         } else if isMinSlice && isMaxScalar && isValSlice {
             if len(los) == len(values) {
                 for j, _ := range values {
-                    if values[j] < los[j] || values[j] > hi {
+                    if values[j].(int) < los[j] || values[j].(int) > hi {
                         return false
                     }
                 }
@@ -300,7 +302,7 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
         } else if isMinSlice && isMaxSlice && isValSlice {
             if len(los) == len(his) && len(his) == len(values) {
                 for j, _ := range values {
-                    if values[j] < los[j] || values[j] > his[j] {
+                    if values[j].(int) < los[j] || values[j].(int) > his[j] {
                         return false
                     }
                 }
@@ -309,6 +311,7 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
             }
         } else {
             // Unsupported combination of types
+            ERROR("Bad parameter combination for inRange")
             return false
         }
     }
@@ -339,11 +342,12 @@ func (comp *Compiler) writeAllPendingNotes(forceOctChange bool) {
 }
 
 
-// Parse an expression on the form  SYM op SYM op ...
-// Where op is either | or &
-// The polarity specifies if this expression is for an IF or IFN, and determines
-// how the ops should be interpreted.
-// Returns 1 if the expression is true, otherwise 0
+/* Parses an expression on the form  SYM op SYM op ...
+ * Where op is either | or &
+ * The polarity specifies if this expression is for an IF or IFN, and determines
+ * how the ops should be interpreted.
+ * Returns 1 if the expression is true, otherwise 0
+ */
 func evalIfdefExpr(polarity int) int {
     s := Parser.GetStringUntil("&|\r\n")
     expr := IsDefined(s)
@@ -372,7 +376,8 @@ func evalIfdefExpr(polarity int) int {
 }
 
 
-// Handle commands starting with '#', i.e. a meta command 
+/* Handles commands starting with '#', i.e. a meta command.
+ */
 func (comp *Compiler) handleMetaCommand() {
     if comp.dontCompile.PeekInt() != 0 {
         s := Parser.GetString()
@@ -767,7 +772,8 @@ func (comp *Compiler) handleDutyMacDef(num int) {
                             
 }
 
-// Handle definitions of panning macros ("@CS<xy> = {...}")
+/* Handles definitions of panning macros ("@CS<xy> = {...}")
+ */
 func (comp *Compiler) handlePanMacDef(cmd string) {
     num, err := strconv.Atoi(cmd[2:])
     if err == nil {
@@ -814,7 +820,8 @@ func (comp *Compiler) handlePanMacDef(cmd string) {
 }
 
 
-// Handle definitions of modulation macros ("@MOD<xy> = {...}")
+/* Handle definitions of modulation macros ("@MOD<xy> = {...}")
+ */
 func (comp *Compiler) handleModMacDef(cmd string) {
     num, err := strconv.Atoi(cmd[3:])
     if err == nil {
@@ -932,6 +939,9 @@ func (comp *Compiler) applyCmdOnAllActive(cmdName string, cmd []int) {
 }
 
 
+/* Applies the given command on all active channels that support FM
+ * commands.
+ */
 func (comp *Compiler) applyCmdOnAllActiveFM(cmdName string, cmd []int) {
     for _, chn := range comp.CurrSong.Channels {
         if chn.Active {
@@ -945,6 +955,9 @@ func (comp *Compiler) applyCmdOnAllActiveFM(cmdName string, cmd []int) {
 }
 
 
+/* Applies the given effect on all active channels that support the effect (fulfills
+ * the given predicate function.
+ */
 func (comp *Compiler) applyEffectOnAllActiveSupported(cmdName string, cmd []int, pred func(*channel.Channel) bool,
                                      effMap *effects.EffectMap, num int) {
     for _, chn := range comp.CurrSong.Channels {
@@ -960,8 +973,7 @@ func (comp *Compiler) applyEffectOnAllActiveSupported(cmdName string, cmd []int,
 }
                                                         
                                                                         
-/*
- * Generates an error if the rune in c isn't a valid channel name.
+/* Generates an error if the rune in c isn't a valid channel name.
  */
 func (comp *Compiler) assertIsChannelName(c int) {
     if !strings.ContainsRune(comp.CurrSong.Target.GetChannelNames(), rune(c)) {
@@ -1018,7 +1030,6 @@ func (comp *Compiler) CompileFile(fileName string) {
         }
                 
         c2 := c
-        //fmt.Printf("c2 = '%c' on line %d\n", c2, Parser.LineNum)
         
         if c == 10 {
             Parser.LineNum++
@@ -1181,7 +1192,6 @@ func (comp *Compiler) CompileFile(fileName string) {
                             
                         // Pitch macro definition
                         } else if strings.HasPrefix(s, "EP") {
-                            //handlePitchMacDef(s)    
                             comp.handleEffectDefinition("EP", s, effects.PitchMacros, func(parm *ParamList) bool {
                                     if !parm.IsEmpty() {
                                         return true
@@ -1241,7 +1251,10 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                             if len(lst.MainPart) < comp.CurrSong.Target.GetMinWavLength() {
                                                                 WARNING(fmt.Sprintf("Padding waveform with zeroes (current length: %d, needs to be at least %d)",
                                                                     len(lst.MainPart), comp.CurrSong.Target.GetMinWavLength()))
-                                                                lst.MainPart = append(lst.MainPart, make([]int, comp.CurrSong.Target.GetMinWavLength() - len(lst.MainPart))...)
+                                                                for padBytes := 0; padBytes < comp.CurrSong.Target.GetMinWavLength() - len(lst.MainPart); padBytes++ {
+                                                                    lst.MainPart = append(lst.MainPart, 0)
+                                                                }
+                                                                //lst.MainPart = append(lst.MainPart, make([]int, comp.CurrSong.Target.GetMinWavLength() - len(lst.MainPart))...)
                                                             
                                                             } else if len(lst.MainPart) > comp.CurrSong.Target.GetMaxWavLength() {
                                                                 WARNING("Truncating waveform")
@@ -1538,7 +1551,8 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                         effects.VolumeMacros.Append(num, lst)
                                                         effects.VolumeMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
                                                     } else {
-                                                        ERROR("Value out of range: " + lst.Format())
+                                                        ERROR("@v: Value out of range: " + lst.Format() +
+                                                            fmt.Sprintf(", Min=%d Max=%d", comp.CurrSong.Target.GetMinVolume(), comp.CurrSong.Target.GetMaxVolume()))
                                                     }
                                                 } else {
                                                     ERROR("Bad volume macro: " + t)

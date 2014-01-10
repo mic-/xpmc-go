@@ -108,7 +108,7 @@ func (t *TargetGBC) Output(outputVgm int) {
             if j == 0 {
                 outFile.WriteString("\n.db ")
             }             
-            outFile.WriteString(fmt.Sprintf("$%02x", params[j] * 0x10 + params[j+1]))
+            outFile.WriteString(fmt.Sprintf("$%02x", params[j].(int) * 0x10 + params[j+1].(int)))
             wavSize++
             if j < len(params) - 1 {
                 outFile.WriteString(",")
