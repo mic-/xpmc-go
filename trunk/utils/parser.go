@@ -22,6 +22,7 @@ import (
 
 type ParserState struct {
     LineNum int
+    Column int
     ShortFileName string
     WorkDir string
     fileData []byte
@@ -40,6 +41,7 @@ func (s *ParserState) Init(fileName string) error {
     fmt.Printf("Parsing " + fileName + "\n")
     s.fileDataPos = 0
     s.LineNum = 1
+    s.Column = 0
     s.UserDefinedBase = 10
     s.currentBase = 10
     s.wtListOk = false
@@ -88,6 +90,7 @@ func (p *ParserState) Getch() int {
     if p.fileDataPos < len(p.fileData) {
         c = int(p.fileData[p.fileDataPos])
         p.fileDataPos++
+        p.Column++
     }
     
     return c
@@ -99,6 +102,7 @@ func (p *ParserState) Getch() int {
 func (p *ParserState) Ungetch() {
     if p.fileDataPos > 0 {
         p.fileDataPos--
+        p.Column--
     }
 }
 
@@ -122,6 +126,12 @@ func (p *ParserState) PeekString(maxChars int) string {
  */
 func (p *ParserState) SkipN(n int) {
     p.fileDataPos += n
+    p.Column += n
+}
+
+func (p *ParserState) AdvanceLine() {
+    p.LineNum++
+    p.Column = 0
 }
 
 
@@ -134,7 +144,7 @@ func (p *ParserState) SkipWhitespace() {
         c = p.Getch()
         if c == ' ' || c == '\t' || c == 13 || c == 10 {
             if c == 10 {
-                p.LineNum++
+                p.AdvanceLine()
             }
         } else {
             break
@@ -289,13 +299,15 @@ func (p *ParserState) GetNumericString() string {
         }
     }
     
-    p.Ungetch()
+    if c != -1 {
+        p.Ungetch()
+    }
     
     if prefix == 'x' {
         if len(s) > 2 {
-            //s = '#' & s[3..length(s)]
+            // s = "0x" + s[2:]
         } else {
-            //s = ""
+            s = ""
         }
     } else if prefix == 'd' {
         if len(s) > 2 {
@@ -305,7 +317,7 @@ func (p *ParserState) GetNumericString() string {
         }
     } else if p.currentBase == 16 {
         if len(s) > 0 {
-            //s = '#' & s
+            s = "0x" + s
         }
     }
     
@@ -318,8 +330,8 @@ func (p *ParserState) GetNumericString() string {
     
     return s
 }
-
-
+   
+    
 func (p *ParserState) GetList() (*ParamList,error) {
     var startVal, stopVal, stepVal int
     
@@ -343,7 +355,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
             t := p.GetNumericString()
             
             if len(t) > 0 {
-                num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
+                num, e := strconv.ParseInt(t, 0, 0)
                 if e == nil {
                     p.SkipWhitespace()
                     c = p.Getch()
@@ -351,7 +363,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                         startVal = int(num)
                         p.SetNumericBase(p.UserDefinedBase)
                         t = p.GetNumericString()
-                        num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
+                        num, e = strconv.ParseInt(t, 0, 0)
                         rept := 0
                         if e == nil {
                             stopVal = int(num)
@@ -363,7 +375,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                                 }
                                 p.SetNumericBase(p.UserDefinedBase)
                                 t = p.GetNumericString()
-                                num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
+                                num, e = strconv.ParseInt(t, 0, 0)
                                 if e == nil {
                                     stepVal = int(num)
                                 } else {
@@ -372,7 +384,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                                 c = p.Getch()
                                 if c == '\''{
                                     t = p.GetNumericString()
-                                    num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
+                                    num, e = strconv.ParseInt(t, 0, 0)
                                     if e == nil {
                                         if num < 1 {
                                             ERROR("Repeat value must be >= 1",)
@@ -394,7 +406,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                                     stepVal = 1
                                 }
                                 t = p.GetNumericString()
-                                num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
+                                num, e = strconv.ParseInt(t, 0, 0)
                                 if e == nil {
                                     if num < 1 {
                                         ERROR("Repeat value must be >= 1")
@@ -442,7 +454,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                         startVal = int(num)
                         p.SetNumericBase(p.UserDefinedBase)
                         t = p.GetNumericString()
-                        num, e = strconv.ParseInt(t, p.UserDefinedBase, 0)
+                        num, e = strconv.ParseInt(t, 0, 0)
                         if e == nil {
                             if num < 1 {
                                 ERROR("Repeat value must be >= 1")
@@ -466,7 +478,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                     pipeOk  = true
                     endOk   = true
                 } else {
-                    ERROR("Syntax error: " + t)
+                    ERROR("Syntax error while parsing list: " + t)
                 }
             } else {
                 c = p.Getch()
@@ -518,7 +530,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                     c = p.Getch()
                     if c == 'T' {
                         t = p.GetNumericString()
-                        num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
+                        num, e := strconv.ParseInt(t, 0, 0)
                         if e == nil {
                             if num==0 { num++ }  //temp
                             //ToDo: fix: s[concatTo] &= {{-1, 'W', 'T', o[2]}}
@@ -549,7 +561,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                 p.AllowFloatsInNumericStrings()
                 t := p.GetNumericString()
                 if len(t) > 0 {
-                    num, e := strconv.ParseInt(t, p.UserDefinedBase, 0)
+                    num, e := strconv.ParseInt(t, 0, 0)
                     if e == nil {
                         for i, _ := range lst.MainPart {
                             curr := lst.MainPart[i].(int)
@@ -602,7 +614,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                             }
                         }
                     } else {
-                        ERROR("Syntax error: " + t)
+                        ERROR("Syntax error while parsing list: " + t)
                     }
                 } else {
                     ERROR("Expected a numeric constant after " + string(byte(c)))
