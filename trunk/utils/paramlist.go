@@ -1,5 +1,6 @@
 /*
  * Package utils
+ * ParamList functions
  *
  * Part of XPMC.
  * Contains utility functions and other miscellaneous functions

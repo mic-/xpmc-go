@@ -21,13 +21,6 @@ import (
 import . "../utils"
 
 
-const (
-    POLARITY_POSITIVE = 0
-    POLARITY_NEGATIVE = 1
-    
-    ELSIFDEF_TAKEN = 2
-)
-
 // For macro elements
 const (
     ARG_REFERENCE = 1
@@ -220,33 +213,6 @@ func (comp *Compiler) Init(target int) {
 }
 
 
-func (comp *Compiler) getEffectFrequency() int {
-    var n, retVal int
-    
-    retVal = defs.EFFECT_STEP_EVERY_FRAME
-    
-    Parser.SkipWhitespace()
-    n = Parser.Getch()
-    if n == '(' {
-        t := Parser.GetStringUntil(")\t\r\n ")
-        if t == "EVERY-FRAME" {
-            retVal = defs.EFFECT_STEP_EVERY_FRAME
-        } else if t == "EVERY-NOTE" {
-            retVal = defs.EFFECT_STEP_EVERY_NOTE
-        } else {
-            ERROR("Unsupported effect frequency: " + t)
-        }
-        
-        if Parser.Getch() != ')' {
-            ERROR("Syntax error: expected )")
-        }
-    } else {
-        Parser.Ungetch()
-    }
-    
-    return retVal
-}
-
 
 /* Checks if o is within the range of min and max
  *
@@ -339,587 +305,6 @@ func (comp *Compiler) writeAllPendingNotes(forceOctChange bool) {
         }()
     }
     w.Wait()
-}
-
-
-/* Parses an expression on the form  SYM op SYM op ...
- * Where op is either | or &
- * The polarity specifies if this expression is for an IF or IFN, and determines
- * how the ops should be interpreted.
- * Returns 1 if the expression is true, otherwise 0
- */
-func evalIfdefExpr(polarity int) int {
-    s := Parser.GetStringUntil("&|\r\n")
-    expr := IsDefined(s)
-    for {
-        s = Parser.GetStringInRange("&|")
-        if s == "&" {
-            s = Parser.GetStringUntil("&|\r\n")
-            if polarity == POLARITY_POSITIVE {
-                expr = expr & IsDefined(s)
-            } else {
-                expr = expr | IsDefined(s)
-            }
-        } else if s == "|" {
-            s = Parser.GetStringUntil("&|\r\n")
-            if polarity == POLARITY_POSITIVE {
-                expr = expr | IsDefined(s)
-            } else {
-                expr = expr & IsDefined(s)
-            }
-        } else {
-            break
-        }
-    }
-    
-    return expr
-}
-
-
-/* Handles commands starting with '#', i.e. a meta command.
- */
-func (comp *Compiler) handleMetaCommand() {
-    if comp.dontCompile.PeekInt() != 0 {
-        s := Parser.GetString()
-        switch s {
-        case "IFDEF":
-            expr := evalIfdefExpr(POLARITY_POSITIVE)
-            comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.PeekInt())
-            comp.hasElse.Push(false)
-
-        case "IFNDEF":
-            expr := evalIfdefExpr(POLARITY_NEGATIVE)
-            comp.dontCompile.Push(expr | comp.dontCompile.PeekInt())
-            comp.hasElse.Push(false)             
-
-        case "ELSIFDEF":
-            expr := evalIfdefExpr(POLARITY_POSITIVE)
-            if comp.dontCompile.Len() > 1 {
-                if !comp.hasElse.PeekBool() {
-                    if (comp.dontCompile.PeekInt() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
-                        _ = comp.dontCompile.PopInt()
-                        comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.PeekInt())
-                    }
-                } else {
-                    ERROR("ELSIFDEF found after ELSE")
-                }
-            } else {
-                ERROR("ELSIFDEF with no matching IFDEF")
-            }                   
-
-
-        case "ELSE":
-            if comp.dontCompile.Len() > 1 {
-                if !comp.hasElse.PeekBool() {
-                    if (comp.dontCompile.PeekInt() & ELSIFDEF_TAKEN) != ELSIFDEF_TAKEN {
-                        x := comp.dontCompile.PopInt()
-                        comp.dontCompile.Push((x ^ 1) | comp.dontCompile.PeekInt())
-                    }
-                    _ = comp.hasElse.PopBool()
-                    comp.hasElse.Push(true)
-                } else {
-                    ERROR("Only one ELSE allowed per IFDEF")
-                }
-            } else {
-                ERROR("ELSE with no matching IFDEF")
-            }
-
-        case "ENDIF":
-            if comp.dontCompile.Len() > 1 {
-                _ = comp.dontCompile.PopInt()
-                _ = comp.hasElse.PopBool()
-            } else {
-                ERROR("ENDIF with no matching IFDEF")
-            }
-        }
-    } else {
-        for _, chn := range comp.CurrSong.Channels {
-            chn.WriteNote(true)
-        }
-
-        cmd := Parser.GetString()
-
-        switch cmd {
-        case "IFDEF":
-            expr := evalIfdefExpr(POLARITY_POSITIVE)
-            comp.dontCompile.Push((expr ^ 1) | comp.dontCompile.PeekInt())
-            comp.hasElse.Push(false)
-
-        case "IFNDEF":
-            expr := evalIfdefExpr(POLARITY_NEGATIVE)
-            comp.dontCompile.Push(expr | comp.dontCompile.PeekInt())
-            comp.hasElse.Push(false)
-
-        case "ELSIFDEF":
-            if comp.dontCompile.Len() > 1 {
-                if !comp.hasElse.PeekBool() {
-                    _ = Parser.GetStringUntil("\r\n")
-                    _ = comp.dontCompile.PopInt()
-                    // Getting here means that the current IFDEF/ELSIFDEF was true,
-                    // so whatever is in subsequent ELSIFDEF/ELSE clauses should not
-                    // be compiled.
-                    comp.dontCompile.Push(ELSIFDEF_TAKEN)
-                } else {
-                    ERROR("ELSIFDEF found after ELSE")
-                }
-            } else {
-                ERROR("ELSIFDEF with no matching IFDEF")
-            }
-
-        case "ELSE":
-            if comp.dontCompile.Len() > 1 {
-                if !comp.hasElse.PeekBool() {
-                    _ = comp.dontCompile.PopInt()
-                    comp.dontCompile.Push(1)
-                    _ = comp.hasElse.PopBool()
-                    comp.hasElse.Push(true)
-                } else {
-                    ERROR("Only one ELSE allowed per IFDEF")
-                }
-            } else {
-                ERROR("ELSE with no matching IFDEF")
-            }
-
-        case "ENDIF":
-            if comp.dontCompile.Len() > 1 {
-                _ = comp.dontCompile.PopInt()
-                _ = comp.hasElse.PopBool()
-            } else {
-                ERROR("ENDIF with no matching IFDEF")
-            }
-                    
-        case "TITLE":
-            comp.CurrSong.Title = Parser.GetStringUntil("\r\n")
-
-        case "TUNE":
-            comp.CurrSong.TuneSmsPitch = true
-
-        case "COMPOSER":
-            comp.CurrSong.Composer = Parser.GetStringUntil("\r\n")
-
-        case "PROGRAMER","PROGRAMMER":
-            comp.CurrSong.Programmer = Parser.GetStringUntil("\r\n")
-
-        case "GAME":
-            comp.CurrSong.Game = Parser.GetStringUntil("\r\n")
-
-        case "ALBUM":
-            comp.CurrSong.Album = Parser.GetStringUntil("\r\n")
-
-        case "ERROR":
-            Parser.SkipWhitespace()
-            if Parser.Getch() == '"' {
-                s := Parser.GetStringUntil("\"")
-                if Parser.Getch() == '"' {
-                    ERROR(s)
-                } else {
-                    ERROR("Malformed #ERROR, missing ending \"")
-                }
-            } else {
-                ERROR("Malformed #ERROR, missing starting \"")
-            }
-
-        case "WARNING":
-            Parser.SkipWhitespace()
-            if Parser.Getch() == '"' {
-                s := Parser.GetStringUntil("\"")
-                if Parser.Getch() == '"' {
-                    WARNING(s)
-                } else {
-                    ERROR("Malformed #WARNING, missing ending \"")
-                }
-            } else {
-                ERROR("Malformed #WARNING, missing starting \"")
-            }
-                    
-        case "INCLUDE":
-            Parser.SkipWhitespace()
-            if Parser.Getch() == '"' {
-                s := Parser.GetStringUntil("\"")
-                if Parser.Getch() == '"' {
-                    if len(s) > 0 {
-                        if !strings.ContainsRune(s, ':') && s[0] != '\\' {
-                            s = Parser.WorkDir + s
-                        }
-                        comp.CompileFile(s)
-                    }
-                } else {
-                    ERROR("Malformed #INCLUDE, missing ending \"")
-                }
-            } else {
-                ERROR("Malformed #INCLUDE, missing starting \"")
-            }
-
-        case "PAL":
-            if comp.CurrSong.Target.SupportsPAL() {
-                timing.UpdateFreq = 50.0
-            }
-
-        case "NTSC":
-            timing.UpdateFreq = 60.0
-
-        case "SONG":
-            s := Parser.GetString()
-            num, err := strconv.ParseInt(s, Parser.UserDefinedBase, 0)
-            if err == nil {
-                if num > 1 && num < 100 {
-                    // ToDo: fix
-                    if _, songExists := comp.Songs[int(num)]; !songExists {
-                        //m = -1
-                        //l = 0
-
-                        for _, chn := range comp.CurrSong.Channels {
-                            if chn.IsVirtual() {
-                                continue
-                            }
-                            if chn.Loops.Len() > 0 {
-                                utils.ERROR("Open [ loop on channel %s", chn.Name)
-                            }
-                            chn.LoopTicks = chn.Ticks - chn.LoopTicks
-                            if chn.LoopPoint == -1 {
-                                chn.AddCmd([]int{defs.CMD_END})
-                            } else {
-                                if !chn.HasAnyNote {
-                                    chn.AddCmd([]int{defs.CMD_END})
-                                } else {
-                                    chn.AddCmd([]int{defs.CMD_JMP, chn.LoopPoint & 0xFF, chn.LoopPoint / 0x100})
-                                }
-                            }
-                        }
-                        
-                        if comp.keepChannelsActive || (len(comp.patName) != 0) {
-                            utils.ERROR("Missing }")
-                        }
-                        
-                        /*songNum = o[2]
-                        songs[songNum] = repeat({}, length(supportedChannels))
-                        songLen[songNum] = repeat(0, length(supportedChannels))
-                        hasAnyNote = repeat(0, length(supportedChannels))
-                        songLoopLen[songNum] = songLen[songNum]*/                   
-   
-                        comp.CurrSong = song.NewSong(int(num), comp.CurrSong.Target.GetID(), comp)
-                        comp.Songs[int(num)] = comp.CurrSong
-    
-                    } else {
-                        ERROR("Song " + s + " already defined")
-                    }
-                } else {
-                    ERROR("Bad song number: " + s)
-                }
-            } else {
-                ERROR("Bad song number: " + s)
-            }
-
-        case "BASE":
-            s := Parser.GetString()
-            newBase, err := strconv.ParseInt(s, 10, 0) //Parser.UserDefinedBase, 0)
-            if err == nil {
-                if newBase == 10 || newBase == 16 {
-                    Parser.UserDefinedBase = int(newBase)
-                } else {
-                    WARNING(cmd +": Expected 10 or 16, got: " + s)
-                }
-            } else {
-                ERROR(cmd +": Expected 10 or 16, got: " + s)
-            }
-
-        case "UNIFORM-VOLUME":
-            s := Parser.GetString()
-            vol, err := strconv.Atoi(s)
-            if err == nil {
-                if vol > 1 {
-                    for _, chn := range comp.CurrSong.Channels {
-                        chn.SetMaxVolume(vol)
-                    }
-                    if vol > 255 {
-                        WARNING("Very large max volume specified: " + s)
-                    }
-                } else {
-                    ERROR("Volume must be >= 1: " + s)
-                }
-            } else {
-                ERROR(cmd + ": Expected a positive integer: " + s)
-            }
-
-        case "GB-VOLUME-CONTROL":
-            s := Parser.GetString()
-            ctl, err := strconv.Atoi(s)
-            if err == nil {
-                if ctl == 1 {
-                    comp.gbVolCtrl = 1
-                } else if ctl == 0 {
-                    comp.gbVolCtrl = 0
-                } else {
-                    WARNING(cmd + ": Expected 0 or 1, got: " + s)
-                }
-            } else {
-                ERROR(cmd + ": Expected 0 or 1, got: " + s)
-            }
-
-        case "GB-NOISE":
-            s := Parser.GetString()
-            val, err := strconv.Atoi(s)
-            if err == nil {
-                if val == 1 {
-                    comp.gbNoise = 1
-                    if comp.CurrSong.Target.GetID() == targets.TARGET_GBC {
-                        comp.CurrSong.Channels[3].SetMaxOctave(5)
-                    }
-                } else if val == 0 {
-                    comp.gbNoise = 0
-                    if comp.CurrSong.Target.GetID() == targets.TARGET_GBC {
-                        comp.CurrSong.Channels[3].SetMaxOctave(11)
-                    }
-                } else {
-                    WARNING(cmd + ": Expected 0 or 1, defaulting to 0: " + s)
-                }
-            } else {
-                ERROR(cmd + ": Expected 0 or 1, got: " + s)
-            }
-
-        case "EN-REV":
-            s := Parser.GetString()
-            rev, err := strconv.Atoi(s)
-            if err == nil {
-                if rev == 1 {
-                    comp.enRev = 1
-                    if comp.CurrSong.Target.GetID() == targets.TARGET_C64 ||
-                       comp.CurrSong.Target.GetID() == targets.TARGET_AT8 {
-                        ERROR("#EN-REV 1 is not supported for this target")
-                    }
-                } else if rev == 0 {
-                    comp.enRev = 0
-                } else {
-                    WARNING(cmd + ": Expected 0 or 1, defaulting to 0: " + s)
-                }
-            } else {
-                ERROR(cmd + ": Expected 0 or 1, got: " + s)
-            }
-
-        case "OCTAVE-REV":
-            s := Parser.GetString()
-            rev, err := strconv.Atoi(s)
-            if err == nil {
-                if rev == 1 {
-                    comp.octaveRev = -1
-                } else if rev == 0 {
-                } else {
-                    WARNING(cmd + ": Expected 0 or 1, defaulting to 0:" + s)
-                }
-            } else {
-                ERROR(cmd + ": Expected 0 or 1, got:" + s)
-            }
-
-        case "AUTO-BANKSWITCH":
-            WARNING("Unsupported command: AUTO-BANKSWITCH")
-            _ = Parser.GetString() 
-
-        default:
-            ERROR("Unknown command: " + cmd)
-        }
-    }
-}
-
-
-
-func (comp *Compiler) handleDutyMacDef(num int) {
-    idx := effects.DutyMacros.FindKey(num) 
-    if comp.CurrSong.GetNumActiveChannels() == 0 {
-        if idx < 0 {
-            t := Parser.GetString()
-            if t == "=" {
-                lst, err := Parser.GetList()
-                if err == nil {
-                    if len(lst.MainPart) != 0 || len(lst.LoopedPart) != 0 {
-                        effects.DutyMacros.Append(num, lst)
-                        effects.DutyMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
-                    } else {
-                        ERROR("Empty list for @")
-                    }
-                } else {
-                    ERROR("Syntax error, unable to parse list")
-                }
-            } else {
-                ERROR("Expected '=', got: " + t)
-            }
-        } else {
-            ERROR("Redefinition of @" + strconv.FormatInt(int64(num), 10))
-        }
-    } else {
-        numChannels := 0
-        for _, chn := range comp.CurrSong.Channels {
-            if chn.Active {
-                numChannels++
-                if num >= 0 && num <= chn.SupportsDutyChange() {
-                    if !chn.Tuple.Active {
-                        chn.AddCmd([]int{defs.CMD_DUTY | num})
-                    } else {
-                        chn.Tuple.Cmds = append(chn.Tuple.Cmds, channel.Note{Num: 0xFFFF, Frames: float64(defs.CMD_DUTY | num), HasData: true})
-                    }
-                } else {
-                    if chn.SupportsDutyChange() == -1 {
-                        WARNING("Unsupported command for channel " + chn.GetName() + ": @")
-                    } else {
-                        ERROR("@ out of range: " + strconv.FormatInt(int64(num), 10))
-                    }
-                }
-            }
-        }
-        if numChannels == 0 {
-            WARNING("Use of @ with no channels active")
-        }
-    }
-                            
-}
-
-/* Handles definitions of panning macros ("@CS<xy> = {...}")
- */
-func (comp *Compiler) handlePanMacDef(cmd string) {
-    num, err := strconv.Atoi(cmd[2:])
-    if err == nil {
-        // Already defined?
-        idx := effects.PanMacros.FindKey(num)
-        if idx < 0 {
-            // ..no. Get the '=' sign and then the list of values
-            t := Parser.GetString()
-            if t == "=" {
-                lst, err := Parser.GetList()
-                if err == nil {
-                    // The list must contain at least one value
-                    if !lst.IsEmpty() {
-                        // PC-Engine supports any values, Super Famicom supports -127..+127, all other
-                        // targets support -63..+63
-                        if (inRange(lst.MainPart, -63, 63) && inRange(lst.LoopedPart, -63, 63)) ||
-                           (inRange(lst.MainPart, -127, 127) &&
-                              inRange(lst.LoopedPart, -127, 127) &&
-                              comp.CurrSong.Target.GetID() == targets.TARGET_SFC) ||
-                           comp.CurrSong.Target.GetID() == targets.TARGET_PCE {
-                            // Store this effect among the pan macros
-                            effects.PanMacros.Append(num, lst)
-                            // And store the effect frequency for this particular effect (whether it should
-                            // be applied once per frame or once per note).
-                            effects.PanMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
-                        } else {
-                            ERROR("Value of out range (allowed: -63-63): " + lst.Format())
-                        }
-                    } else {
-                        ERROR("Empty list for CS")
-                    }
-                } else {
-                    ERROR("Bad CS: " + t)
-                }
-            } else {
-                ERROR("Expected '='")
-            }
-        } else {
-            ERROR("Redefinition of @" + cmd)
-        }
-    } else {
-        ERROR("Syntax error: @" + cmd)
-    }
-}
-
-
-/* Handle definitions of modulation macros ("@MOD<xy> = {...}")
- */
-func (comp *Compiler) handleModMacDef(cmd string) {
-    num, err := strconv.Atoi(cmd[3:])
-    if err == nil {
-        idx := effects.MODs.FindKey(num)
-        if idx < 0 {
-            t := Parser.GetString()
-            if t == "=" {
-                lst, err := Parser.GetList()
-                if err == nil {
-                    switch comp.CurrSong.Target.GetID() {
-                    case targets.TARGET_SMD:
-                        // 3 parameter version: Genesis/Megadrive (YM2612)
-                        if len(lst.MainPart) == 3 && len(lst.LoopedPart) == 0 {
-                            if inRange(lst.MainPart, 0, []int{7, 7, 3}) {
-                                effects.MODs.Append(num, lst)
-                            } else {
-                                ERROR("Value of out range: " + lst.Format())
-                            }
-                        } else {
-                            ERROR("Bad MOD, expected 3 parameters: " + lst.Format())
-                        }
-                    case targets.TARGET_CPS, targets.TARGET_X68:
-                        // 6 parameter version: CPS-1, X68000 (YM2151)
-                        if len(lst.MainPart) == 6 && len(lst.LoopedPart) == 0 {
-                            if inRange(lst.MainPart, 0, []int{255, 127, 127, 3, 7, 3}) {
-                                effects.MODs.Append(num, lst)
-                            } else {
-                                ERROR("Value of out range: " + lst.Format())
-                            }
-                        } else {
-                            ERROR("Bad MOD, expected 6 parameters: " + lst.Format())
-                        }
-                    case targets.TARGET_PCE:
-                        // 2 parameter version: PC-Engine (HuC6280)
-                        if len(lst.MainPart) == 2 && len(lst.LoopedPart) == 0 {
-                            if inRange(lst.MainPart, 0, []int{255, 3}) {
-                                effects.MODs.Append(num, lst)
-                            } else {
-                                ERROR("Value of out range: " + lst.Format())
-                            }
-                        } else {
-                            ERROR("Bad MOD, expected 2 parameters: " + lst.Format())
-                        }
-                    case targets.TARGET_KSS:
-                        // ToDo: allow both 3-parameter and 6-parameter versions
-                    default:
-                        effects.MODs.Append(num, &utils.ParamList{})
-                    }
-                } else {
-                    ERROR("Bad MOD: " + t)
-                }
-            } else {
-                ERROR("Expected '='")
-            }
-        } else {
-            ERROR("Redefinition of @" + cmd)
-        }
-    } else {
-        ERROR("Syntax error: @" + cmd)
-    }   
-}
-
-
-    
-func (comp *Compiler) handleEffectDefinition(effName string, mmlString string, effMap *effects.EffectMap, pred func(*ParamList) bool) {
-    num, err := strconv.Atoi(mmlString[len(effName):])
-    if err == nil {
-        idx := effMap.FindKey(num)
-        if idx < 0 {
-            t := Parser.GetString()
-            if t == "=" {
-                lst, err := Parser.GetList()
-                if err == nil {
-                    if pred(lst) {
-                        freq := comp.getEffectFrequency()
-                        key := effMap.GetKeyFor(lst)
-                        if key == -1 {
-                           effMap.Append(num, lst)
-                           effMap.PutExtraInt(num, "effect-freq", freq)
-                        } else { /*if freq != effMap.GetInt(key) {*/
-                            // ToDo: handle the case when we've got an existing identical effect. The references to the new
-                            // effects needs to be converted to refer to the old effect.
-                           effMap.Append(num, lst)
-                           effMap.PutExtraInt(num, "effect-freq", freq)
-                        }
-                    }
-                } else {
-                    ERROR("Bad " + effName +": " + lst.Format())
-                }
-            } else {
-                ERROR("Expected '='")
-            }
-        } else {
-            ERROR("Redefinition of @" + mmlString)
-        }
-    } else {
-        ERROR("Syntax error: @" + mmlString)
-    }                       
 }
 
 
@@ -1083,7 +468,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                 if chn.Active {
                                     numChannels++
                                     if chn.SupportsDutyChange() > 0 {
-                                        idx |= effects.DutyMacros.GetExtraInt(num, "effect-freq") * 0x80    // Effect frequency
+                                        idx |= effects.DutyMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80    // Effect frequency
                                         chn.AddCmd([]int{defs.CMD_DUTMAC, idx})
                                         effects.DutyMacros.AddRef(num)
                                         chn.UsesEffect["DM"] = true
@@ -1549,7 +934,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                                comp.CurrSong.Target.GetMinVolume(),
                                                                comp.CurrSong.Target.GetMaxVolume()) {
                                                         effects.VolumeMacros.Append(num, lst)
-                                                        effects.VolumeMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
+                                                        effects.VolumeMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())
                                                     } else {
                                                         ERROR("@v: Value out of range: " + lst.Format() +
                                                             fmt.Sprintf(", Min=%d Max=%d", comp.CurrSong.Target.GetMinVolume(), comp.CurrSong.Target.GetMaxVolume()))
@@ -1571,7 +956,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                         for _, chn := range comp.CurrSong.Channels {
                                             if chn.Active {
                                                 if !effects.VolumeMacros.IsEmpty(num) {
-                                                    if effects.VolumeMacros.GetExtraInt(num, "effect-freq") == defs.EFFECT_STEP_EVERY_FRAME {
+                                                    if effects.VolumeMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) == defs.EFFECT_STEP_EVERY_FRAME {
                                                         chn.AddCmd([]int{defs.CMD_VOLMAC, idx})
                                                     } else {
                                                         chn.AddCmd([]int{defs.CMD_VOLMAC, idx | 0x80})
@@ -1603,7 +988,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                     if inRange(lst.MainPart, 0, 15) &&
                                                        inRange(lst.LoopedPart, 0, 15) {
                                                         effects.PulseMacros.Append(num, lst)
-                                                        effects.PulseMacros.PutExtraInt(num, "effect-freq", comp.getEffectFrequency())
+                                                        effects.PulseMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())
                                                     } else {
                                                         ERROR("Value out of range: " + lst.Format())
                                                     }
@@ -2801,7 +2186,7 @@ func (comp *Compiler) CompileFile(fileName string) {
 
                     if err == nil {
                         if comp.CurrSong.Target.SupportsPan() {
-                            idx |= effects.PanMacros.GetExtraInt(num, "effect-freq") * 0x80
+                            idx |= effects.PanMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80
                             for _, chn := range comp.CurrSong.Channels {
                                 if chn.Active {
                                     chn.AddCmd([]int{defs.CMD_PANMAC, idx + 1})
@@ -2910,7 +2295,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             if chn.Active {
                                 if !effects.Arpeggios.IsEmpty(num) {
                                     effects.Arpeggios.AddRef(num)
-                                    idx |= effects.Arpeggios.GetExtraInt(num, "effect-freq") * 0x80
+                                    idx |= effects.Arpeggios.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80
                                     if comp.enRev == 0 {
                                         chn.AddCmd([]int{defs.CMD_ARPMAC, idx})
                                         //ToDo fix: usesEN[1] += 1
@@ -2937,7 +2322,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 if !effects.PitchMacros.IsEmpty(num) {
-                                    idx |= effects.PitchMacros.GetExtraInt(num, "effect-freq") * 0x80
+                                    idx |= effects.PitchMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80
                                     chn.AddCmd([]int{defs.CMD_SWPMAC, idx})
                                     effects.PitchMacros.AddRef(num)
                                     chn.UsesEffect["EP"] = true
@@ -2981,7 +2366,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     } else {
                                         idx := effects.FeedbackMacros.FindKey(num)
                                         if idx >= 0 {
-                                            idx |= effects.FeedbackMacros.GetExtraInt(num, "effect-freq") * 0x80                
+                                            idx |= effects.FeedbackMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80                
                                             for _, chn := range comp.CurrSong.Channels {
                                                 if chn.Active {
                                                     if chn.SupportsFM() {
@@ -3093,7 +2478,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                     num, idx, err := comp.assertEffectIdExistsAndChannelsActive("MP", effects.Vibratos)
 
                     if err == nil {
-                        idx |= effects.Vibratos.GetExtraInt(num, "effect-freq") * 0x80
+                        idx |= effects.Vibratos.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80
                         for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 chn.AddCmd([]int{defs.CMD_VIBMAC, idx + 1})

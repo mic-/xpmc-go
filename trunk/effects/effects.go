@@ -12,6 +12,7 @@ import (
     "../utils"
 )
 
+const EXTRA_EFFECT_FREQ = "effect-freq"
 
 type EffectMap struct {
     data []*utils.ParamList
