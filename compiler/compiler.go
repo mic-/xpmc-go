@@ -213,6 +213,17 @@ func (comp *Compiler) Init(target int) {
 }
 
 
+/* Returns true if the slice only contains ints.
+ */
+func isIntSlice(values []interface{}) bool {
+    for _, val := range values {
+        if _, ok := val.(int); !ok {
+            return false
+        }
+    }
+    return true
+}
+
 
 /* Checks if o is within the range of min and max
  *
@@ -238,6 +249,9 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
             return false
         }
     } else {
+        if !isIntSlice(values) {
+            return false
+        }          
         if isMinScalar && isMaxScalar && isValSlice {
             for _, val := range values {
                 if val.(int) < lo || val.(int) > hi {
@@ -277,7 +291,7 @@ func inRange(o interface{}, minimum interface{}, maximum interface{}) bool {
             }
         } else {
             // Unsupported combination of types
-            ERROR("Bad parameter combination for inRange")
+            //ERROR("Bad parameter combination for inRange")
             return false
         }
     }
@@ -545,35 +559,23 @@ func (comp *Compiler) CompileFile(fileName string) {
 
                         // Filter definition
                         } else if strings.HasPrefix(s, "FT") {
-                            num, err := strconv.Atoi(s[2:])
-                            if err == nil {
-                                idx := effects.Filters.FindKey(num)
-                                if idx < 0 {
-                                    t := Parser.GetString()
-                                    if t == "=" {
-                                        lst, err := Parser.GetList()
-                                        if err == nil {
-                                            if comp.CurrSong.Target.GetID() == targets.TARGET_C64 {
-                                                if len(lst.MainPart) == 3 && len(lst.LoopedPart) == 0 {
-                                                    if inRange(lst.MainPart, []int{0, 0, 0}, []int{3, 2047, 15}) {
-                                                        effects.Filters.Append(num, lst)
-                                                    }
-                                                }               
-                                            } else {
-                                                effects.Filters.Append(num, &utils.ParamList{})
+                            comp.handleEffectDefinition("FT", s, effects.Filters, func(parm *ParamList) bool {
+                                    if !parm.IsEmpty() {
+                                        if comp.CurrSong.Target.GetID() == targets.TARGET_C64 {
+                                            if len(parm.MainPart) == 3 && len(parm.LoopedPart) == 0 {
+                                                if inRange(parm.MainPart, []int{0, 0, 0}, []int{3, 2047, 15}) {
+                                                    return true
+                                                }
                                             }
                                         } else {
-                                            ERROR("Bad FT: " + t)
+                                            return true
                                         }
+                                        return false
                                     } else {
-                                        ERROR("Expected '='")
+                                        ERROR("Empty list for FT")
                                     }
-                                } else {
-                                    ERROR("Redefinition of @" + s)
-                                }    
-                            } else {
-                                ERROR("Syntax error: @" + s)
-                            }       
+                                    return false
+                                })                           
                             
                         // Pitch macro definition
                         } else if strings.HasPrefix(s, "EP") {
@@ -747,41 +749,28 @@ func (comp *Compiler) CompileFile(fileName string) {
                             }       
                         
                         } else if strings.HasPrefix(s, "ADSR") {
-                            num, err := strconv.Atoi(s[4:])
-                            if err == nil {
-                                idx := effects.ADSRs.FindKey(num)
-                                if idx < 0 {
-                                    t := Parser.GetString()
-                                    if t == "=" {
-                                        lst, err := Parser.GetList()
-                                        if err == nil {
-                                            if len(lst.LoopedPart) == 0 {
-                                                if len(lst.MainPart) == comp.CurrSong.Target.GetAdsrLen() {
-                                                    if inRange(lst.MainPart, 0, comp.CurrSong.Target.GetAdsrMax()) {
-                                                        effects.ADSRs.Append(num, lst)
-                                                    } else {
-                                                        ERROR("ADSR parameters out of range: " + lst.Format())
-                                                    }
+                            comp.handleEffectDefinition("ADSR", s, effects.ADSRs, func(parm *ParamList) bool {
+                                    if !parm.IsEmpty() {
+                                        if len(parm.LoopedPart) == 0 {
+                                            if len(parm.MainPart) == comp.CurrSong.Target.GetAdsrLen() {
+                                                if inRange(parm.MainPart, 0, comp.CurrSong.Target.GetAdsrMax()) {
+                                                    return true
                                                 } else {
-                                                    ERROR("Bad number of ADSR parameters: " + lst.Format())
+                                                    ERROR("ADSR parameters out of range: " + parm.Format())
                                                 }
                                             } else {
-                                                ERROR("Bad ADSR: " + lst.Format())
+                                                ERROR("Bad number of ADSR parameters: " + parm.Format())
                                             }
                                         } else {
-                                            ERROR("Bad ADSR: " + t)
+                                            ERROR("| loops are not allowed in ADSR envelopes: " + parm.Format())
                                         }
+                                        return true
                                     } else {
-                                        ERROR("Expected '='")
+                                        ERROR("Empty list for ADSR")
                                     }
-                                } else {
-                                    ERROR("Redefinition of @" + s)
-                                }
-                            } else {
-                                ERROR("Syntax error: @" + s)
-                            }
-                            
-    
+                                    return false
+                                })                              
+                                
                         } else if strings.HasPrefix(s, "te") {
                             //t := s[2:]
                             m = Parser.Getch()
@@ -1029,30 +1018,22 @@ func (comp *Compiler) CompileFile(fileName string) {
                                 }
                                 if comp.CurrSong.GetNumActiveChannels() == 0 {
                                     WARNING("Trying to set cutoff with no active channels")
-                                } else if num >= 0 && num <= 15 {
+                                } else if num >= -15 && num <= 15 {
                                     for _, chn := range comp.CurrSong.Channels {
                                         if chn.Active {
-                                            chn.CurrentCutoff.Val = num
-                                            chn.CurrentCutoff.Typ = defs.CT_FRAMES
-                                            /*s = note_length(i, currentLength[i])
-                                            if s[1] != currentNoteFrames[i][1] then
-                                                currentNoteFrames[i] = s
+                                            if num >= 0 {
+                                                chn.CurrentCutoff.Val = num
+                                                chn.CurrentCutoff.Typ = defs.CT_FRAMES
+                                            } else {
+                                                chn.CurrentCutoff.Val = -num
+                                                chn.CurrentCutoff.Typ = defs.CT_NEG_FRAMES
+                                            }
+                                            active, cutoff, _ := chn.NoteLength(chn.CurrentLength)
+                                            if active != chn.CurrentNoteFrames.Active {
+                                                chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff = active, cutoff
                                                 chn.AddCmd([]int{defs.CMD_LEN})
                                                 chn.WriteLength()
-                                            end if*/                                            
-                                        }
-                                    }
-                                } else if num < 0 && num >= -15 {
-                                    for _, chn := range comp.CurrSong.Channels {
-                                        if chn.Active {
-                                            chn.CurrentCutoff.Val = -num
-                                            chn.CurrentCutoff.Typ = defs.CT_NEG_FRAMES
-                                            /*s = note_length(i, currentLength[i])
-                                            if s[1] != currentNoteFrames[i][1] then
-                                                currentNoteFrames[i] = s
-                                                chn.AddCmd([]int{defs.CMD_LEN})
-                                                chn.WriteLength()
-                                            }*/                                         
+                                            }
                                         }
                                     }
                                 } else {
@@ -1648,24 +1629,16 @@ func (comp *Compiler) CompileFile(fileName string) {
                 if err == nil {
                     if comp.CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set cutoff with no active channels")
-                    } else if num >= 0 && num <= 8 {
+                    } else if num >= -8 && num <= 8 {
                         for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
-                                chn.CurrentCutoff.Val = num
-                                chn.CurrentCutoff.Typ = defs.CT_NORMAL
-                                active, cutoff, _ := chn.NoteLength(chn.CurrentLength)
-                                if active != chn.CurrentNoteFrames.Active {
-                                    chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff = active, cutoff
-                                    chn.AddCmd([]int{defs.CMD_LEN})
-                                    chn.WriteLength()
+                                if num >= 0 {
+                                    chn.CurrentCutoff.Val = num
+                                    chn.CurrentCutoff.Typ = defs.CT_NORMAL
+                                } else {
+                                    chn.CurrentCutoff.Val = -num
+                                    chn.CurrentCutoff.Typ = defs.CT_NEG
                                 }
-                            }
-                        }
-                    } else if num < 0 && num >= -8 {
-                        for _, chn := range comp.CurrSong.Channels {
-                            if chn.Active {
-                                chn.CurrentCutoff.Val = -num
-                                chn.CurrentCutoff.Typ = defs.CT_NEG
                                 active, cutoff, _ := chn.NoteLength(chn.CurrentLength)
                                 if active != chn.CurrentNoteFrames.Active {
                                     chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff = active, cutoff
@@ -1690,7 +1663,6 @@ func (comp *Compiler) CompileFile(fileName string) {
                     if comp.CurrSong.GetNumActiveChannels() == 0 {
                         WARNING("Trying to set tempo with no active channels")
                     } else if inRange(num, 0, comp.CurrSong.Target.GetMaxTempo()) {
-                        //fmt.Printf("New tempo: %d\n", num)
                         for _, chn := range comp.CurrSong.Channels {
                             if chn.Active {
                                 chn.CurrentTempo = num
@@ -2063,7 +2035,6 @@ func (comp *Compiler) CompileFile(fileName string) {
                         patterns[3] &= hasAnyNote[length(supportedChannels)]
                         patterns[4] &= songLen[songNum][length(supportedChannels)]*/
                         comp.patName = ""
-                        //songs[songNum][length(songs[songNum])] = {}
                         patChan.Active = false
                         patChan.Cmds = []int{}
                     } else {

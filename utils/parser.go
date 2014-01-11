@@ -510,7 +510,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                         t += string(byte(c))
                         c = p.Getch()
                     }
-                    //ToDo: fix:  s[concatTo] &= {t}
+                    concatTo = append(concatTo, t)
                 } else if c == '\'' || c == ':' {
                     ERROR("Unexpected " + string(byte(c)))
                 } else if c == 'W' && p.wtListOk {
