@@ -48,8 +48,9 @@ func (s *ParserState) Init(fileName string) error {
     s.WorkDir = ""
     lastSlash := strings.LastIndexAny(fileName, "\\/")
     if lastSlash >= 0 {
-        s.WorkDir = fileName[:lastSlash]
+        s.WorkDir = fileName[:lastSlash] + string(os.PathSeparator)
         s.ShortFileName = fileName[lastSlash+1:]
+        fmt.Printf("*WorkDir = " + s.WorkDir + "\n")
     } else {
         s.ShortFileName = fileName
         s.WorkDir, _ = os.Getwd()
@@ -618,6 +619,11 @@ func (p *ParserState) GetList() (*ParamList,error) {
     p.listDelimiter = "{}"
     
     return lst, err
+}
+
+
+func (p *ParserState) AllowWTList() {
+    p.wtListOk = true
 }
 
 

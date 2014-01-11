@@ -3,6 +3,7 @@ package compiler
 import (
     //"container/list"
     "fmt"
+    "os"
     "sort"
     "strconv"
     "strings"
@@ -15,7 +16,7 @@ import (
     "../targets"
     "../timing"
     "../utils"
-    //"../wav"
+    "../wav"
 )
 
 import . "../utils"
@@ -625,7 +626,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     t := Parser.GetString()
                                     if t == "=" {
                                         if isWTM {
-                                            //ToDo: fix:  allow_wt_list()
+                                            Parser.AllowWTList()
                                         }
                                         lst, err := Parser.GetList()
                                         if comp.CurrSong.Target.SupportsWaveTable() {
@@ -641,13 +642,11 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                                 for padBytes := 0; padBytes < comp.CurrSong.Target.GetMinWavLength() - len(lst.MainPart); padBytes++ {
                                                                     lst.MainPart = append(lst.MainPart, 0)
                                                                 }
-                                                                //lst.MainPart = append(lst.MainPart, make([]int, comp.CurrSong.Target.GetMinWavLength() - len(lst.MainPart))...)
                                                             
                                                             } else if len(lst.MainPart) > comp.CurrSong.Target.GetMaxWavLength() {
                                                                 WARNING("Truncating waveform")
                                                                 lst.MainPart = lst.MainPart[0:comp.CurrSong.Target.GetMaxWavLength()]
                                                             }
-                                                            //waveforms[2] = append(waveforms[2], t[2])
                                                             effects.Waveforms.Append(num, lst)
                                                         } else {
                                                             ERROR("Waveform data out of range: " + lst.Format())
@@ -714,21 +713,26 @@ func (comp *Compiler) CompileFile(fileName string) {
                                         if comp.CurrSong.Target.SupportsPCM() {
                                             if err == nil {
                                                 if len(lst.LoopedPart) == 0 {
-                                                    // ToDo: fix
-                                                    /*if len(lst.MainPart) > 1 and sequence(t[2][1]) then
-                                                        if not find(':', t[2][1]) and t[2][1][1] != '\\' then
-                                                            t[2][1] = workDir & t[2][1]
-                                                        }
-                                                        if len(lst.MainPart) > 2 {
-                                                            t[3] = convert_wav(t[2][1], t[2][2], t[2][3])
+                                                    if len(lst.MainPart) > 0 {
+                                                        if pcmFileName, ok := lst.MainPart[0].(string); ok {
+                                                            if !strings.ContainsRune(pcmFileName, rune(':')) && pcmFileName[0] != os.PathSeparator {
+                                                                pcmFileName = Parser.WorkDir + pcmFileName
+                                                                lst.MainPart[0] = pcmFileName
+                                                            }
+                                                            if len(lst.MainPart) > 2 {
+                                                                // {"filename" samplerate volume}
+                                                                lst.LoopedPart = append(lst.LoopedPart, wav.ConvertWav(pcmFileName, lst.MainPart[1].(int), lst.MainPart[2].(int)))
+                                                            } else {
+                                                                // {"filename" samlerate}
+                                                                lst.LoopedPart = append(lst.LoopedPart, wav.ConvertWav(pcmFileName, lst.MainPart[1].(int), 100))
+                                                            }
+                                                            effects.PCMs.Append(num, lst)
                                                         } else {
-                                                            t[3] = convert_wav(t[2][1], t[2][2], 100)
+                                                            ERROR("Bad XPCM: " + lst.Format())
                                                         }
-                                                        pcms = assoc_append(pcms, o[2], t)
-                                                        t = {}
                                                     } else {
-                                                        ERROR("Bad XPCM: " & sprint_list(t))
-                                                    }*/
+                                                        ERROR("Bad XPCM: " + lst.Format())
+                                                    }
                                                 } else {
                                                     ERROR("Loops not supported in XPCM: " + lst.Format())
                                                 }
@@ -1565,7 +1569,6 @@ func (comp *Compiler) CompileFile(fileName string) {
                             if chn.Active {
                                 chn.CurrentLength = 32.0 / float64(num)
                                 chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff, _ = chn.NoteLength(chn.CurrentLength)
-                                //fmt.Printf("The new length is %d. %f active frames, %f cutoff frames\n", num, chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff)
                                 chn.AddCmd([]int{defs.CMD_LEN})
                                 chn.WriteLength()
                             }
@@ -1598,11 +1601,14 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                                                              HasData: true})
                                     }
                                     if chn.Loops.Len() > 0 {
+                                        // We're inside a []-loop
                                         pElem := chn.Loops.Peek()
                                         if pElem.Skip1Ticks == -1 {
+                                            // We're in the part before the |
                                             pElem.HasOctCmd = chn.CurrentOctave
                                             pElem.OctChange = 0
                                         } else {
+                                            // We're in the part past the |
                                             pElem.Skip1OctCmd = chn.CurrentOctave
                                             pElem.Skip1OctChg = 0
                                         }
@@ -1708,7 +1714,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                     } else {
                         Parser.Ungetch()
                     }
-                    //l = 1   Needed?
+                    volDelta = 1
                     s = Parser.GetNumericString()
                     if len(s) > 0 {
                         num, err = strconv.Atoi(s)
