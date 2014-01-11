@@ -80,13 +80,13 @@ var definedSymbols map[string]bool
 // Compiler messages
 
 func ERROR(msg string, args ...interface{}) {
-    fmt.Printf(fmt.Sprintf("[%s:%d] Error: ", Parser.ShortFileName, Parser.LineNum) +
+    fmt.Printf(fmt.Sprintf("[%s:%d,%d] Error: ", Parser.ShortFileName, Parser.LineNum, Parser.Column) +
                fmt.Sprintf(msg + "\n", args...))
     os.Exit(1)
 }
 
 func WARNING(msg string, args ...interface{}) {
-    fmt.Printf(fmt.Sprintf("[%s:%d] Warning: ", Parser.ShortFileName, Parser.LineNum) +
+    fmt.Printf(fmt.Sprintf("[%s:%d,%d] Warning: ", Parser.ShortFileName, Parser.LineNum, Parser.Column) +
                fmt.Sprintf(msg + "\n", args...))
     if warningsAreErrors {
         os.Exit(1)

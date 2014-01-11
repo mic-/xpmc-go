@@ -30,8 +30,6 @@ func (t *TargetPCE) Init() {
 /* Output data suitable for the PC-Engine / TurboGrafx-16 (WLA-DX)
  */
 func (t *TargetPCE) Output(outputVgm int) {
-    fmt.Printf("TargetKSS.Output\n")
-
     fileEnding := ".asm"
     if outputVgm == 1 {
         fileEnding = ".vgm"

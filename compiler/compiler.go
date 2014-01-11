@@ -404,7 +404,7 @@ func (comp *Compiler) assertDisablingEffect(name string, cmd int) {
     if s == "OF" {
         comp.applyCmdOnAllActive(name, []int{cmd, 0})
     } else {
-        ERROR("Syntax error: " + name + s)
+        ERROR("Syntax error. Expedted <effect>OF, got: " + name + s)
     }
 }
 
@@ -430,9 +430,9 @@ func (comp *Compiler) CompileFile(fileName string) {
         }
                 
         c2 := c
-        
-        if c == 10 {
-            Parser.LineNum++
+                
+        if c == '\n' {
+            Parser.AdvanceLine()
         }
         
         if Parser.LineNum > prevLine {
@@ -1245,7 +1245,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                         if err == nil {
                                             comp.macro.AppendArgumentRef(num)
                                         } else {
-                                            ERROR("Syntax error: " + t)
+                                            ERROR("Syntax error while parsing macro: " + t)
                                         }
                                         n = Parser.Getch()
                                         if n != '%' {
@@ -1253,8 +1253,8 @@ func (comp *Compiler) CompileFile(fileName string) {
                                         }
                                     } else if n == '}' || n == -1 {
                                         break
-                                    } else if n == 10 {
-                                        Parser.LineNum++
+                                    } else if n == '\n' {
+                                        Parser.AdvanceLine()
                                     } else if n != '\r' {
                                         comp.macro.AppendChar(byte(n))
                                     }
@@ -1377,8 +1377,8 @@ func (comp *Compiler) CompileFile(fileName string) {
                             } else {
                                 Parser.Ungetch()
                             }
-                        } else if n == 10 {
-                            Parser.LineNum++
+                        } else if n == '\n' {
+                            Parser.AdvanceLine()
                         }
                     }
                 } else {
@@ -1786,8 +1786,8 @@ func (comp *Compiler) CompileFile(fileName string) {
                 n := 0
                 for n != -1 {
                     n = Parser.Getch()
-                    if n == 10 {
-                        Parser.LineNum++
+                    if n == '\n' {
+                        Parser.AdvanceLine()
                         break
                     } else if n == '\r' {
                         break
