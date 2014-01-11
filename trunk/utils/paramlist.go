@@ -36,7 +36,14 @@ func (lst *ParamList) Format() string {
     str := "{"
     
     for i, x := range lst.MainPart {
-        str += fmt.Sprintf("%d", x)
+        switch x.(type) {
+        case int:
+            str += fmt.Sprintf("%d", x)
+        case string:
+            str += fmt.Sprintf("\"%s\"", x)
+        default:
+            str += "<UNKNOWN TYPE>"
+        }
         if i < len(lst.MainPart)-1 {
             str += " "
         }
@@ -45,7 +52,14 @@ func (lst *ParamList) Format() string {
     if len(lst.LoopedPart) > 0 {
         str += " | "
         for i, x := range lst.LoopedPart {
-            str += fmt.Sprintf("%d", x)
+            switch x.(type) {
+            case int:
+                str += fmt.Sprintf("%d", x)
+            case string:
+                str += fmt.Sprintf("\"%s\"", x)
+            default:
+                str += "<UNKNOWN TYPE>"
+            }
             if i < len(lst.LoopedPart)-1 {
                 str += " "
             }
