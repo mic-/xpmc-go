@@ -1,5 +1,6 @@
 /*
  * Package utils
+ * ParserState functions
  *
  * Part of XPMC.
  * Contains utility functions and other miscellaneous functions
@@ -59,11 +60,13 @@ func (s *ParserState) Init(fileName string) error {
     return err
 }
 
+
 func NewParserState(fileName string) (parser *ParserState, err error) {
     parser = &ParserState{}
     err = parser.Init(fileName)
     return
 }
+
 
 func (p *ParserState) InsertString(s string) {
     if p.fileDataPos < len(p.fileData) {
@@ -76,6 +79,9 @@ func (p *ParserState) InsertString(s string) {
     }
 }
 
+
+/* Returns the next character from the fileData slice.
+ */
 func (p *ParserState) Getch() int {
     c := -1
     if p.fileDataPos < len(p.fileData) {
@@ -87,13 +93,18 @@ func (p *ParserState) Getch() int {
 }
 
 
-// Unget the last read character  
+/* Ungets the last read character.
+ */
 func (p *ParserState) Ungetch() {
     if p.fileDataPos > 0 {
         p.fileDataPos--
     }
 }
 
+
+/* Returns a string with the given maximum length from the fileData slice
+ * without changing the fileData position.
+ */
 func (p *ParserState) PeekString(maxChars int) string {
     str := ""
     for i := 0; i < maxChars; i++ {
@@ -106,12 +117,15 @@ func (p *ParserState) PeekString(maxChars int) string {
 }
 
 
+/* Skips n characters ahead in the fileData slice.
+ */
 func (p *ParserState) SkipN(n int) {
     p.fileDataPos += n
 }
 
 
-// Consume whitespace
+/* Consumes whitespace.
+ */
 func (p *ParserState) SkipWhitespace() {
     c := 0
     
@@ -130,7 +144,8 @@ func (p *ParserState) SkipWhitespace() {
 }
 
 
-// Read a string (anything but whitespace or EOF)
+/* Reads and returns a string (anything but whitespace or EOF).
+ */
 func (p *ParserState) GetString() string {
     var c int
     
@@ -153,7 +168,9 @@ func (p *ParserState) GetString() string {
 }
 
 
-// Read a string of characters that belong to the set specified in validChars
+/* Reads and returns a string of characters that belong to the set specified
+ * in validChars.
+ */
 func (p *ParserState) GetStringInRange(validChars string) string {
     var c int
     
@@ -175,7 +192,9 @@ func (p *ParserState) GetStringInRange(validChars string) string {
 }
 
 
-// Read a string of characters until some character in endChars is found.
+/* Reads and returns  a string of characters until some character in endChars
+ * is found.
+ */
 func (p *ParserState) GetStringUntil(endChars string) string {
     var c int
     

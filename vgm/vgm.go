@@ -724,7 +724,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                                     vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_DAC_EN, 0x00}
                                 }
                             case specs.CHIP_YM2151:
-                                if song.target.ChipChannel(c.Num, specs.CHIP_YM2612) == 7 && c.Mode == 0 {
+                                if song.target.ChipChannel(c.Num, specs.CHIP_YM2151) == 7 && c.Mode == 0 {
                                     vgmData &= {VGM_CMD_W_YM2151, R_YM2151_NOISE, 0x00}
                                 }
                             }
