@@ -3,8 +3,8 @@
  * ParamList functions
  *
  * Part of XPMC.
- * Contains utility functions and other miscellaneous functions
- * and variables.
+ * Contains related to ParamLists (all the lists on the
+ * form { foo bar ... | baz ... } found in MML code).
  *
  * /Mic, 2012-2014
  */

@@ -594,22 +594,6 @@ func (t *Target) outputCallbacks(outFile *os.File, outputFormat int) int {
 func (t *Target) outputEffectFlags(outFile *os.File, outputFormat int) {
     switch outputFormat {
     case FORMAT_WLA_DX:
-        /*if sum(assoc_get_references(volumeMacros)) = 0 then 
-            puts(outFile, ".DEFINE XPMP_VMAC_NOT_USED" & CRLF)
-        end if
-        if sum(assoc_get_references(pitchMacros)) = 0 then
-            puts(outFile, ".DEFINE XPMP_EPMAC_NOT_USED" & CRLF)
-        end if
-        if sum(assoc_get_references(vibratos)) = 0 then
-            puts(outFile, ".DEFINE XPMP_MPMAC_NOT_USED" & CRLF)
-        end if
-        if not usesEN[1] then
-            puts(outFile, ".DEFINE XPMP_ENMAC_NOT_USED" & CRLF)
-        end if
-        if not usesEN[2] then
-            puts(outFile, ".DEFINE XPMP_EN2MAC_NOT_USED" & CRLF)
-        end if*/
-
         songs := t.CompilerItf.GetSongs()
         numChannels := len(songs[0].GetChannels())
         for _, effName := range EFFECT_STRINGS {

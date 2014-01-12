@@ -1,3 +1,13 @@
+/*
+ * Package compiler
+ *
+ * Part of XPMC.
+ * Contains functions for handling effect definitions found in
+ * MML code (e.g. EP0 = { 1 2 | -2}).
+ *
+ * /Mic, 2013-2014
+ */
+ 
 package compiler
 
 import (

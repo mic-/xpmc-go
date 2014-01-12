@@ -51,7 +51,8 @@ func NewSong(num int, targetId int, icomp defs.ICompiler) *Song {
     chn.Num = len(s.Channels)
     chn.Name = "Pattern"
     targetSpecs := s.Target.GetChannelSpecs().(*specs.Specs)
-    specs.SetChannelSpecs(targetSpecs, 0, len(s.Channels), specs.SpecsUnknown)
+    comboSpecs := specs.CreateCombination(targetSpecs)
+    specs.SetChannelSpecs(targetSpecs, 0, len(s.Channels), comboSpecs)
     chn.ChannelSpecs = chnSpecs
     chn.IsVirtualChannel = true
     s.Channels = append(s.Channels, chn)
