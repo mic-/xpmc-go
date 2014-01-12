@@ -57,13 +57,12 @@ func (t *TargetPCE) Output(outputVgm int) {
     outFile.WriteString("\n")
     utils.INFO("Size of effect tables: %d bytes", tableSize)
     
-    //tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)
+    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_WT_mac", effects.WaveformMacros, true, 1, 0x80)
     tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",   effects.MODs, false, 1, 0)
 
     wavSize := 0
     outFile.WriteString("xpmp_waveform_data:")
     for _, key := range effects.Waveforms.GetKeys() {
-        fmt.Printf("Getting waveform data for key %d\n", key)
         params := effects.Waveforms.GetData(key).MainPart
         for j := 0; j < len(params); j += 1 {
             if j == 0 {

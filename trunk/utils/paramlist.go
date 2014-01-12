@@ -22,6 +22,16 @@ type ParamList struct {
     LoopedPart []interface{} 
 }
 
+const (
+    MAIN_PART = 0
+    LOOPED_PART = 1
+)
+
+
+func NewParamList() *ParamList {
+    return &ParamList{0, 0, []interface{}{}, []interface{}{}}
+}
+
 
 /* Returns true if the list contains no data.
  */
@@ -30,37 +40,52 @@ func (lst *ParamList) IsEmpty() bool {
 }
 
 
+func (lst *ParamList) AppendToPart(part int, val int) {
+    if part == MAIN_PART {
+        lst.MainPart = append(lst.MainPart, val)
+    } else if part == LOOPED_PART {
+        lst.LoopedPart = append(lst.LoopedPart, val)
+    }
+}
+
+func (lst *ParamList) GetPart(part int) *[]interface{} {
+    if part == MAIN_PART {
+        return &lst.MainPart
+    } else if part == LOOPED_PART {
+        return &lst.LoopedPart
+    }
+    return nil
+}
+
+
 /* Formats a list into a string for printing.
  */
 func (lst *ParamList) Format() string {
     str := "{"
-    
-    for i, x := range lst.MainPart {
-        switch x.(type) {
-        case int:
-            str += fmt.Sprintf("%d", x)
-        case string:
-            str += fmt.Sprintf("\"%s\"", x)
-        default:
-            str += "<UNKNOWN TYPE>"
-        }
-        if i < len(lst.MainPart)-1 {
-            str += " "
-        }
-    }
-    
-    if len(lst.LoopedPart) > 0 {
-        str += " | "
-        for i, x := range lst.LoopedPart {
+      
+    for part := MAIN_PART; part <= LOOPED_PART; part++ {
+        listPart := lst.GetPart(part)
+        for i, x := range *listPart {
             switch x.(type) {
             case int:
                 str += fmt.Sprintf("%d", x)
             case string:
                 str += fmt.Sprintf("\"%s\"", x)
             default:
-                str += "<UNKNOWN TYPE>"
+                if itfSlice, isItfSlice := x.([]interface{}); isItfSlice {
+                    for _, innerElem := range itfSlice {
+                        switch innerElem.(type) {
+                        case int:
+                            str += fmt.Sprintf("%d", innerElem)
+                        case string:
+                            str += fmt.Sprintf("%s", innerElem)
+                        }
+                    }
+                } else {
+                    str += "<UNKNOWN TYPE>"
+                }
             }
-            if i < len(lst.LoopedPart)-1 {
+            if i < len(*listPart)-1 {
                 str += " "
             }
         }
