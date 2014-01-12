@@ -37,7 +37,7 @@ func (t *TargetSGG) Init() {
 
 
 func (t *TargetSGG) Output(outputVgm int) {
-    fmt.Printf("TargetSGG.Output\n")
+    utils.DEBUG("TargetSGG.Output")
 
     fileEnding := ".asm"
     if outputVgm == 1 {

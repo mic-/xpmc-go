@@ -20,6 +20,7 @@ func (t *TargetPCE) Init() {
     t.MaxTempo          = 300
     t.MinVolume         = 0
     t.SupportsPanning   = 1
+    t.SupportsPal       = true
     t.MaxLoopDepth      = 2
     t.MinWavLength      = 32
     t.MaxWavLength      = 32
@@ -30,7 +31,7 @@ func (t *TargetPCE) Init() {
 /* Output data suitable for the PC-Engine / TurboGrafx-16 (WLA-DX)
  */
 func (t *TargetPCE) Output(outputVgm int) {
-    utils.INFO("TargetPCE.Output")
+    utils.DEBUG("TargetPCE.Output")
     
     fileEnding := ".asm"
     if outputVgm == 1 {
@@ -89,7 +90,7 @@ func (t *TargetPCE) Output(outputVgm int) {
     outFile.WriteString("\n")
         
     patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
-    utils.INFO("Size of patterns table: %d bytes", patSize)
+    utils.INFO("Size of pattern table: %d bytes", patSize)
     
     songSize := t.outputChannelData(outFile, FORMAT_WLA_DX) 
 

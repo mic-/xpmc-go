@@ -121,18 +121,28 @@ func NewTarget(tID int, icomp ICompiler) ITarget {
     switch tID {
     case TARGET_AT8:
         t = &TargetAt8{}
+    
     case TARGET_C64:
         t = &TargetC64{}
+    
     case TARGET_GBC:
         t = &TargetGBC{}
+    
     case TARGET_KSS:
         t = &TargetKSS{}
+
+    case TARGET_NES:
+        t = &TargetNES{}
+    
     case TARGET_PCE:
         t = &TargetPCE{}
+    
     case TARGET_SGG:
         t = &TargetSGG{}
+    
     case TARGET_SMD:
         t = &TargetGen{}
+    
     case TARGET_SMS:
         t = &TargetSMS{}
     }
@@ -144,6 +154,7 @@ func NewTarget(tID int, icomp ICompiler) ITarget {
     return t
 }
 
+
 /* Maps target name strings to TARGET_* int constants (e.g.
  * "sms" -> TARGET_SMS).
  */
@@ -151,23 +162,34 @@ func NameToID(targetName string) int {
     switch targetName {
     case "at8":
         return TARGET_AT8;
+    
     case "c64":
         return TARGET_C64;
+    
     case "gbc":
         return TARGET_GBC;
+    
     case "kss":
         return TARGET_KSS;
+
+    case "nes":
+        return TARGET_NES;
+    
     case "pce":
         return TARGET_PCE;
+    
     case "sgg":
         return TARGET_SGG;
+    
     case "smd":
         return TARGET_SMD;
+    
     case "sms":
         return TARGET_SMS;
     }
     return TARGET_UNKNOWN;
 }
+
         
 func (t *Target) Init() {
     // Stub to fulfill the ITarget interface
@@ -176,6 +198,7 @@ func (t *Target) Init() {
 func (t *Target) Output(outputVgm int) {
     // Stub to fulfill the ITarget interface
 }
+
 
 func (t *Target) SetCompilerItf(icomp ICompiler) {
     t.CompilerItf = icomp
@@ -311,28 +334,6 @@ func (t *Target) SupportsWaveTable() bool {
     }
     return supported
 }
-
-
-
-
-/* NES / Famicom *
- *****************/
-
-func (t *TargetNES) Init() {
-    utils.DefineSymbol("NES", 1)       
-    
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.Specs2A03)       // A..E
-    specs.SetChannelSpecs(&t.ChannelSpecs, 0, 5, specs.SpecsVRC6)       // F..H
-    
-    //activeChannels        = repeat(0, length(supportedChannels))  
-    
-    t.ID                = TARGET_NES
-    t.MaxTempo          = 300
-    t.MinVolume         = 0
-    t.MaxLoopDepth      = 2
-    t.SupportsPal       = true
-}
-
 
 
 

@@ -49,6 +49,8 @@ func (t *TargetGen) Init() {
 /* Output data suitable for the SEGA Genesis (Megadrive) playback library
  */
 func (t *TargetGen) Output(outputVgm int) {
+    utils.DEBUG("TargetGen.Output")
+
     fileEnding := ".asm"
     if outputVgm == 1 {
         fileEnding = ".vgm"

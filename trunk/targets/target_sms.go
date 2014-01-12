@@ -39,7 +39,7 @@ func (t *TargetSMS) Init() {
 
 
 func (t *TargetSMS) Output(outputVgm int) {
-    fmt.Printf("TargetSMS.Output\n")
+    utils.DEBUG("TargetSMS.Output")
 
     fileEnding := ".asm"
     if outputVgm == 1 {
