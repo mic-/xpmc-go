@@ -656,6 +656,55 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                     }
                                                 } else {            // @WTM
                                                     // ToDo: fix
+                                                    convertedList := NewParamList()
+                                                    for j := MAIN_PART; j <= LOOPED_PART; j++ {
+                                                        listPart := lst.GetPart(j)
+                                                        if (len(*listPart) & 1) == 1 {
+                                                            ERROR("Bad WTM list. Length must be even: " + lst.Format())
+                                                        }
+                                                        for i, elem := range *listPart {
+                                                            if (i & 1) == 0 {
+                                                                if wtmElem, ok := elem.([]interface{}); ok {
+                                                                    if len(wtmElem) == 2 {
+                                                                        if wtNum, wtNumOk := wtmElem[1].(int); wtNumOk {
+                                                                            if effects.Waveforms.FindKey(wtNum) >= 0 {
+                                                                                convertedList.AppendToPart(j, wtNum)
+                                                                                effects.Waveforms.AddRef(wtNum)
+                                                                            } else {
+                                                                                ERROR("WT%d has not been declared (at index %d)", wtNum, i)
+                                                                            }
+                                                                        } else {
+                                                                            ERROR("Bad WTM list. Expected WT<num> at index %d: " + lst.Format(), i)
+                                                                        }
+                                                                    } else {
+                                                                        ERROR("Bad WTM list. Expected WT<num> <frames>: " + lst.Format())
+                                                                    }
+                                                                } else {
+                                                                    switch elem.(type) {
+                                                                    case int:
+                                                                        fmt.Printf("int\n")
+                                                                    case string:
+                                                                        fmt.Printf("string\n")
+                                                                    default:
+                                                                        fmt.Printf("Unknown type\n")
+                                                                    }
+                                                                    ERROR("Bad WTM list (error at index %d): " + lst.Format(), i)
+                                                                }
+                                                            } else {
+                                                                if numFrames, ok := elem.(int); ok {
+                                                                    if !inRange(numFrames, 1, 127) {
+                                                                        ERROR("Expected an integer in the range 1..127, got %d", numFrames)
+                                                                    }
+                                                                    convertedList.AppendToPart(j, numFrames)
+                                                                } else {
+                                                                    ERROR("Bad WTM list. Expected an integer at index %d: " + lst.Format(), i)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    effects.WaveformMacros.Append(num, convertedList)
+                                                    effects.WaveformMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())
+                                                    
                                                     /*u = {0,{},{}}
                                                     for j = 2 to 3 do
                                                         for i = 1 to length(t[j]) do

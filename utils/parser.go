@@ -335,7 +335,7 @@ func (p *ParserState) GetNumericString() string {
 func (p *ParserState) GetList() (*ParamList,error) {
     var startVal, stopVal, stepVal int
        
-    lst := &ParamList{0, 0, []interface{}{}, []interface{}{}}
+    lst := NewParamList()
     err := errors.New("Bad list")
     
     commaOk := false            // Not ok to read a comma
@@ -532,7 +532,8 @@ func (p *ParserState) GetList() (*ParamList,error) {
                         t = p.GetNumericString()
                         num, e := strconv.ParseInt(t, 0, 0)
                         if e == nil {
-                            if num==0 { num++ }  //temp
+                            wtElem := []interface{}{"WT", int(num)}
+                            concatTo = append(concatTo, wtElem)
                             //ToDo: fix: s[concatTo] &= {{-1, 'W', 'T', o[2]}}
                             commaOk = true
                             pipeOk  = true
