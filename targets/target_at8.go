@@ -31,7 +31,7 @@ func (t *TargetAt8) Init() {
 /* Output data suitable for the Atari 8-bit (400/800/XE/XL) playback library (WLA-DX).
  */
 func (t *TargetAt8) Output(outputVgm int) {
-    fmt.Printf("TargetGBC.Output\n")
+    utils.DEBUG("TargetAt8.Output")
 
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
     if err != nil {
@@ -71,7 +71,7 @@ func (t *TargetAt8) Output(outputVgm int) {
     cbSize := t.outputCallbacks(outFile, FORMAT_WLA_DX)
 
     patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
-    utils.INFO("Size of patterns table: %d bytes\n", patSize)
+    utils.INFO("Size of pattern table: %d bytes", patSize)
         
     songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)  
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize + cbSize + patSize)

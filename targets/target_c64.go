@@ -26,6 +26,7 @@ func (t *TargetC64) Init() {
     t.MaxTempo          = 300
     t.MinVolume         = 0
     t.MaxLoopDepth      = 2
+    t.SupportsPal       = true
     timing.UpdateFreq   = 50.0
 }
 

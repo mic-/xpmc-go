@@ -48,7 +48,7 @@ func (t *TargetKSS) Init() {
 
 
 func (t *TargetKSS) Output(outputVgm int) {
-    fmt.Printf("TargetKSS.Output\n")
+    utils.DEBUG("TargetKSS.Output")
 
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
     if err != nil {

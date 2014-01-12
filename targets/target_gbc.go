@@ -41,7 +41,7 @@ func (t *TargetGBC) Init() {
 
 
 func (t *TargetGBC) Output(outputVgm int) {
-    fmt.Printf("TargetGBC.Output\n")
+    utils.DEBUG("TargetGBC.Output")
 
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
     if err != nil {
@@ -108,6 +108,7 @@ func (t *TargetGBC) Output(outputVgm int) {
             if j == 0 {
                 outFile.WriteString("\n.db ")
             }             
+            // Pack two 4-bit samples into one byte
             outFile.WriteString(fmt.Sprintf("$%02x", params[j].(int) * 0x10 + params[j+1].(int)))
             wavSize++
             if j < len(params) - 1 {
@@ -129,7 +130,7 @@ func (t *TargetGBC) Output(outputVgm int) {
     utils.INFO("Size of waveform table: %d bytes", wavSize)
 
     patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
-    utils.INFO("Size of patterns table: %d bytes\n", patSize)
+    utils.INFO("Size of pattern table: %d bytes\n", patSize)
   
     songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
     utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize) // ToDo: + patSize )
