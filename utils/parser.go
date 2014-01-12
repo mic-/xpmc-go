@@ -334,7 +334,7 @@ func (p *ParserState) GetNumericString() string {
     
 func (p *ParserState) GetList() (*ParamList,error) {
     var startVal, stopVal, stepVal int
-    
+       
     lst := &ParamList{0, 0, []interface{}{}, []interface{}{}}
     err := errors.New("Bad list")
     
@@ -552,10 +552,12 @@ func (p *ParserState) GetList() (*ParamList,error) {
         ERROR("Expected {, got " + string(byte(c)))
     }
     
+    // The list body has been parsed. Check for any trailing operators
     if err == nil {
         for {
             p.SkipWhitespace()
             c = p.Getch()
+            
             if c == '+' || c == '-' || c == '*' || c == '\'' {
                 p.SkipWhitespace()
                 p.AllowFloatsInNumericStrings()
@@ -563,54 +565,58 @@ func (p *ParserState) GetList() (*ParamList,error) {
                 if len(t) > 0 {
                     num, e := strconv.ParseInt(t, 0, 0)
                     if e == nil {
-                        for i, _ := range lst.MainPart {
-                            curr := lst.MainPart[i].(int)
-                            if c == '+' {
+                        if c == '+' {
+                            for i, _ := range lst.MainPart {
+                                curr := lst.MainPart[i].(int)
                                 lst.MainPart[i] = curr + int(num)
-                            } else if c == '-' {
-                                lst.MainPart[i] = curr - int(num)
-                            } else if c == '*' {
-                                lst.MainPart[i] = curr * int(num)
-                            } else if c == '\'' {
-                                if num < 1 {
-                                    ERROR("Repeat value must be >= 1")
-                                }
-                                if num > 100 {
-                                    WARNING("Repeat values > 100 are ignored")
-                                } else {
-                                    t := []interface{}{}
-                                    for j, _ := range lst.MainPart {
-                                        for k := 0; k < int(num); k++ {
-                                            t = append(t, lst.MainPart[j])
-                                        }
-                                    }
-                                    lst.MainPart = t
-                                }
                             }
-                        }
-                        for i, _ := range lst.LoopedPart {
-                            curr := lst.LoopedPart[i].(int)
-                            if c == '+' {
+                            for i, _ := range lst.LoopedPart {
+                                curr := lst.LoopedPart[i].(int)
                                 lst.LoopedPart[i] = curr + int(num)
-                            } else if c == '-' {
+                            }
+                        
+                        } else if c == '-' {
+                            for i, _ := range lst.MainPart {
+                                curr := lst.MainPart[i].(int)
+                                lst.MainPart[i] = curr - int(num)
+                            }
+                            for i, _ := range lst.LoopedPart {
+                                curr := lst.LoopedPart[i].(int)
                                 lst.LoopedPart[i] = curr - int(num)
-                            } else if c == '*' {
+                            }
+                        
+                        } else if c == '*' {
+                            for i, _ := range lst.MainPart {
+                                curr := lst.MainPart[i].(int)
+                                lst.MainPart[i] = curr * int(num)
+                            }                                
+                            for i, _ := range lst.LoopedPart {
+                                curr := lst.LoopedPart[i].(int)
                                 lst.LoopedPart[i] = curr * int(num)
-                            } else if c == '\'' {
-                                if num < 1 {
-                                    ERROR("Repeat value must be >= 1")
-                                }
-                                if num > 100 {
-                                    WARNING("Repeat values > 100 are ignored")
-                                } else {
-                                    t := []interface{}{}
-                                    for j, _ := range lst.LoopedPart {
-                                        for k := 0; k < int(num); k++ {
-                                            t = append(t, lst.LoopedPart[j])
-                                        }
+                            }                                
+                        
+                        } else if c == '\'' {
+                            if num < 1 {
+                                ERROR("Repeat value must be >= 1")
+                            }
+                            if num > 100 {
+                                WARNING("Repeat values > 100 are ignored")
+                            } else {
+                                t := []interface{}{}
+                                for j, _ := range lst.MainPart {
+                                    for k := 0; k < int(num); k++ {
+                                        t = append(t, lst.MainPart[j])
                                     }
-                                    lst.LoopedPart = t
                                 }
+                                lst.MainPart = t
+
+                                t = []interface{}{}
+                                for j, _ := range lst.LoopedPart {
+                                    for k := 0; k < int(num); k++ {
+                                        t = append(t, lst.LoopedPart[j])
+                                    }
+                                }
+                                lst.LoopedPart = t
                             }
                         }
                     } else {
@@ -629,7 +635,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
     // Reset these configurations
     p.wtListOk = false
     p.listDelimiter = "{}"
-    
+  
     return lst, err
 }
 

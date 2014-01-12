@@ -585,7 +585,7 @@ func (t *Target) outputCallbacks(outFile *os.File, outputFormat int) int {
         outFile.WriteString("\n")
     }
 
-    utils.INFO("Size of callback table: %d bytes\n", callbacksSize)  
+    utils.INFO("Size of callback table: %d bytes", callbacksSize)  
     
     return callbacksSize
 }
