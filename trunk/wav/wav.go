@@ -111,7 +111,7 @@ func ConvertWav(fname string, sampleRate int, volume int) []int {
             pos = 1.0
             
             if deltaPos != 1.0 {
-                utils.INFO(fmt.Sprintf("Resampling from %d to %d Hz", wavSamplesPerSec, sampleRate))
+                utils.INFO(fmt.Sprintf("Resampling %s from %d to %d Hz", fname, wavSamplesPerSec, sampleRate))
             }
             
             if wavChannels > 1 {
@@ -123,8 +123,9 @@ func ConvertWav(fname string, sampleRate int, volume int) []int {
             }
             
         } else if chunkId == "data" {
-            //dataStart = where(fn)
-            //dataSize := chunkSize
+            dataSize = chunkSize
+            
+            fmt.Printf("Found data chunk, bits=%d, channels=%d, chunk size=%d\n", wavBitsPerSample, wavChannels, dataSize)
             
             sampleDiv := 0
                        
@@ -212,6 +213,7 @@ func ConvertWav(fname string, sampleRate int, volume int) []int {
 
         } else {
             // Unhandled chunk type, just skip it.
+            utils.INFO("Skipping unhandled WAV chunk \"%s\"", chunkId)
             fileDataPos += chunkSize
         }
     }

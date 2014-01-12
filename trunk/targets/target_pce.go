@@ -30,6 +30,8 @@ func (t *TargetPCE) Init() {
 /* Output data suitable for the PC-Engine / TurboGrafx-16 (WLA-DX)
  */
 func (t *TargetPCE) Output(outputVgm int) {
+    utils.INFO("TargetPCE.Output")
+    
     fileEnding := ".asm"
     if outputVgm == 1 {
         fileEnding = ".vgm"
@@ -60,7 +62,8 @@ func (t *TargetPCE) Output(outputVgm int) {
 
     wavSize := 0
     outFile.WriteString("xpmp_waveform_data:")
-    for key := range effects.Waveforms.GetKeys() {
+    for _, key := range effects.Waveforms.GetKeys() {
+        fmt.Printf("Getting waveform data for key %d\n", key)
         params := effects.Waveforms.GetData(key).MainPart
         for j := 0; j < len(params); j += 1 {
             if j == 0 {
@@ -74,7 +77,7 @@ func (t *TargetPCE) Output(outputVgm int) {
         }
     }
     outFile.WriteString("\n\n")
-    utils.INFO("Size of waveform table: %d bytes\n", wavSize)
+    utils.INFO("Size of waveform table: %d bytes", wavSize)
     
     cbSize := t.outputCallbacks(outFile, FORMAT_WLA_DX)
 
@@ -87,7 +90,7 @@ func (t *TargetPCE) Output(outputVgm int) {
     outFile.WriteString("\n")
         
     patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
-    utils.INFO("Size of patterns table: %d bytes\n", patSize)
+    utils.INFO("Size of patterns table: %d bytes", patSize)
     
     songSize := t.outputChannelData(outFile, FORMAT_WLA_DX) 
 

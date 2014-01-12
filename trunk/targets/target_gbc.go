@@ -102,7 +102,7 @@ func (t *TargetGBC) Output(outputVgm int) {
     
     wavSize := 0
     outFile.WriteString("xpmp_waveform_data:")
-    for key := range effects.Waveforms.GetKeys() {
+    for _, key := range effects.Waveforms.GetKeys() {
         params := effects.Waveforms.GetData(key).MainPart
         for j := 0; j < len(params); j += 2 {
             if j == 0 {
