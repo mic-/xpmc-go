@@ -1,3 +1,13 @@
+/*
+ * Package compiler
+ *
+ * Part of XPMC.
+ * Contains functions for handling meta-commands (those commands
+ * that begin with a #, e.g. #IFDEF, #SONG, #BASE, etc).
+ *
+ * /Mic, 2013-2014
+ */
+ 
 package compiler
 
 import (
@@ -240,18 +250,17 @@ func (comp *Compiler) handleMetaCommand() {
             num, err := strconv.ParseInt(s, Parser.UserDefinedBase, 0)
             if err == nil {
                 if num > 1 && num < 100 {
-                    // ToDo: fix
+                    // A song with the given number must not already exist
                     if _, songExists := comp.Songs[int(num)]; !songExists {
-                        //m = -1
-                        //l = 0
-
                         for _, chn := range comp.CurrSong.Channels {
                             if chn.IsVirtual() {
                                 continue
                             }
+                            // Verify that all []-loops have been closed
                             if chn.Loops.Len() > 0 {
                                 utils.ERROR("Open [ loop on channel %s", chn.Name)
                             }
+                            // Add END markers or jumps at the end of all channels
                             chn.LoopTicks = chn.Ticks - chn.LoopTicks
                             if chn.LoopPoint == -1 {
                                 chn.AddCmd([]int{defs.CMD_END})
@@ -274,6 +283,7 @@ func (comp *Compiler) handleMetaCommand() {
                         hasAnyNote = repeat(0, length(supportedChannels))
                         songLoopLen[songNum] = songLen[songNum]*/                   
    
+                        // Create a new song and make it the current one
                         comp.CurrSong = song.NewSong(int(num), comp.CurrSong.Target.GetID(), comp)
                         comp.Songs[int(num)] = comp.CurrSong
     

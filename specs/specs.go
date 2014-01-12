@@ -466,4 +466,37 @@ func SetChannelSpecs(dest *Specs, firstPhysChan int, firstLogicalChan int, s Spe
 }
 
 
+func CreateCombination(src *Specs) Specs {
+    getHighestValue := func(vals []int) int {
+        if len(vals) == 0 {
+            return 0
+        }
+        highest := vals[0]
+        for _, val := range vals {
+            if val > highest {
+                highest = val
+            }
+        }
+        return highest
+    }
 
+    combo := Specs{}
+    combo.ID = CHIP_UNKNOWN
+    combo.Duty      = []int{getHighestValue(src.Duty)}
+    combo.VolChange = []int{getHighestValue(src.VolChange)}
+    combo.ADSR      = []int{getHighestValue(src.ADSR)}
+    combo.FM        = []int{getHighestValue(src.FM)}
+    combo.Filter    = []int{getHighestValue(src.Filter)}
+    combo.RingMod   = []int{getHighestValue(src.RingMod)}
+    combo.WaveTable = []int{getHighestValue(src.WaveTable)}
+    combo.PCM       = []int{getHighestValue(src.PCM)}
+    combo.ToneEnv   = []int{getHighestValue(src.ToneEnv)}
+    combo.VolEnv    = []int{getHighestValue(src.VolEnv)}
+    combo.Detune    = []int{getHighestValue(src.Detune)}
+    combo.MinOct    = []int{getHighestValue(src.MinOct)}
+    combo.MaxOct    = []int{getHighestValue(src.MaxOct)}
+    combo.MaxVol    = []int{getHighestValue(src.MaxVol)}
+    combo.MinNote   = []int{getHighestValue(src.MinNote)}
+    
+    return combo
+}
