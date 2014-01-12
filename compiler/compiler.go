@@ -703,37 +703,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                         }
                                                     }
                                                     effects.WaveformMacros.Append(num, convertedList)
-                                                    effects.WaveformMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())
-                                                    
-                                                    /*u = {0,{},{}}
-                                                    for j = 2 to 3 do
-                                                        for i = 1 to length(t[j]) do
-                                                            if and_bits(i, 1) then
-                                                                if sequence(t[j][i]) then
-                                                                    if length(t[j][i]) = 4 and t[j][i][1] = -1 then
-                                                                        u[j] &= t[j][i][4]
-                                                                        if assoc_find_key(waveforms, t[j][i][4]) >= 0 then
-                                                                            waveforms = assoc_reference(waveforms, t[j][i][4])
-                                                                            t[j][i] = assoc_find_key(waveforms, t[j][i][4])
-                                                                        } else {
-                                                                            ERROR(sprintf("WT%d has not been declared", t[j][i][4]), lineNum)
-                                                                        }
-                                                                    } else {
-                                                                        compiler.ERROR("Expected WT<num>, got " & t[j][i])
-                                                                    }
-                                                                } else {
-                                                                    ERROR("Expected WT<num>, got " & t[j][i])
-                                                                }
-                                                            } else {
-                                                                u[j] &= t[j][i]
-                                                                if !inRange(t[j][i], 1, 127) {
-                                                                    ERROR(sprintf("Expected a number in the range 1..127, got %d", t[j][i]), lineNum)
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                    effects.WaveformMacros.Append(num, lst)
-                                                    waveformMacros = assoc_insert_extra_data(waveformMacros, o[2], u)*/
+                                                    effects.WaveformMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())                            
                                                 }
                                              }else {
                                                 ERROR("Bad waveform: " + t)
