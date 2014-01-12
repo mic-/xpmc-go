@@ -106,6 +106,7 @@ func main() {
     utils.OldParsers = utils.NewGenericStack()
     
     utils.Verbose(false)
+    utils.DebugMode(false)
     utils.WarningsAreErrors(false)
     target = targets.TARGET_UNKNOWN
 
@@ -114,8 +115,10 @@ func main() {
     for i, arg := range os.Args {
         if i >= 1 {
             if arg[0] == '-' {
-                if arg == "-v" {
+                if arg == "-v" || arg == "-verbose" {
                     utils.Verbose(true);
+                } else if arg == "-d" || arg == "-debug" {
+                    utils.DebugMode(true);
                 } else if arg == "-w" {
                     utils.WarningsAreErrors(true);
                 } else if arg == "-h" || arg == "-help" {

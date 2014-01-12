@@ -75,6 +75,7 @@ var OldParsers *GenericStack
 
 var warningsAreErrors bool = false
 var verboseMode bool = false
+var debugMode bool = false
 var definedSymbols map[string]bool
 
 // Compiler messages
@@ -99,8 +100,18 @@ func INFO(msg string, args ...interface{}) {
     }
 }
 
+func DEBUG(msg string, args ...interface{}) {
+    if debugMode {
+        fmt.Printf("Debug: " + msg + "\n", args...)
+    }
+}
+
 func Verbose(flag bool) {
     verboseMode = flag
+}
+
+func DebugMode(flag bool) {
+    debugMode = flag
 }
 
 func WarningsAreErrors(flag bool) {

@@ -38,7 +38,7 @@ type ParserState struct {
 func (s *ParserState) Init(fileName string) error {
     var err error
     s.fileData, err = ioutil.ReadFile(fileName)
-    fmt.Printf("Parsing " + fileName + "\n")
+    DEBUG("Parsing " + fileName)
     s.fileDataPos = 0
     s.LineNum = 1
     s.Column = 0
@@ -52,12 +52,12 @@ func (s *ParserState) Init(fileName string) error {
     if lastSlash >= 0 {
         s.WorkDir = fileName[:lastSlash] + string(os.PathSeparator)
         s.ShortFileName = fileName[lastSlash+1:]
-        fmt.Printf("*WorkDir = " + s.WorkDir + "\n")
+        DEBUG("WorkDir = " + s.WorkDir)
     } else {
         s.ShortFileName = fileName
         s.WorkDir, _ = os.Getwd()
         s.WorkDir += string(os.PathSeparator)
-        fmt.Printf("WorkDir = " + s.WorkDir + "\n")
+        DEBUG("WorkDir = " + s.WorkDir)
     }
     s.listDelimiter = "{}"
     return err
@@ -152,6 +152,26 @@ func (p *ParserState) SkipWhitespace() {
     }
     
     p.Ungetch()
+}
+
+
+/* Rolls back whitespace consumption.
+ */
+func (p *ParserState) UnskipWhitespace() {
+    c := 0
+    
+    for c != -1 && p.fileDataPos > 0 {
+        p.fileDataPos--
+        c = int(p.fileData[p.fileDataPos])
+        if c == ' ' || c == '\t' || c == 13 || c == 10 {
+            if c == 10 {
+                p.LineNum--
+            }
+        } else {
+            p.fileDataPos++
+            break
+        }
+    }
 }
 
 
@@ -628,6 +648,7 @@ func (p *ParserState) GetList() (*ParamList,error) {
                 }
             } else {
                 p.Ungetch()
+                p.UnskipWhitespace()
                 break
             }
         }
