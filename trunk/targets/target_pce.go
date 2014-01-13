@@ -132,7 +132,7 @@ func (t *TargetPCE) Output(outputVgm int) {
         outFile.WriteString("\n")
     }
     outFile.WriteString("\n\n")
-    utils.INFO("Size of XPCM data: %d bytes\n", pcmSize)
+    utils.INFO("Size of XPCM data: %d bytes", pcmSize)
 
     utils.INFO("Total size of song(s): %d bytes\n", songSize + patSize + tableSize + cbSize + wavSize + pcmSize)
    
