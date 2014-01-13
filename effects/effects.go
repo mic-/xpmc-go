@@ -13,12 +13,14 @@ import (
 )
 
 const EXTRA_EFFECT_FREQ = "effect-freq"
+const INLINED_EFFECT_BASE_ID = 10000
 
 type EffectMap struct {
     data []*utils.ParamList
     keys []int
     refCount []int
     extraData []map[string]interface{}
+    InlinedDefinitionId int
 }
 
 
@@ -128,8 +130,9 @@ func (m *EffectMap) Len() int {
     return len(m.keys)
 }
 
-func NewEffectMap() *EffectMap {
+func NewEffectMap(inlineIdBase int) *EffectMap {
     e := &EffectMap{}
+    e.InlinedDefinitionId = inlineIdBase
     return e
 }
 
@@ -151,19 +154,19 @@ var PCMs *EffectMap
 
 
 func Init() {
-    Arpeggios = NewEffectMap()
-    Vibratos = NewEffectMap()
-    VolumeMacros = NewEffectMap()
-    DutyMacros = NewEffectMap()
-    PanMacros = NewEffectMap()
-    PitchMacros = NewEffectMap()
-    PulseMacros = NewEffectMap()
-    FeedbackMacros = NewEffectMap()
-    MODs = NewEffectMap()
-    ADSRs = NewEffectMap()
-    Filters = NewEffectMap()
-    Portamentos = NewEffectMap()
-    Waveforms = NewEffectMap()
-    WaveformMacros = NewEffectMap()
-    PCMs = NewEffectMap()
+    Arpeggios    = NewEffectMap(INLINED_EFFECT_BASE_ID)
+    Vibratos     = NewEffectMap(INLINED_EFFECT_BASE_ID + 1000)
+    VolumeMacros = NewEffectMap(INLINED_EFFECT_BASE_ID + 2000)
+    DutyMacros   = NewEffectMap(INLINED_EFFECT_BASE_ID + 3000)
+    PanMacros    = NewEffectMap(INLINED_EFFECT_BASE_ID + 4000)
+    PitchMacros  = NewEffectMap(INLINED_EFFECT_BASE_ID + 5000)
+    PulseMacros  = NewEffectMap(INLINED_EFFECT_BASE_ID + 6000)
+    FeedbackMacros = NewEffectMap(INLINED_EFFECT_BASE_ID + 7000)
+    MODs         = NewEffectMap(INLINED_EFFECT_BASE_ID + 8000)
+    ADSRs        = NewEffectMap(INLINED_EFFECT_BASE_ID + 9000)
+    Filters      = NewEffectMap(INLINED_EFFECT_BASE_ID + 10000)
+    Portamentos  = NewEffectMap(INLINED_EFFECT_BASE_ID + 11000)
+    Waveforms    = NewEffectMap(INLINED_EFFECT_BASE_ID + 12000)
+    WaveformMacros = NewEffectMap(INLINED_EFFECT_BASE_ID+13000)
+    PCMs         = NewEffectMap(INLINED_EFFECT_BASE_ID + 14000)
 }

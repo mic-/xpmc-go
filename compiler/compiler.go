@@ -3,7 +3,6 @@ package compiler
 import (
     //"container/list"
     "fmt"
-    "os"
     "sort"
     "strconv"
     "strings"
@@ -16,7 +15,6 @@ import (
     "../targets"
     "../timing"
     "../utils"
-    "../wav"
 )
 
 import . "../utils"
@@ -404,7 +402,7 @@ func (comp *Compiler) assertDisablingEffect(name string, cmd int) {
     if s == "OF" {
         comp.applyCmdOnAllActive(name, []int{cmd, 0})
     } else {
-        ERROR("Syntax error. Expedted <effect>OF, got: " + name + s)
+        ERROR("Syntax error. Expected <effect>OF, got: " + name + s)
     }
 }
 
@@ -541,18 +539,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                                       
                         // Vibrato definition
                         } else if strings.HasPrefix(s, "MP") {
-                            comp.handleEffectDefinition("MP", s, effects.Vibratos, func(parm *ParamList) bool {
-                                    if len(parm.MainPart) == 3 && len(parm.LoopedPart) == 0 {
-                                        if inRange(parm.MainPart, []int{0, 1, 0}, []int{127, 127, 63}) {
-                                            return true
-                                        } else {
-                                            ERROR("Value of out range: " + parm.Format())
-                                        }
-                                    } else {
-                                        ERROR("Bad MP: " + parm.Format())
-                                    }
-                                    return false
-                                })
+                            comp.handleVibratoDef(s)
                                 
                         // Amplitude/frequency modulator
                         } else if strings.HasPrefix(s, "MOD") {
@@ -560,23 +547,7 @@ func (comp *Compiler) CompileFile(fileName string) {
 
                         // Filter definition
                         } else if strings.HasPrefix(s, "FT") {
-                            comp.handleEffectDefinition("FT", s, effects.Filters, func(parm *ParamList) bool {
-                                    if !parm.IsEmpty() {
-                                        if comp.CurrSong.Target.GetID() == targets.TARGET_C64 {
-                                            if len(parm.MainPart) == 3 && len(parm.LoopedPart) == 0 {
-                                                if inRange(parm.MainPart, []int{0, 0, 0}, []int{3, 2047, 15}) {
-                                                    return true
-                                                }
-                                            }
-                                        } else {
-                                            return true
-                                        }
-                                        return false
-                                    } else {
-                                        ERROR("Empty list for FT")
-                                    }
-                                    return false
-                                })                           
+                            comp.handleFilterDef(s)                
                             
                         // Pitch macro definition
                         } else if strings.HasPrefix(s, "EP") {
@@ -722,77 +693,10 @@ func (comp *Compiler) CompileFile(fileName string) {
                             }       
 
                         } else if strings.HasPrefix(s, "XPCM") {
-                            num, err := strconv.Atoi(s[4:])
-                            if err == nil {
-                                idx := effects.PCMs.FindKey(num)
-                                if idx < 0 {
-                                    t := Parser.GetString()
-                                    if t == "=" {
-                                        lst, err := Parser.GetList()
-                                        if comp.CurrSong.Target.SupportsPCM() {
-                                            if err == nil {
-                                                if len(lst.LoopedPart) == 0 {
-                                                    if len(lst.MainPart) > 0 {
-                                                        if pcmFileName, ok := lst.MainPart[0].(string); ok {
-                                                            if !strings.ContainsRune(pcmFileName, rune(':')) && pcmFileName[0] != os.PathSeparator {
-                                                                pcmFileName = Parser.WorkDir + pcmFileName
-                                                                lst.MainPart[0] = pcmFileName
-                                                            }
-                                                            if len(lst.MainPart) > 2 {
-                                                                // {"filename" samplerate volume}
-                                                                lst.LoopedPart = append(lst.LoopedPart, wav.ConvertWav(pcmFileName, lst.MainPart[1].(int), lst.MainPart[2].(int)))
-                                                            } else {
-                                                                // {"filename" samlerate}
-                                                                lst.LoopedPart = append(lst.LoopedPart, wav.ConvertWav(pcmFileName, lst.MainPart[1].(int), 100))
-                                                            }
-                                                            effects.PCMs.Append(num, lst)
-                                                        } else {
-                                                            ERROR("Bad XPCM: " + lst.Format())
-                                                        }
-                                                    } else {
-                                                        ERROR("Bad XPCM: " + lst.Format())
-                                                    }
-                                                } else {
-                                                    ERROR("Loops not supported in XPCM: " + lst.Format())
-                                                }
-                                            } else {
-                                                ERROR("Bad XPCM: " + t)
-                                            }
-                                        } else {
-                                            WARNING("Unsupported command for this target: @XPCM")
-                                        }
-                                    } else {
-                                        ERROR("Expected '='")
-                                    }
-                                } else {
-                                    ERROR("Redefinition of @" + s)
-                                }
-                            } else {
-                                ERROR("Syntax error: @" + s)
-                            }       
+                            comp.handleXpcmDef(s)
                         
                         } else if strings.HasPrefix(s, "ADSR") {
-                            comp.handleEffectDefinition("ADSR", s, effects.ADSRs, func(parm *ParamList) bool {
-                                    if !parm.IsEmpty() {
-                                        if len(parm.LoopedPart) == 0 {
-                                            if len(parm.MainPart) == comp.CurrSong.Target.GetAdsrLen() {
-                                                if inRange(parm.MainPart, 0, comp.CurrSong.Target.GetAdsrMax()) {
-                                                    return true
-                                                } else {
-                                                    ERROR("ADSR parameters out of range: " + parm.Format())
-                                                }
-                                            } else {
-                                                ERROR("Bad number of ADSR parameters: " + parm.Format())
-                                            }
-                                        } else {
-                                            ERROR("| loops are not allowed in ADSR envelopes: " + parm.Format())
-                                        }
-                                        return true
-                                    } else {
-                                        ERROR("Empty list for ADSR")
-                                    }
-                                    return false
-                                })                              
+                            _ = comp.handleAdsrEnvelopeDef(s, false)
                                 
                         } else if strings.HasPrefix(s, "te") {
                             //t := s[2:]
@@ -2094,9 +1998,11 @@ func (comp *Compiler) CompileFile(fileName string) {
                     num := 0
                     err := error(nil)
                     m := Parser.Getch()
+                    Parser.Ungetch()
                     if m == '(' {
                         // Implicit ADSR declaration
-                        Parser.SetListDelimiters("()")
+                        num = comp.handleAdsrEnvelopeDef("", true)
+                        /*Parser.SetListDelimiters("()")
                         lst, err := Parser.GetList()
                         key := -1
                         if err == nil {
@@ -2122,7 +2028,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             }
                         } else {
                             ERROR("Bad ADSR: Unable to parse parameter list")
-                        }
+                        }*/
                     } else {
                         // Use a previously declared ADSR
                         s = Parser.GetNumericString()
