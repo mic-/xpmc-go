@@ -74,6 +74,10 @@ type Target struct {
     ID int
 }
 
+type TargetAST struct {
+    Target
+}
+
 type TargetAt8 struct {
     Target
 }
@@ -119,6 +123,9 @@ func NewTarget(tID int, icomp ICompiler) ITarget {
     var t ITarget = ITarget(nil)
     
     switch tID {
+    case TARGET_AST:
+        t = &TargetAST{}
+
     case TARGET_AT8:
         t = &TargetAt8{}
     
@@ -160,6 +167,9 @@ func NewTarget(tID int, icomp ICompiler) ITarget {
  */
 func NameToID(targetName string) int {
     switch targetName {
+    case "ast":
+        return TARGET_AST;
+
     case "at8":
         return TARGET_AT8;
     
@@ -227,8 +237,10 @@ func (t *Target) GetAdsrMax() int {
 
 func (t *Target) GetChannelNames() string {
     names := ""
-    for i := range t.ChannelSpecs.Duty {
-        names += fmt.Sprintf("%c", 'A'+i)
+    for i, _ := range t.ChannelSpecs.Duty {
+        if t.ChannelSpecs.IDs[i] != specs.CHIP_UNKNOWN {
+            names += fmt.Sprintf("%c", 'A'+i)
+        }
     }
     return names
 }
