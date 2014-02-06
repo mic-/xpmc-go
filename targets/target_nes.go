@@ -11,6 +11,8 @@
 package targets
 
 import (
+    "os"
+    "time"
     "../specs"
     "../utils"
     "../timing"
@@ -41,7 +43,18 @@ func (t *TargetNES) Init() {
  */
 func (t *TargetNES) Output(outputVgm int) {
     utils.DEBUG("TargetNES.Output")
+    
+    outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
+    if err != nil {
+        utils.ERROR("Unable to open file: " + t.CompilerItf.GetShortFileName() + ".asm")
+    }
 
+    now := time.Now()
+    outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")    
+
+    // ToDo: finish
+    
+    outFile.Close()
 }
 
     
