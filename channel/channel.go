@@ -351,6 +351,22 @@ func (chn *Channel) NoteLength(len float64) (frames, cutoffFrames, scaling float
 }
 
 
+/* Split a length into either 2 or 3 bytes in the format that is recognized by the playback
+ * libraries.
+ */
+func SplitLength(len int, scaling float64) []int {
+    // The longest length that can be represented by a 2-byte sequence is 127.0
+    if float64(len) > 127.0 * scaling {
+        return []int{(len / 0x8000) | 0x80,     // 0x80 is a marker saying that this is a 3-byte sequence
+                     (len / 0x100) & 0x7F,
+                     (len & 0xFF)}
+    } else {
+        return []int{(len / 0x100),
+                     (len & 0xFF)}
+    }
+}
+
+
 /* Write the length of the current note to the channel's command
  * stream.
  */
@@ -364,15 +380,7 @@ func (chn *Channel) WriteLength() {
         timing.UpdateDelayMinMax(len1)
         timing.UpdateDelayMinMax(len2)
 
-        if math.Floor(chn.CurrentNoteFrames.Active) > 127.0 * scaling {
-            chn.AddCmd([]int{(len1 / 0x8000) | 0x80,
-                             (len1 / 0x100) & 0x7F,
-                             (len1 & 0xFF)})
-        } else {
-            chn.AddCmd([]int{(len1 / 0x100),
-                             (len1 & 0xFF)})
-        }
-        
+        chn.AddCmd(SplitLength(int(math.Floor(chn.CurrentNoteFrames.Active)), scaling))      
     } else {
         // ToDo: necessary to handle this?
     }
@@ -380,16 +388,8 @@ func (chn *Channel) WriteLength() {
 
 
 func (chn *Channel) WriteNoteAndLength(note int, noteLen int, minLen int, scaling float64) {
-    if noteLen > int(127.0 * scaling) {
-        chn.AddCmd([]int{note,
-                         (noteLen / 0x8000) | 0x80,
-                         (noteLen / 0x100) & 0x7F,
-                         (noteLen & 0xFF)})
-    } else if noteLen >= minLen {
-        chn.AddCmd([]int{note, 
-                         (noteLen / 0x100),
-                         (noteLen & 0xFF)})
-    }
+    chn.AddCmd([]int{note})
+    chn.AddCmd(SplitLength(noteLen, scaling))      
 }
 
                                          
