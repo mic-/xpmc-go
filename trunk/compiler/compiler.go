@@ -1,9 +1,7 @@
 package compiler
 
 import (
-    //"container/list"
     "fmt"
-    "sort"
     "strconv"
     "strings"
     "sync"
@@ -20,102 +18,12 @@ import (
 import . "../utils"
 
 
-// For macro elements
-const (
-    ARG_REFERENCE = 1
-    DEFAULT_PARAM = 2
-    CHAR_VERBATIM = 3
-)
-
 const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrtsuvwxyz"
 
-type MmlMacroElement struct {
-    typ int
-    val interface{}
-}
-
-type MmlMacro struct {
-    data []*MmlMacroElement
-}
-
-type MmlMacroMap struct {
-    keys []string
-    data []*MmlMacro
-}
-
-func (m *MmlMacroMap) FindKey(key string) int {
-    return utils.PositionOfString(m.keys, key)
-}
-
-func (m *MmlMacroMap) Append(key string, mac *MmlMacro) {
-    m.keys = append(m.keys, key)
-    m.data = append(m.data, mac)
-}
-
-func (m *MmlMacroMap) GetData(key string) *MmlMacro {
-    pos := m.FindKey(key)
-    if pos >= 0 {
-        return m.data[pos]
-    }
-    return nil
-}
-
-func (m *MmlMacro) AppendArgumentRef(x int) {
-    m.data = append(m.data, &MmlMacroElement{ARG_REFERENCE, x})
-}
-
-func (m *MmlMacro) AppendChar(x byte) {
-    m.data = append(m.data, &MmlMacroElement{CHAR_VERBATIM, x})
-}
-
-func (m *MmlMacro) AppendDefaultParam(x string) {
-    m.data = append(m.data, &MmlMacroElement{DEFAULT_PARAM, x})
-}
 
 /****************************************/
 
-type MmlPattern struct {
-    Name string
-    Cmds []int
-    HasAnyNote bool
-    NumTicks int
-}
-
-type MmlPatternMap struct {
-    keys [] string
-    data []*MmlPattern
-}
-
-func (m *MmlPattern) GetCommands() []int {
-    return m.Cmds
-}
-
-func (m *MmlPatternMap) FindKey(key string) int {
-    return utils.PositionOfString(m.keys, key)
-}
-
-func (m *MmlPatternMap) Append(key string, pat *MmlPattern) {
-    m.keys = append(m.keys, key)
-    m.data = append(m.data, pat)
-}
-
-func (m *MmlPatternMap) GetNumTicks(key string) int {
-    pos := m.FindKey(key)
-    if pos >= 0 {
-        return m.data[pos].NumTicks
-    }
-    return 0
-}
-
-func (m *MmlPatternMap) HasAnyNote(key string) bool {
-    pos := m.FindKey(key)
-    if pos >= 0 {
-        return m.data[pos].HasAnyNote
-    }
-    return false
-}
-
-                    
+                  
 type Compiler struct {
     CurrSong *song.Song
     Songs map[int]*song.Song
@@ -146,50 +54,6 @@ type Compiler struct {
     callbacks []string
 }
 
-func (comp *Compiler) GetGbNoiseType() int {
-    return comp.gbNoise
-}
-
-func (comp *Compiler) GetGbVolCtrlType() int {
-    return comp.gbVolCtrl
-}
-
-func (comp *Compiler) GetShortFileName() string {
-    return comp.ShortFileName
-}
-
-func (comp *Compiler) GetNumSongs() int {
-    return len(comp.Songs)
-}
-
-func (comp *Compiler) GetPatterns() []defs.IMmlPattern {
-    patterns := make([]defs.IMmlPattern, len(comp.patterns.data))
-    for i, pat := range comp.patterns.data {
-        patterns[i] = pat
-    }
-    return patterns
-}
-
-func (comp *Compiler) GetSong(num int) defs.ISong {
-    return comp.Songs[num]
-}
-
-func (comp *Compiler) GetSongs() []defs.ISong {
-    songs := make([]defs.ISong, len(comp.Songs))
-    keys := []int{}
-    for key := range comp.Songs {
-        keys = append(keys, key)
-    }
-    sort.Ints(keys)
-    for i, key := range keys {
-        songs[i] = comp.Songs[key]
-    }
-    return songs
-}
-
-func (comp *Compiler) GetCallbacks() []string {
-    return comp.callbacks
-}
 
 
 func (comp *Compiler) Init(target int) {
