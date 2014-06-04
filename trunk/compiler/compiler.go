@@ -396,6 +396,9 @@ func (comp *Compiler) assertEffectIdExistsAndChannelsActive(name string, eff *ef
 }
 
 
+/* Generates an "OFF" command for the specified effect if the next two characters in
+ * the input data are 'O', 'F'. Generates an error otherwise.
+ */
 func (comp *Compiler) assertDisablingEffect(name string, cmd int) {
     c := Parser.Getch()
     s := string(byte(c)) + string(byte(Parser.Getch()))
