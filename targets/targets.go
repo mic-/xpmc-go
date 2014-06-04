@@ -191,7 +191,7 @@ func NameToID(targetName string) int {
     case "sgg":
         return TARGET_SGG;
     
-    case "smd":
+    case "smd", "gen":
         return TARGET_SMD;
     
     case "sms":

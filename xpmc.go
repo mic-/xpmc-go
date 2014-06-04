@@ -179,6 +179,7 @@ func main() {
                     }
                 }
  
+                // Compare the total lengths of all channels
                 ticks := -1
                 for _, song := range comp.Songs {
                     for _, chn := range song.Channels {
@@ -196,6 +197,8 @@ func main() {
                     }
                 }
     
+                comp.RemoveUnusedEffects()
+                
                 comp.CurrSong.Target.Output(0)
                 
                 return

@@ -2744,3 +2744,56 @@ func (comp *Compiler) CompileFile(fileName string) {
     comp.writeAllPendingNotes(true)
     Parser = OldParsers.PopParserState()
 }
+
+
+func (comp *Compiler) removeUnusedEffect(effMap *effects.EffectMap, effCmd []int) int {
+    numRemoved := 0
+    pos := 0
+    numKeys := effMap.Len()
+    
+    for pos < numKeys {
+        key := effMap.GetKeyAt(pos)
+        if key == -1 {
+            utils.ERROR("Unable to iterate over effects")
+        }
+        if !effMap.IsReferenced(key) {
+            songs := comp.GetSongs()
+            for _, sng := range songs {
+                channels := sng.GetChannels()
+                for _, chn := range channels {  
+                    commands := chn.GetCommands()
+                    for i, cmd := range commands {
+                        for _, cmdToCheckFor := range effCmd {
+                            if cmd == cmdToCheckFor {
+                                if (commands[i + 1] & 0x7F) > pos + 1 {
+                                    commands[i + 1] = ((commands[i + 1] & 0x7F) - 1) | (commands[i + 1] & 0x80)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            effMap.Remove(key)
+            numKeys -= 1
+            numRemoved += 1
+        } else {
+            pos += 1
+        }
+    }
+    return numRemoved
+}
+
+
+func (comp *Compiler) RemoveUnusedEffects() {
+    effectsRemoved := comp.removeUnusedEffect(effects.VolumeMacros, []int{defs.CMD_VOLMAC})
+    effectsRemoved += comp.removeUnusedEffect(effects.PitchMacros, []int{defs.CMD_SWPMAC})
+    effectsRemoved += comp.removeUnusedEffect(effects.DutyMacros, []int{defs.CMD_DUTMAC})
+    effectsRemoved += comp.removeUnusedEffect(effects.FeedbackMacros, []int{defs.CMD_FBKMAC})
+    effectsRemoved += comp.removeUnusedEffect(effects.PulseMacros, []int{defs.CMD_PULMAC})
+    effectsRemoved += comp.removeUnusedEffect(effects.Arpeggios, []int{defs.CMD_ARPMAC, defs.CMD_APMAC2})
+    effectsRemoved += comp.removeUnusedEffect(effects.Vibratos, []int{defs.CMD_VIBMAC})
+    effectsRemoved += comp.removeUnusedEffect(effects.ADSRs, []int{defs.CMD_ADSR})
+    effectsRemoved += comp.removeUnusedEffect(effects.MODs, []int{defs.CMD_MODMAC})
+    effectsRemoved += comp.removeUnusedEffect(effects.Filters, []int{defs.CMD_FILTER})
+    utils.INFO("Removed %d unused effects\n", effectsRemoved)
+}
