@@ -73,6 +73,16 @@ func (m *EffectMap) Append(key int, lst *utils.ParamList) {
     m.extraData = append(m.extraData, map[string]interface{}{})
 }
 
+func (m *EffectMap) Remove(key int) {
+    pos := m.FindKey(key)
+    if pos != -1 {
+        m.data = append(m.data[:pos], m.data[pos+1:]...)
+        m.keys = append(m.keys[:pos], m.keys[pos+1:]...)
+        m.refCount = append(m.refCount[:pos], m.refCount[pos+1:]...)
+        m.extraData = append(m.extraData[:pos], m.extraData[pos+1:]...)
+    }
+}
+
 func (m *EffectMap) PutExtraInt(key int, name string, val int) {
     pos := m.FindKey(key)
     if (pos != -1) {
