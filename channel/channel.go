@@ -295,8 +295,10 @@ func (chn *Channel) WriteLength() {
 
 
 func (chn *Channel) WriteNoteAndLength(note int, noteLen int, minLen int, scaling float64) {
-    chn.AddCmd([]int{note})
-    chn.AddCmd(SplitLength(noteLen, scaling))      
+    if noteLen >= minLen {
+        chn.AddCmd([]int{note})
+        chn.AddCmd(SplitLength(noteLen, scaling))
+    }
 }
 
                                          
