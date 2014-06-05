@@ -27,6 +27,16 @@ func (s *GenericStack) Push(x interface{}) {
     _ = s.data.PushBack(x)
 }
 
+func (s *GenericStack) Pop() interface{} {
+    e := s.data.Back()
+    return s.data.Remove(e)
+}
+
+func (s *GenericStack) Peek() interface{} {
+    e := s.data.Back()
+    return e.Value
+}
+
 func (s *GenericStack) PopBool() bool {
     e := s.data.Back()
     return s.data.Remove(e).(bool)

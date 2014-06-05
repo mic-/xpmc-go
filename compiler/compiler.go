@@ -1216,7 +1216,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                     for _, chn := range comp.CurrSong.Channels {
                         if chn.Active {
                             if chn.Loops.Len() > 0 {
-                                pElem := chn.Loops.Peek()
+                                pElem := chn.Loops.PeekLoop()
                                 if pElem.Skip1Pos != -1 {
                                     ERROR("Only one | allowed per repeat loop")
                                 }
@@ -1237,7 +1237,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                 loopCount, err := strconv.Atoi(t)
                 for _, chn := range comp.CurrSong.Channels {
                     if chn.Active {
-                        elem := chn.Loops.Pop()
+                        elem := chn.Loops.PopLoop()
                         if elem.StartPos != 0 {
                             if err == nil {
                                 if loopCount > 0 {
@@ -1308,7 +1308,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                 chn.PendingOctChange = delta
 
                                 if chn.Loops.Len() > 0 {
-                                    pElem := chn.Loops.Peek()
+                                    pElem := chn.Loops.PeekLoop()
                                     if pElem.Skip1Pos == -1 {
                                         pElem.OctChange += delta
                                     } else {
@@ -1392,7 +1392,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     }
                                     if chn.Loops.Len() > 0 {
                                         // We're inside a []-loop
-                                        pElem := chn.Loops.Peek()
+                                        pElem := chn.Loops.PeekLoop()
                                         if pElem.Skip1Ticks == -1 {
                                             // We're in the part before the |
                                             pElem.HasOctCmd = chn.CurrentOctave
@@ -2757,8 +2757,7 @@ func (comp *Compiler) removeUnusedEffect(effMap *effects.EffectMap, effCmd []int
             utils.ERROR("Unable to iterate over effects")
         }
         if !effMap.IsReferenced(key) {
-            songs := comp.GetSongs()
-            for _, sng := range songs {
+            for _, sng := range comp.GetSongs() {
                 channels := sng.GetChannels()
                 for _, chn := range channels {  
                     commands := chn.GetCommands()
