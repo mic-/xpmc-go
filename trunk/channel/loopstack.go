@@ -11,7 +11,7 @@
  
 package channel
 
-import "container/list"
+import "../utils"
 
 type LoopStackElem struct {
     StartPos int    /* The index within the channel's command sequence where the first command
@@ -32,27 +32,18 @@ type LoopStackElem struct {
 }
 
 type LoopStack struct {
-    data *list.List
-}
-
-func (s *LoopStack) Push(e LoopStackElem) {
-    _ = s.data.PushBack(e)
-}
-
-func (s *LoopStack) Pop() LoopStackElem {
-    e := s.data.Back()
-    return s.data.Remove(e).(LoopStackElem)
-}
-
-func (s *LoopStack) Peek() LoopStackElem {
-    e := s.data.Back()
-    return e.Value.(LoopStackElem)
-}
-
-func (s *LoopStack) Len() int {
-    return s.data.Len()
+    utils.GenericStack
 }
 
 func NewLoopStack() *LoopStack {
-    return &LoopStack{list.New()}
+    return &LoopStack{*utils.NewGenericStack()}
 }
+
+func (s *LoopStack) PopLoop() LoopStackElem {
+    return s.Pop().(LoopStackElem)
+}
+
+func (s *LoopStack) PeekLoop() LoopStackElem {
+    return s.Peek().(LoopStackElem)
+}
+
