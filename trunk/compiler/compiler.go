@@ -320,6 +320,20 @@ func (comp *Compiler) CompileFile(fileName string) {
         } else {
             if c == '#' {
                 comp.handleMetaCommand()
+/*
+"@\num = \list",
+"@@\num",
+"@ADSR\num = \list",
+"@CS\num = \list",
+"@EN\num = \list",
+"@EP\num = list",
+"@FBM\num = \list",
+"@FT\num = \list",
+"@MP\num = \list",
+"@MOD\num = \list",
+"@PT\num = \list",
+"@XPCM\num = \list",
+*/
 
             } else if c == '@' {
                 for _, chn := range comp.CurrSong.Channels {
@@ -349,7 +363,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     numChannels++
                                     if chn.SupportsDutyChange() > 0 {
                                         idx |= effects.DutyMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80    // Effect frequency
-                                        chn.AddCmd([]int{defs.CMD_DUTMAC, idx})
+                                        chn.AddCmd([]int{defs.CMD_DUTMAC, idx + 1})
                                         effects.DutyMacros.AddRef(num)
                                         chn.UsesEffect["DM"] = true
                                     } else {
@@ -740,9 +754,9 @@ func (comp *Compiler) CompileFile(fileName string) {
                                             if chn.Active {
                                                 if !effects.VolumeMacros.IsEmpty(num) {
                                                     if effects.VolumeMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) == defs.EFFECT_STEP_EVERY_FRAME {
-                                                        chn.AddCmd([]int{defs.CMD_VOLMAC, idx})
+                                                        chn.AddCmd([]int{defs.CMD_VOLMAC, idx + 1})
                                                     } else {
-                                                        chn.AddCmd([]int{defs.CMD_VOLMAC, idx | 0x80})
+                                                        chn.AddCmd([]int{defs.CMD_VOLMAC, (idx + 1) | 0x80})
                                                     }
                                                     effects.VolumeMacros.AddRef(num)
                                                 }
@@ -1719,7 +1733,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             }
                             if extraChars == 0 {
                                 if n != 'r' && n != 's' {
-                                    chn.CurrentNote = channel.Note{Num: (chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp - 1,
+                                    chn.CurrentNote = channel.Note{Num: (chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp,
                                                                    Frames: float64(ticks),
                                                                    HasData: true}
                                 } else if n == 'r' {
