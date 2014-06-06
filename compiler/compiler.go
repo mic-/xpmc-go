@@ -1757,7 +1757,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     tieOff = true
                                 } else if comp.slur {
                                     if note != -1 {
-                                        if ((chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp - 1 == chn.CurrentNote.Num) ||
+                                        if ((chn.CurrentOctave - chn.GetMinOctave()) * 12 + note + flatSharp == chn.CurrentNote.Num) ||
                                             (chn.CurrentNote.Num == defs.Rest && n == 'r') ||
                                             (chn.CurrentNote.Num == defs.Rest2 && n == 's') {
                                             chn.CurrentNote.Frames += float64(ticks)
@@ -2080,11 +2080,11 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     effects.Arpeggios.AddRef(num)
                                     idx |= effects.Arpeggios.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80
                                     if comp.enRev == 0 {
-                                        chn.AddCmd([]int{defs.CMD_ARPMAC, idx})
+                                        chn.AddCmd([]int{defs.CMD_ARPMAC, idx + 1})
                                         //ToDo fix: usesEN[1] += 1
                                         chn.UsesEffect["EN"] = true
                                     } else {
-                                        chn.AddCmd([]int{defs.CMD_APMAC2, idx})
+                                        chn.AddCmd([]int{defs.CMD_APMAC2, idx + 1})
                                         //ToDo: fix: usesEN[2] += 1
                                         chn.UsesEffect["EN2"] = true
                                     }
@@ -2106,7 +2106,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                             if chn.Active {
                                 if !effects.PitchMacros.IsEmpty(num) {
                                     idx |= effects.PitchMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80
-                                    chn.AddCmd([]int{defs.CMD_SWPMAC, idx})
+                                    chn.AddCmd([]int{defs.CMD_SWPMAC, idx + 1})
                                     effects.PitchMacros.AddRef(num)
                                     chn.UsesEffect["EP"] = true
                                 }

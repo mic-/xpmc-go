@@ -101,7 +101,7 @@ func (t *TargetPCE) Output(outputVgm int) {
     for i := 1; i <= 12; i++ {
         outFile.WriteString(fmt.Sprintf("xpmp_pcm%d:", i - 1))
         pcmNum := -1
-        for j, key := range effects.ADSRs.GetKeys() {
+        for j, key := range effects.PCMs.GetKeys() {
             if key == i - 1 {
                 pcmNum = j
                 break
@@ -109,14 +109,14 @@ func (t *TargetPCE) Output(outputVgm int) {
         }
        
         if pcmNum >= 0 {
-            params := effects.Waveforms.GetDataAt(pcmNum).MainPart
+            params := effects.PCMs.GetDataAt(pcmNum).LoopedPart[0].([]int)
             params = append(params, 0x80 * 8)
             column := 1
             for j, smp := range params {
                 if (column % 32) == 1 {
                     outFile.WriteString("\n.db ")
                 }              
-                outFile.WriteString(fmt.Sprintf("$%02x", smp.(int) / 8))
+                outFile.WriteString(fmt.Sprintf("$%02x", smp / 8))
                 pcmSize++
                 if (pcmSize % 0x2000) == 0 {
                     outFile.WriteString(fmt.Sprintf("\n.bank %d slot 6\n.org $0000", pcmBank))
