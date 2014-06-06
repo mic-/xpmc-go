@@ -629,148 +629,86 @@ func outputTable(outFile *os.File, outputFormat int, tblName string, effMap *eff
     
     bytesWritten = 0
     
-    switch outputFormat {
-    case FORMAT_WLA_DX:
-        if effMap.Len() > 0 {
-            for _, key := range effMap.GetKeys() {
-                outFile.WriteString(fmt.Sprintf(tblName + "_%d:", key))
-                effectData := effMap.GetData(key)
-                for j, param := range effectData.MainPart {
-                    dat = (param.(int) * scaling) & 0xFF
-                    if canLoop && (dat == loopDelim) {
-                        dat++
-                    }
+    hexPrefix := "$"
+    byteDecl := ".db"
+    wordDecl := ".dw"
 
-                    if canLoop && j == len(effectData.MainPart)-1 && len(effectData.LoopedPart) == 0 {
-                        if j > 0 {
-                            outFile.WriteString(fmt.Sprintf(", $%02x", loopDelim))
-                        }
-                        outFile.WriteString(fmt.Sprintf("\n" + tblName + "_%d_loop:\n", key))
-                        outFile.WriteString(fmt.Sprintf(".db $%02x, $%02x", dat, loopDelim))
-                        bytesWritten += 3
-                    } else if j == 0 {
-                        outFile.WriteString(fmt.Sprintf("\n.db $%02x", dat))
-                        bytesWritten += 1
-                    } else {
-                        outFile.WriteString(fmt.Sprintf(", $%02x", dat))
-                        bytesWritten += 1
-                    }
+    switch outputFormat {
+    case FORMAT_GAS_68K:
+        hexPrefix = "0x"
+        byteDecl = "dc.b"
+        wordDecl = "dc.w"
+    }        
+    
+    if effMap.Len() > 0 {
+        for _, key := range effMap.GetKeys() {
+            outFile.WriteString(fmt.Sprintf(tblName + "_%d:", key))
+            effectData := effMap.GetData(key)
+            for j, param := range effectData.MainPart {
+                dat = (param.(int) * scaling) & 0xFF
+                if canLoop && (dat == loopDelim) {
+                    dat++
                 }
-                if canLoop && len(effectData.LoopedPart) > 0 {
-                    if len(effectData.MainPart) > 0 {
-                        outFile.WriteString(fmt.Sprintf(", $%02x", loopDelim))
-                        bytesWritten += 1
+
+                if canLoop && j == len(effectData.MainPart)-1 && len(effectData.LoopedPart) == 0 {
+                    if j > 0 {
+                        outFile.WriteString(fmt.Sprintf(", %s%02x", hexPrefix, loopDelim))
                     }
                     outFile.WriteString(fmt.Sprintf("\n" + tblName + "_%d_loop:\n", key))
-                    for j, param := range effectData.LoopedPart {
-                        dat = (param.(int) * scaling) & 0xFF
-                        if dat == loopDelim && canLoop {
-                            dat++
-                        }
-                        if j == 0 {
-                            outFile.WriteString(fmt.Sprintf(".db $%02x", dat))
-                        } else {
-                            outFile.WriteString(fmt.Sprintf(", $%02x", dat))
-                        }
-                        bytesWritten += 1
-                    }
-                    outFile.WriteString(fmt.Sprintf(", $%02x", loopDelim))
+                    outFile.WriteString(fmt.Sprintf("%s %s%02x, %s%02x", byteDecl, hexPrefix, dat, hexPrefix, loopDelim))
+                    bytesWritten += 3
+                } else if j == 0 {
+                    outFile.WriteString(fmt.Sprintf("\n%s %s%02x", byteDecl, hexPrefix, dat))
+                    bytesWritten += 1
+                } else {
+                    outFile.WriteString(fmt.Sprintf(", %s%02x", hexPrefix, dat))
                     bytesWritten += 1
                 }
-                outFile.WriteString("\n")
             }
-            outFile.WriteString(tblName + "_tbl:\n")
-            for _, key := range effMap.GetKeys() {
-                outFile.WriteString(fmt.Sprintf(".dw " + tblName + "_%d\n", key))
-                bytesWritten += 2
-            }
-            if canLoop {
-                outFile.WriteString(tblName + "_loop_tbl:\n")
-                for _, key := range effMap.GetKeys() {
-                    outFile.WriteString(fmt.Sprintf(".dw " + tblName + "_%d_loop\n", key))
-                    bytesWritten += 2
+            if canLoop && len(effectData.LoopedPart) > 0 {
+                if len(effectData.MainPart) > 0 {
+                    outFile.WriteString(fmt.Sprintf(", %s%02x", hexPrefix, loopDelim))
+                    bytesWritten += 1
                 }
-            }
-            outFile.WriteString("\n")
-        } else {
-            outFile.WriteString(tblName + "_tbl:\n")
-            if canLoop {
-                outFile.WriteString(tblName + "_loop_tbl:\n")
+                outFile.WriteString(fmt.Sprintf("\n" + tblName + "_%d_loop:\n", key))
+                for j, param := range effectData.LoopedPart {
+                    dat = (param.(int) * scaling) & 0xFF
+                    if dat == loopDelim && canLoop {
+                        dat++
+                    }
+                    if j == 0 {
+                        outFile.WriteString(fmt.Sprintf("%s %s%02x", byteDecl, hexPrefix, dat))
+                    } else {
+                        outFile.WriteString(fmt.Sprintf(", %s%02x", hexPrefix, dat))
+                    }
+                    bytesWritten += 1
+                }
+                outFile.WriteString(fmt.Sprintf(", %s%02x", hexPrefix, loopDelim))
+                bytesWritten += 1
             }
             outFile.WriteString("\n")
         }
-        
-    case FORMAT_GAS_68K:
-        if effMap.Len() > 0 {
+        outFile.WriteString(tblName + "_tbl:\n")
+        for _, key := range effMap.GetKeys() {
+            outFile.WriteString(fmt.Sprintf("%s " + tblName + "_%d\n", wordDecl, key))
+            bytesWritten += 2
+        }
+        if canLoop {
+            outFile.WriteString(tblName + "_loop_tbl:\n")
             for _, key := range effMap.GetKeys() {
-                outFile.WriteString(fmt.Sprintf(tblName + "_%d:", key))
-                effectData := effMap.GetData(key)
-                for j, param := range effectData.MainPart {
-                    dat = (param.(int) * scaling) & 0xFF
-                    if canLoop && (dat == loopDelim) {
-                        dat++
-                    }
-
-                    if canLoop && j == len(effectData.MainPart)-1 && len(effectData.LoopedPart) == 0 {
-                        if j > 0 {
-                            outFile.WriteString(fmt.Sprintf(", 0x%02x", loopDelim))
-                        }
-                        outFile.WriteString(fmt.Sprintf("\n" + tblName + "_%d_loop:\n", key))
-                        outFile.WriteString(fmt.Sprintf("dc.b 0x%02x, 0x%02x", dat, loopDelim))
-                        bytesWritten += 3
-                    } else if j == 0 {
-                        outFile.WriteString(fmt.Sprintf("\ndc.b 0x%02x", dat))
-                        bytesWritten += 1
-                    } else {
-                        outFile.WriteString(fmt.Sprintf(", 0x%02x", dat))
-                        bytesWritten += 1
-                    }
-                }
-                if canLoop && len(effectData.LoopedPart) > 0 {
-                    if len(effectData.MainPart) > 0 {
-                        outFile.WriteString(fmt.Sprintf(", 0x%02x", loopDelim))
-                        bytesWritten += 1
-                    }
-                    outFile.WriteString(fmt.Sprintf("\n" + tblName + "_%d_loop:\n", key))
-                    for j, param := range effectData.LoopedPart {
-                        dat = (param.(int) * scaling) & 0xFF
-                        if dat == loopDelim && canLoop {
-                            dat++
-                        }
-                        if j == 0 {
-                            outFile.WriteString(fmt.Sprintf("dc.b 0x%02x", dat))
-                        } else {
-                            outFile.WriteString(fmt.Sprintf(", 0x%02x", dat))
-                        }
-                        bytesWritten += 1
-                    }
-                    outFile.WriteString(fmt.Sprintf(", 0x%02x", loopDelim))
-                    bytesWritten += 1
-                }
-                outFile.WriteString("\n")
-            }
-            outFile.WriteString(tblName + "_tbl:\n")
-            for _, key := range effMap.GetKeys() {
-                outFile.WriteString(fmt.Sprintf("dc.w " + tblName + "_%d\n", key))
+                outFile.WriteString(fmt.Sprintf("%s " + tblName + "_%d_loop\n", wordDecl, key))
                 bytesWritten += 2
             }
-            if canLoop {
-                outFile.WriteString(tblName + "_loop_tbl:\n")
-                for _, key := range effMap.GetKeys() {
-                    outFile.WriteString(fmt.Sprintf("dc.w " + tblName + "_%d_loop\n", key))
-                    bytesWritten += 2
-                }
-            }
-            outFile.WriteString("\n")
-        } else {
-            outFile.WriteString(tblName + "_tbl:\n")
-            if canLoop {
-                outFile.WriteString(tblName + "_loop_tbl:\n")
-            }
-            outFile.WriteString("\n")
-        }        
+        }
+        outFile.WriteString("\n")
+    } else {
+        outFile.WriteString(tblName + "_tbl:\n")
+        if canLoop {
+            outFile.WriteString(tblName + "_loop_tbl:\n")
+        }
+        outFile.WriteString("\n")
     }
-    
+        
     return bytesWritten
 }
 
