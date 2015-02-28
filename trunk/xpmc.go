@@ -199,7 +199,7 @@ func main() {
     
                 comp.RemoveUnusedEffects()
                 
-                comp.CurrSong.Target.Output(0)
+                comp.CurrSong.Target.Output(targets.OUTPUT_ASSEMBLY)
                 
                 return
             }

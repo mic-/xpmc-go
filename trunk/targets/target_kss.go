@@ -24,6 +24,9 @@ import (
  ******************************/
 
 func (t *TargetKSS) Init() {
+    t.Target.Init()
+    t.Target.SetOutputSyntax(SYNTAX_WLA_DX)
+
     utils.DefineSymbol("KSS", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
@@ -47,7 +50,7 @@ func (t *TargetKSS) Init() {
 }
 
 
-func (t *TargetKSS) Output(outputVgm int) {
+func (t *TargetKSS) Output(outputFormat int) {
     utils.DEBUG("TargetKSS.Output")
 
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
@@ -118,7 +121,7 @@ func (t *TargetKSS) Output(outputVgm int) {
         ".incbin \"kss.bin\"\n\n" +
         ".ELSE\n\n", extraChips))
     
-    t.outputEffectFlags(outFile, FORMAT_WLA_DX)
+    t.outputEffectFlags(outFile)
 
     if usesPSG != 0 {
         outFile.WriteString(".DEFINE XPMP_USES_AY\n")
@@ -134,16 +137,16 @@ func (t *TargetKSS) Output(outputVgm int) {
         }
     }
     
-    tableSize := outputStandardEffects(outFile, FORMAT_WLA_DX)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_WT_mac", effects.WaveformMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)    
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",    effects.MODs,           false, 1, 0)    
+    tableSize := t.outputStandardEffects(outFile)
+    tableSize += t.outputTable(outFile, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
+    tableSize += t.outputTable(outFile, "xpmp_WT_mac", effects.WaveformMacros, true,  1, 0x80)
+    tableSize += t.outputTable(outFile, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)    
+    tableSize += t.outputTable(outFile, "xpmp_MOD",    effects.MODs,           false, 1, 0)    
     
-    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    patSize := t.outputPatterns(outFile)
     utils.INFO("Size of patterns table: %d bytes\n", patSize)
 
-    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
+    songSize := t.outputChannelData(outFile)
     utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + patSize) // + cbSize + wavSize)
     
     outFile.Close()

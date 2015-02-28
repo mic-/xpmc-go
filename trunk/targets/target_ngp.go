@@ -10,6 +10,8 @@ import (
  *************************/
 
 func (t *TargetNGP) Init() {
+    t.Target.Init()
+
     utils.DefineSymbol("NGP", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsT6W28)      // A..D

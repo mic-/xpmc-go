@@ -52,6 +52,9 @@ type Compiler struct {
     
     keepChannelsActive bool
     callbacks []string
+    
+    commandHandlers map[string]func(string, defs.ITarget)
+    metaCommandHandlers map[string]func(string, defs.ITarget)
 }
 
 
@@ -59,6 +62,9 @@ type Compiler struct {
 func (comp *Compiler) Init(target int) {
     comp.macros = &MmlMacroMap{}
     comp.patterns = &MmlPatternMap{}
+   
+    comp.commandHandlers = map[string]func(string, defs.ITarget){}
+    comp.metaCommandHandlers = map[string]func(string, defs.ITarget){}
     
     comp.Songs = map[int]*song.Song{}
     comp.CurrSong = song.NewSong(1, target, comp)
@@ -71,10 +77,18 @@ func (comp *Compiler) Init(target int) {
     comp.hasElse.Push(false)
     
     comp.lastWasChannelSelect = false
-    
+   
     effects.Init()
 }
 
+
+func (comp *Compiler) SetCommandHandler(cmd string, handler func(string, defs.ITarget)) {
+    comp.commandHandlers[cmd] = handler
+}
+
+func (comp *Compiler) SetMetaCommandHandler(cmd string, handler func(string, defs.ITarget)) {
+    comp.metaCommandHandlers[cmd] = handler
+}
 
 /* Returns true if the slice only contains ints.
  */
@@ -244,6 +258,10 @@ func (comp *Compiler) assertIsChannelName(c int) {
 }
 
 
+/* Generates an error if the specified effect doesn't exist or if there are
+ * no active channels. Otherwise returns the effect number and its position
+ * in the effect map.
+ */ 
 func (comp *Compiler) assertEffectIdExistsAndChannelsActive(name string, eff *effects.EffectMap) (int, int, error) {
     s := Parser.GetNumericString()
     num, err := strconv.Atoi(s)

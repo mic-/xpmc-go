@@ -5,7 +5,7 @@
  * Part of XPMC.
  * Contains data/functions specific to the C64 output target
  *
- * /Mic, 2012-2014
+ * /Mic, 2012-2015
  */
  
 package targets
@@ -18,6 +18,8 @@ import (
 
 
 func (t *TargetC64) Init() {
+    t.Target.Init()
+
     utils.DefineSymbol("C64", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSID)    // A..C

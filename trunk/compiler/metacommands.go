@@ -328,7 +328,7 @@ func (comp *Compiler) handleMetaCommand() {
                 ERROR(cmd + ": Expected a positive integer: " + s)
             }
 
-        case "GB-VOLUME-CONTROL":
+        /*case "GB-VOLUME-CONTROL":
             s := Parser.GetString()
             ctl, err := strconv.Atoi(s)
             if err == nil {
@@ -362,7 +362,7 @@ func (comp *Compiler) handleMetaCommand() {
                 }
             } else {
                 ERROR(cmd + ": Expected 0 or 1, got: " + s)
-            }
+            }*/
 
         case "EN-REV":
             s := Parser.GetString()
@@ -402,7 +402,11 @@ func (comp *Compiler) handleMetaCommand() {
             _ = Parser.GetString() 
 
         default:
-            ERROR("Unknown command: " + cmd)
+            if handler, ok := comp.metaCommandHandlers[cmd]; ok {
+                handler(cmd, comp.CurrSong.Target)
+            } else {
+                ERROR("Unknown command: " + cmd)
+            }
         }
     }
 }

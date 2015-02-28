@@ -29,6 +29,10 @@ func (comp *Compiler) GetPatterns() []defs.IMmlPattern {
     return patterns
 }
 
+func (comp *Compiler) GetCurrentSong() defs.ISong {
+    return comp.CurrSong
+}
+
 func (comp *Compiler) GetSong(num int) defs.ISong {
     return comp.Songs[num]
 }

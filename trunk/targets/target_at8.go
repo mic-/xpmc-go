@@ -13,6 +13,9 @@ import (
  ***************************/
 
 func (t *TargetAt8) Init() {
+    t.Target.Init()
+    t.Target.SetOutputSyntax(SYNTAX_WLA_DX)
+
     utils.DefineSymbol("AT8", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsPokey)      // A..D
@@ -30,7 +33,7 @@ func (t *TargetAt8) Init() {
 
 /* Output data suitable for the Atari 8-bit (400/800/XE/XL) playback library (WLA-DX).
  */
-func (t *TargetAt8) Output(outputVgm int) {
+func (t *TargetAt8) Output(outputFormat int) {
     utils.DEBUG("TargetAt8.Output")
 
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
@@ -62,18 +65,18 @@ func (t *TargetAt8) Output(outputVgm int) {
     
     outFile.WriteString(".DEFINE XPMP_AT8\n")
     
-    t.outputEffectFlags(outFile, FORMAT_WLA_DX)
+    t.outputEffectFlags(outFile)
      
-    tableSize := outputStandardEffects(outFile, FORMAT_WLA_DX)
+    tableSize := t.outputStandardEffects(outFile)
     outFile.WriteString("\n")
     utils.INFO("Size of effect tables: %d bytes", tableSize)
 
-    cbSize := t.outputCallbacks(outFile, FORMAT_WLA_DX)
+    cbSize := t.outputCallbacks(outFile)
 
-    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    patSize := t.outputPatterns(outFile)
     utils.INFO("Size of pattern table: %d bytes", patSize)
         
-    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)  
+    songSize := t.outputChannelData(outFile)  
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize + cbSize + patSize)
 
     outFile.Close()
