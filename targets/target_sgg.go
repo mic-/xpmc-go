@@ -5,7 +5,7 @@
  * Part of XPMC.
  * Contains data/functions specific to the SGG output target
  *
- * /Mic, 2012-2014
+ * /Mic, 2012-2015
  */
  
 package targets
@@ -23,6 +23,9 @@ import (
  *****************/
 
 func (t *TargetSGG) Init() {
+    t.Target.Init()
+    t.Target.SetOutputSyntax(SYNTAX_WLA_DX)
+
     utils.DefineSymbol("SGG", 1)
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
@@ -36,17 +39,20 @@ func (t *TargetSGG) Init() {
 }
 
 
-func (t *TargetSGG) Output(outputVgm int) {
+func (t *TargetSGG) Output(outputFormat int) {
     utils.DEBUG("TargetSGG.Output")
 
     fileEnding := ".asm"
-    if outputVgm == 1 {
+    outputVgm := false
+    if outputFormat == OUTPUT_VGM {
         fileEnding = ".vgm"
-    } else if outputVgm == 2 {
+        outputVgm = true
+    } else if outputFormat == OUTPUT_VGZ {
         fileEnding = ".vgz"
+        outputVgm = true
     }
 
-    if outputVgm != 0 {
+    if outputVgm {
         // ToDo: output VGM/VGZ
         return
     }
@@ -116,16 +122,16 @@ func (t *TargetSGG) Output(outputVgm int) {
     outFile.WriteString(".INCBIN \"sgc.bin\"\n\n")
     outFile.WriteString(".ELSE\n\n") 
     
-    t.outputEffectFlags(outFile, FORMAT_WLA_DX)
+    t.outputEffectFlags(outFile)
          
-    tableSize := outputStandardEffects(outFile, FORMAT_WLA_DX)  
+    tableSize := t.outputStandardEffects(outFile)  
     outFile.WriteString("\n")
     utils.INFO("Size of effect tables: %d bytes", tableSize)
 
-    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    patSize := t.outputPatterns(outFile)
     utils.INFO("Size of patterns table: %d bytes\n", patSize)
  
-    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX) 
+    songSize := t.outputChannelData(outFile) 
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize)
 
     outFile.Close()    

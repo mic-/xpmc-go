@@ -5,7 +5,7 @@
  * Part of XPMC.
  * Contains data/functions specific to the GBC output target
  *
- * /Mic, 2012-2014
+ * /Mic, 2012-2015
  */
  
 package targets
@@ -13,16 +13,22 @@ package targets
 import (
     "fmt"
     "os"
+    "strconv"
     "time"
+    "../defs"
     "../specs"
     "../utils"
     "../effects"
 )
 
+import . "../utils"
 
 /* Gameboy Color (and DMG) 
  */
 func (t *TargetGBC) Init() {
+    t.Target.Init()
+    t.Target.SetOutputSyntax(SYNTAX_WLA_DX)
+    
     utils.DefineSymbol("DMG", 1)
     utils.DefineSymbol("GBC", 1)
     
@@ -37,10 +43,13 @@ func (t *TargetGBC) Init() {
     t.MaxWavLength      = 32
     t.MinWavSample      = 0
     t.MaxWavSample      = 15
+    
+    t.CompilerItf.SetMetaCommandHandler("GB-VOLUME-CONTROL", handleGbVolCtrl)
+    t.CompilerItf.SetMetaCommandHandler("GB-NOISE", handleGbNoiseCtrl)
 }
 
-
-func (t *TargetGBC) Output(outputVgm int) {
+    
+func (t *TargetGBC) Output(outputFormat int) {
     utils.DEBUG("TargetGBC.Output")
 
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")
@@ -86,7 +95,7 @@ func (t *TargetGBC) Output(outputVgm int) {
     outFile.WriteString(".INCBIN \"gbs.bin\"\n\n")
     outFile.WriteString(".ELSE\n\n") 
 
-    t.outputEffectFlags(outFile, FORMAT_WLA_DX)
+    t.outputEffectFlags(outFile)
     
     if t.CompilerItf.GetGbNoiseType() == 1 {
         outFile.WriteString(".DEFINE XPMP_ALT_GB_NOISE\n")
@@ -95,7 +104,7 @@ func (t *TargetGBC) Output(outputVgm int) {
         outFile.WriteString(".DEFINE XPMP_ALT_GB_VOLCTRL\n")
     }
     
-    tableSize := outputStandardEffects(outFile, FORMAT_WLA_DX)
+    tableSize := t.outputStandardEffects(outFile)
     
     // ToDo: output waveform macros (WTM)
     /*tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)*/
@@ -129,14 +138,48 @@ func (t *TargetGBC) Output(outputVgm int) {
     utils.INFO("Size of effect tables: %d bytes", tableSize)
     utils.INFO("Size of waveform table: %d bytes", wavSize)
 
-    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    patSize := t.outputPatterns(outFile)
     utils.INFO("Size of pattern table: %d bytes\n", patSize)
   
-    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)
-    utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize) // ToDo: + patSize )
+    songSize := t.outputChannelData(outFile)
+    utils.INFO("Total size of song(s): %d bytes\n", songSize + tableSize + wavSize + cbSize + patSize )
     
     outFile.WriteString(".ENDIF")
     outFile.Close()
 }
 
+
+func handleGbVolCtrl(cmd string, itarget defs.ITarget) {
+    s := Parser.GetString()
+    ctl, err := strconv.Atoi(s)
+    if err == nil {
+        if ctl == 1 {
+            itarget.PutExtraInt("VolCtrl", 1)
+        } else if ctl == 0 {
+            itarget.PutExtraInt("VolCtrl", 0)
+        } else {
+            WARNING(cmd + ": Expected 0 or 1, got: " + s)
+        }
+    } else {
+        ERROR(cmd + ": Expected 0 or 1, got: " + s)
+    }
+}
+
+func handleGbNoiseCtrl(cmd string, itarget defs.ITarget) {
+    s := Parser.GetString()
+    val, err := strconv.Atoi(s)
+    if err == nil {
+        if val == 1 {
+            itarget.PutExtraInt("NoiseCtrl", 1)
+            itarget.GetCompilerItf().GetCurrentSong().GetChannels()[3].SetMaxOctave(5)
+        } else if val == 0 {
+            itarget.PutExtraInt("NoiseCtrl", 0)
+            itarget.GetCompilerItf().GetCurrentSong().GetChannels()[3].SetMaxOctave(11)
+        } else {
+            WARNING(cmd + ": Expected 0 or 1, defaulting to 0: " + s)
+        }
+    } else {
+        ERROR(cmd + ": Expected 0 or 1, got: " + s)
+    }
+}
 

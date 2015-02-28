@@ -20,6 +20,9 @@ import (
 
 
 func (t *TargetAST) Init() {
+    t.Target.Init()
+    t.Target.SetOutputSyntax(SYNTAX_GAS_68K)
+    
     utils.DefineSymbol("AST", 1) 
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsAY_3_8910)   // A..C
@@ -36,19 +39,22 @@ func (t *TargetAST) Init() {
 
 /* Output data suitable for the Atari ST
  */
-func (t *TargetAST) Output(outputVgm int) {
+func (t *TargetAST) Output(outputFormat int) {
     utils.DEBUG("TargetAST.Output")
 
     fileEnding := ".s"
-    if outputVgm == 1 {
+    outputVgm := false
+    if outputFormat == OUTPUT_VGM {
         fileEnding = ".vgm"
-    } else if outputVgm == 2 {
+        outputVgm = true
+    } else if outputFormat == OUTPUT_VGZ {
         fileEnding = ".vgz"
-    } else if outputVgm == 3 {
+        outputVgm = true
+    } else if outputFormat == OUTPUT_YM {
         fileEnding = ".ym"
     }
 
-    if outputVgm != 0 {
+    if outputVgm {
         // ToDo: output VGM/VGZ or YM
         return
     }

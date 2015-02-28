@@ -5,7 +5,7 @@
  * Part of XPMC.
  * Contains data/functions specific to the GEN output target
  *
- * /Mic, 2012-2014
+ * /Mic, 2012-2015
  */
  
 package targets
@@ -24,6 +24,9 @@ import (
  ****************************/
 
 func (t *TargetGen) Init() {
+    t.Target.Init()
+    t.Target.SetOutputSyntax(SYNTAX_GAS_68K)
+
     utils.DefineSymbol("GEN", 1)
     utils.DefineSymbol("SMD", 1)
     
@@ -48,17 +51,20 @@ func (t *TargetGen) Init() {
 
 /* Output data suitable for the SEGA Genesis (Megadrive) playback library
  */
-func (t *TargetGen) Output(outputVgm int) {
+func (t *TargetGen) Output(outputFormat int) {
     utils.DEBUG("TargetGen.Output")
 
     fileEnding := ".asm"
-    if outputVgm == 1 {
+    outputVgm := false
+    if outputFormat == OUTPUT_VGM {
         fileEnding = ".vgm"
-    } else if outputVgm == 2 {
+        outputVgm = true
+    } else if outputFormat == OUTPUT_VGZ {
         fileEnding = ".vgz"
+        outputVgm = true
     }
 
-    if outputVgm != 0 {
+    if outputVgm {
         // ToDo: output VGM/VGZ
         return
     }
@@ -79,7 +85,7 @@ func (t *TargetGen) Output(outputVgm int) {
         copy(effects.ADSRs.GetData(key).MainPart, envelopes[i])
     }
 
-    // Convert MODmodulation parameters to the format used by the YM2612
+    // Convert modulation parameters to the format used by the YM2612
     mods := make([][]interface{}, len(effects.MODs.GetKeys()))
     for i, key := range effects.MODs.GetKeys() {
         mods[i] = packMOD(effects.MODs.GetData(key).MainPart, specs.CHIP_YM2612)
@@ -108,10 +114,10 @@ func (t *TargetGen) Output(outputVgm int) {
         t.MachineSpeed = 3579545
     }
 
-    tableSize := outputStandardEffects(outFile, FORMAT_GAS_68K)
-    tableSize += outputTable(outFile, FORMAT_GAS_68K, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_GAS_68K, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)  
-    tableSize += outputTable(outFile, FORMAT_GAS_68K, "xpmp_MOD",    effects.MODs,           false, 1, 0)  
+    tableSize := t.outputStandardEffects(outFile)
+    tableSize += t.outputTable(outFile, "xpmp_FB_mac", effects.FeedbackMacros, true,  1, 0x80)
+    tableSize += t.outputTable(outFile, "xpmp_ADSR",   effects.ADSRs,          false, 1, 0)  
+    tableSize += t.outputTable(outFile, "xpmp_MOD",    effects.MODs,           false, 1, 0)  
     
     /*tableSize += output_m68kas_table("xpmp_VS_mac", volumeSlides, 1, 1, 0)     
     tableSize += output_m68kas_table("xpmp_FB_mac", feedbackMacros,1, 1, 0)
@@ -122,10 +128,10 @@ func (t *TargetGen) Output(outputVgm int) {
         
     utils.INFO("Size of effect tables: %d bytes\n", tableSize)
 
-    patSize := t.outputPatterns(outFile, FORMAT_GAS_68K)
+    patSize := t.outputPatterns(outFile)
     utils.INFO("Size of patterns table: %d bytes\n", patSize)
     
-    songSize := t.outputChannelData(outFile, FORMAT_GAS_68K) 
+    songSize := t.outputChannelData(outFile) 
 
     utils.INFO("Total size of song(s): %d bytes\n", songSize + patSize + tableSize + cbSize)
 

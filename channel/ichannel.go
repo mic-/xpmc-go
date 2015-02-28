@@ -46,3 +46,9 @@ func (chn *Channel) IsUsed() bool {
 func (chn *Channel) IsUsingEffect(effName string) bool {
     return chn.UsesEffect[effName]
 }
+
+func (chn *Channel) SetMaxOctave(maxOct int) {
+    if len(chn.ChannelSpecs.GetMaxOct()) > 0 {
+        chn.ChannelSpecs.GetMaxOct()[chn.Num] = maxOct
+    }
+}

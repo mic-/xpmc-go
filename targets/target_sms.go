@@ -5,7 +5,7 @@
  * Part of XPMC.
  * Contains data/functions specific to the SMS output target
  *
- * /Mic, 2012-2014
+ * /Mic, 2012-2015
  */
  
 package targets
@@ -22,6 +22,9 @@ import (
 
 
 func (t *TargetSMS) Init() {
+    t.Target.Init()
+    t.Target.SetOutputSyntax(SYNTAX_WLA_DX)
+
     utils.DefineSymbol("SMS", 1)       
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.SpecsSN76489)    // A..D
@@ -38,17 +41,20 @@ func (t *TargetSMS) Init() {
 }
 
 
-func (t *TargetSMS) Output(outputVgm int) {
+func (t *TargetSMS) Output(outputFormat int) {
     utils.DEBUG("TargetSMS.Output")
 
     fileEnding := ".asm"
-    if outputVgm == 1 {
+    outputVgm := false
+    if outputFormat == OUTPUT_VGM {
         fileEnding = ".vgm"
-    } else if outputVgm == 2 {
+        outputVgm = true
+    } else if outputFormat == OUTPUT_VGZ {
         fileEnding = ".vgz"
+        outputVgm = true
     }
 
-    if outputVgm != 0 {
+    if outputVgm {
         // ToDo: output VGM/VGZ
         return
     }
@@ -133,7 +139,7 @@ func (t *TargetSMS) Output(outputVgm int) {
     outFile.WriteString(".INCBIN \"sgc.bin\"\n\n")
     outFile.WriteString(".ELSE\n\n") 
     
-    t.outputEffectFlags(outFile, FORMAT_WLA_DX)
+    t.outputEffectFlags(outFile)
     
     usesFM := false
     songs := t.CompilerItf.GetSongs()
@@ -147,9 +153,9 @@ func (t *TargetSMS) Output(outputVgm int) {
         outFile.WriteString(".DEFINE XPMP_ENABLE_FM\n")
     }
         
-    tableSize := outputStandardEffects(outFile, FORMAT_WLA_DX)
+    tableSize := t.outputStandardEffects(outFile)
     if usesFM {
-        tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_ADSR",   effects.ADSRs, false, 1, 0)  
+        tableSize += t.outputTable(outFile, "xpmp_ADSR",   effects.ADSRs, false, 1, 0)  
     }    
     /*outFile.WriteString("xpmp_ADSR_tbl:\n")
     if usesFM {
@@ -161,12 +167,12 @@ func (t *TargetSMS) Output(outputVgm int) {
     outFile.WriteString("\n")
     utils.INFO("Size of effect tables: %d bytes", tableSize)
 
-    cbSize := t.outputCallbacks(outFile, FORMAT_WLA_DX)
+    cbSize := t.outputCallbacks(outFile)
         
-    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    patSize := t.outputPatterns(outFile)
     utils.INFO("Size of patterns table: %d bytes\n", patSize)
         
-    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX)  
+    songSize := t.outputChannelData(outFile)  
     utils.INFO("Total size of song(s): %d bytes", songSize + tableSize + cbSize + patSize)
 
     outFile.Close()

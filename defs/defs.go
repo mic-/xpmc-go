@@ -155,6 +155,7 @@ type ITarget interface {
     GetAdsrMax() int        // Max value for ADSR parameters on this target
     GetChannelSpecs() ISpecs
     GetChannelNames() string
+    GetCompilerItf() ICompiler
     GetID() int             // The ID of this target (one of the TARGET_* constants)
     GetMaxLoopDepth() int   // Max nesting of [] loops on this target
     GetMaxTempo() int
@@ -165,12 +166,13 @@ type ITarget interface {
     GetMinWavLength() int
     GetMinWavSample() int
     Init()
-    Output(outputVgm int)
+    Output(outputFormat int)
     SupportsPAL() bool
     SupportsPan() bool      // Whether this target supports panning effects (CS)
     SupportsPCM() bool      // Whether this target supports one-shot PCM samples (XPCM)
     SupportsWaveTable() bool
     SetCompilerItf(icomp ICompiler)
+    PutExtraInt(name string, val int)
 }
 
 type ISong interface {
@@ -193,6 +195,7 @@ type IChannel interface {
     IsUsed() bool
     IsUsingEffect(effName string) bool
     IsVirtual() bool
+    SetMaxOctave(maxOct int)
 }
 
 type IMmlPattern interface {
@@ -201,6 +204,7 @@ type IMmlPattern interface {
 
 type ICompiler interface {
     GetCallbacks() []string
+    GetCurrentSong() ISong
     GetGbNoiseType() int
     GetGbVolCtrlType() int
     GetNumSongs() int
@@ -208,4 +212,6 @@ type ICompiler interface {
     GetShortFileName() string
     GetSong(num int) ISong
     GetSongs() []ISong
+    SetCommandHandler(cmd string, handler func(string, ITarget))
+    SetMetaCommandHandler(cmd string, handler func(string, ITarget))
 }

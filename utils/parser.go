@@ -71,6 +71,9 @@ func NewParserState(fileName string) (parser *ParserState, err error) {
 }
 
 
+/* Inserts the MML code in the given string into the parser's data blob
+ * at the current position.
+ */
 func (p *ParserState) InsertString(s string) {
     if p.fileDataPos < len(p.fileData) {
         tail := make([]byte, len(p.fileData[p.fileDataPos:]))

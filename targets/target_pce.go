@@ -11,6 +11,9 @@ import (
 
 
 func (t *TargetPCE) Init() {
+    t.Target.Init()
+    t.Target.SetOutputSyntax(SYNTAX_WLA_DX)
+    
     utils.DefineSymbol("PCE", 1)
     utils.DefineSymbol("TGX", 1)
     
@@ -30,17 +33,20 @@ func (t *TargetPCE) Init() {
 
 /* Output data suitable for the PC-Engine / TurboGrafx-16 (WLA-DX)
  */
-func (t *TargetPCE) Output(outputVgm int) {
+func (t *TargetPCE) Output(outputFormat int) {
     utils.DEBUG("TargetPCE.Output")
     
     fileEnding := ".asm"
-    if outputVgm == 1 {
+    outputVgm := false
+    if outputFormat == OUTPUT_VGM {
         fileEnding = ".vgm"
-    } else if outputVgm == 2 {
+        outputVgm = true
+    } else if outputFormat == OUTPUT_VGZ {
         fileEnding = ".vgz"
+        outputVgm = true
     }
 
-    if outputVgm != 0 {
+    if outputVgm {
         // ToDo: output VGM/VGZ
         return
     }
@@ -53,13 +59,13 @@ func (t *TargetPCE) Output(outputVgm int) {
     now := time.Now()
     outFile.WriteString("; Written by XPMC on " + now.Format(time.RFC1123) + "\n\n")
  
-    t.outputEffectFlags(outFile, FORMAT_WLA_DX)
-    tableSize := outputStandardEffects(outFile, FORMAT_WLA_DX)  
+    t.outputEffectFlags(outFile)
+    tableSize := t.outputStandardEffects(outFile)  
     outFile.WriteString("\n")
     utils.INFO("Size of effect tables: %d bytes", tableSize)
     
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_WT_mac", effects.WaveformMacros, true, 1, 0x80)
-    tableSize += outputTable(outFile, FORMAT_WLA_DX, "xpmp_MOD",   effects.MODs, false, 1, 0)
+    tableSize += t.outputTable(outFile, "xpmp_WT_mac", effects.WaveformMacros, true, 1, 0x80)
+    tableSize += t.outputTable(outFile, "xpmp_MOD",   effects.MODs, false, 1, 0)
 
     wavSize := 0
     outFile.WriteString("xpmp_waveform_data:")
@@ -79,7 +85,7 @@ func (t *TargetPCE) Output(outputVgm int) {
     outFile.WriteString("\n\n")
     utils.INFO("Size of waveform table: %d bytes", wavSize)
     
-    cbSize := t.outputCallbacks(outFile, FORMAT_WLA_DX)
+    cbSize := t.outputCallbacks(outFile)
 
 
     outFile.WriteString("xpmp_pcm_table:\n")
@@ -89,10 +95,10 @@ func (t *TargetPCE) Output(outputVgm int) {
     }
     outFile.WriteString("\n")
         
-    patSize := t.outputPatterns(outFile, FORMAT_WLA_DX)
+    patSize := t.outputPatterns(outFile)
     utils.INFO("Size of pattern table: %d bytes", patSize)
     
-    songSize := t.outputChannelData(outFile, FORMAT_WLA_DX) 
+    songSize := t.outputChannelData(outFile) 
 
     pcmSize := 0
     pcmBank := 2

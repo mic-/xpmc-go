@@ -5,7 +5,7 @@
  * Part of XPMC.
  * Contains data/functions specific to the NES output target
  *
- * /Mic, 2014
+ * /Mic, 20142015
  */
  
 package targets
@@ -20,6 +20,8 @@ import (
 
 
 func (t *TargetNES) Init() {
+    t.Target.Init()
+
     utils.DefineSymbol("NES", 1) 
     
     specs.SetChannelSpecs(&t.ChannelSpecs, 0, 0, specs.Specs2A03)   // A..E
@@ -41,7 +43,7 @@ func (t *TargetNES) Init() {
 
 /* Output data suitable for the NES/Famicom (WLA-DX)
  */
-func (t *TargetNES) Output(outputVgm int) {
+func (t *TargetNES) Output(outputFormat int) {
     utils.DEBUG("TargetNES.Output")
     
     outFile, err := os.Create(t.CompilerItf.GetShortFileName() + ".asm")

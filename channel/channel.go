@@ -199,12 +199,6 @@ func (chn *Channel) SetMaxVolume(maxVol int) {
     }
 }
 
-func (chn *Channel) SetMaxOctave(maxOct int) {
-    if len(chn.ChannelSpecs.GetMaxOct()) > 0 {
-        chn.ChannelSpecs.GetMaxOct()[chn.Num] = maxOct
-    }
-}
-
 func (chn *Channel) AddCmd(cmds []int) {
     chn.Cmds = append(chn.Cmds, cmds...)
 }
