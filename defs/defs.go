@@ -156,6 +156,7 @@ type ITarget interface {
     GetChannelSpecs() ISpecs
     GetChannelNames() string
     GetCompilerItf() ICompiler
+    GetExtraInt(name string, defaultVal int) int
     GetID() int             // The ID of this target (one of the TARGET_* constants)
     GetMaxLoopDepth() int   // Max nesting of [] loops on this target
     GetMaxTempo() int
@@ -205,8 +206,6 @@ type IMmlPattern interface {
 type ICompiler interface {
     GetCallbacks() []string
     GetCurrentSong() ISong
-    GetGbNoiseType() int
-    GetGbVolCtrlType() int
     GetNumSongs() int
     GetPatterns() []IMmlPattern
     GetShortFileName() string

@@ -110,6 +110,18 @@ func (p *ParserState) Ungetch() {
 }
 
 
+/* Returns the next character from the fileData slice without
+ * modifying the position.
+ */
+func (p *ParserState) Peekch() int {
+    c := -1
+    if p.fileDataPos < len(p.fileData) {
+        c = int(p.fileData[p.fileDataPos])
+    }
+    
+    return c
+}
+
 /* Returns a string with the given maximum length from the fileData slice
  * without changing the fileData position.
  */

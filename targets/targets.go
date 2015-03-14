@@ -226,6 +226,13 @@ func (t *Target) SetCompilerItf(icomp ICompiler) {
     t.CompilerItf = icomp
 }
 
+func (t *Target) GetExtraInt(name string, defaultVal int) int {
+    if val, ok := t.extraData[name]; ok {
+        return val.(int)
+    }
+    return defaultVal
+}
+
 func (t *Target) PutExtraInt(name string, val int) {
     t.extraData[name] = val
 }

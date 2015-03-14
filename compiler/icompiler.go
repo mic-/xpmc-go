@@ -5,14 +5,6 @@ import (
     "../defs"
 )
 
-func (comp *Compiler) GetGbNoiseType() int {
-    return comp.gbNoise
-}
-
-func (comp *Compiler) GetGbVolCtrlType() int {
-    return comp.gbVolCtrl
-}
-
 func (comp *Compiler) GetShortFileName() string {
     return comp.ShortFileName
 }

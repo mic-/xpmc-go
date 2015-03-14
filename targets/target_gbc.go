@@ -97,10 +97,10 @@ func (t *TargetGBC) Output(outputFormat int) {
 
     t.outputEffectFlags(outFile)
     
-    if t.CompilerItf.GetGbNoiseType() == 1 {
+    if t.GetExtraInt("NoiseCtrl", 0) == 1 { //t.CompilerItf.GetGbNoiseType() == 1 {
         outFile.WriteString(".DEFINE XPMP_ALT_GB_NOISE\n")
     }
-    if t.CompilerItf.GetGbVolCtrlType() == 1 {
+    if t.GetExtraInt("VolCtrl", 0) == 1 { //t.CompilerItf.GetGbVolCtrlType() == 1 {
         outFile.WriteString(".DEFINE XPMP_ALT_GB_VOLCTRL\n")
     }
     

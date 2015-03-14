@@ -112,6 +112,51 @@ func (comp *Compiler) handleAdsrEnvelopeDef(cmd string, isInlined bool) int {
 }
 
 
+func (comp *Compiler) handleArpeggioDef(cmd string, isInlined bool) int {
+    num := -1
+    if isInlined {
+        // Inlined definition
+        Parser.SetListDelimiters("()")
+        lst, err := Parser.GetList()
+        key := -1
+        if err == nil {
+            if inRange(lst.MainPart, -63, 63) && inRange(lst.LoopedPart, -63, 63) {
+                freq := comp.getEffectFrequency()             
+                key = effects.Arpeggios.GetKeyFor(lst)
+                if key == -1 || effects.Arpeggios.GetExtraInt(key, effects.EXTRA_EFFECT_FREQ) != freq {
+                    effects.Arpeggios.Append(effects.Arpeggios.InlinedDefinitionId, lst)
+                    effects.Arpeggios.PutExtraInt(effects.Arpeggios.InlinedDefinitionId, effects.EXTRA_EFFECT_FREQ, freq)                
+                    num = effects.Arpeggios.InlinedDefinitionId
+                    effects.Arpeggios.InlinedDefinitionId++
+                } else {
+                    num = key
+                }
+            } else {
+                ERROR("Value of out range (allowed: -63-63): " + lst.Format())
+            }
+        } else {
+            ERROR("Bad EN: Unable to parse parameter list")
+        }
+    } else {
+        // Normal definition
+        num = comp.handleEffectDefinition("EN", cmd, effects.Arpeggios, func(parm *ParamList) bool {
+                    if !parm.IsEmpty() {
+                        if inRange(parm.MainPart, -63, 63) && inRange(parm.LoopedPart, -63, 63) {
+                            return true;
+                        } else {
+                            ERROR("Value of out range (allowed: -63-63): " + parm.Format())
+                        }
+                    } else {
+                        ERROR("Empty list for EN")
+                    }
+                    return false
+                })
+    }
+    
+    return num
+}
+
+
 /* Handles definitions of duty macros (@<n> = { ... })
  */
 func (comp *Compiler) handleDutyMacDef(num int) {

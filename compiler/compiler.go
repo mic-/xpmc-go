@@ -30,10 +30,6 @@ type Compiler struct {
     SongNum uint
     ShortFileName string
 
-    //var userDefinedBase int
-    implicitAdsrId int
-    gbVolCtrl int
-    gbNoise int
     enRev int
     octaveRev int
     patName string
@@ -199,6 +195,8 @@ func (comp *Compiler) writeAllPendingNotes(forceOctChange bool) {
 }
 
 
+/* Applies the given command on all active channels.
+ */
 func (comp *Compiler) applyCmdOnAllActive(cmdName string, cmd []int) {
     w := &sync.WaitGroup{}
     for _, chn := range comp.CurrSong.Channels {
@@ -287,7 +285,523 @@ func (comp *Compiler) assertDisablingEffect(name string, cmd int) {
     if s == "OF" {
         comp.applyCmdOnAllActive(name, []int{cmd, 0})
     } else {
-        ERROR("Syntax error. Expected <effect>OF, got: " + name + s)
+        ERROR("Syntax error. Found " + name + s + ". Did you mean " + name + "OF?")
+    }
+}
+
+
+/* Handle commands beginning with an '@'.
+ */
+func (comp *Compiler) handleAtCommand() {
+    for _, chn := range comp.CurrSong.Channels {
+        chn.WriteNote(true)
+    }
+    m := Parser.Getch()
+    s := ""
+    if m == '@' {
+        s = "@" + Parser.GetNumericString()
+    } else if IsNumeric(m) {
+        Parser.Ungetch()
+        s = Parser.GetNumericString()
+    } else {
+        Parser.Ungetch()
+        s = Parser.GetAlphaString()
+        s += Parser.GetNumericString()
+    }
+
+    if len(s) > 0 {
+        if strings.HasPrefix(s, "@") {
+            num, err := strconv.Atoi(s[1:])
+            if err == nil {
+                idx := effects.DutyMacros.FindKey(num) 
+                numChannels := 0
+                for _, chn := range comp.CurrSong.Channels {
+                    if chn.Active {
+                        numChannels++
+                        if chn.SupportsDutyChange() > 0 {
+                            idx |= effects.DutyMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80    // Effect frequency
+                            chn.AddCmd([]int{defs.CMD_DUTMAC, idx + 1})
+                            effects.DutyMacros.AddRef(num)
+                            chn.UsesEffect["DM"] = true
+                        } else {
+                            WARNING("Unsupported command for channel " +
+                                          chn.GetName() + ": @@")
+                        }
+                    }
+                }
+                if numChannels == 0 {
+                    WARNING("Use of @@ with no channels active")
+                }
+            } else {
+                ERROR("Expected a number: " + s)
+            }
+        } else {
+            num, err := strconv.Atoi(s)
+            // Duty cycle macro definition
+            if err == nil {
+                comp.handleDutyMacDef(num)
+
+            // Pan macro definition
+            } else if strings.HasPrefix(s, "CS") {
+                comp.handlePanMacDef(s)
+
+            // Arpeggio definition
+            } else if strings.HasPrefix(s, "EN") {
+                _ = comp.handleArpeggioDef(s, false)
+
+            // Feedback macro definition
+            } else if strings.HasPrefix(s, "FBM") {
+                comp.handleEffectDefinition("FBM", s, effects.FeedbackMacros, func(parm *ParamList) bool {
+                        if !parm.IsEmpty() {
+                            if inRange(parm.MainPart, 0, 7) && inRange(parm.LoopedPart, 0, 7) {
+                                return true;
+                            } else {
+                                ERROR("Value of out range (allowed: 0-7): " + parm.Format())
+                            }
+                        } else {
+                            ERROR("Empty list for FBM")
+                        }
+                        return false
+                    })
+
+            // Vibrato definition
+            } else if strings.HasPrefix(s, "MP") {
+                comp.handleVibratoDef(s)
+
+            // Amplitude/frequency modulator
+            } else if strings.HasPrefix(s, "MOD") {
+                comp.handleModMacDef(s)                  
+
+            // Filter definition
+            } else if strings.HasPrefix(s, "FT") {
+                comp.handleFilterDef(s)                
+
+            // Pitch macro definition
+            } else if strings.HasPrefix(s, "EP") {
+                comp.handleEffectDefinition("EP", s, effects.PitchMacros, func(parm *ParamList) bool {
+                        if !parm.IsEmpty() {
+                            return true
+                        } else {
+                            ERROR("Empty list for EP")
+                        }
+                        return false
+                    })
+
+            // Portamento definition
+            } else if strings.HasPrefix(s, "PT") {
+                comp.handleEffectDefinition("PT", s, effects.Portamentos, func(parm *ParamList) bool {
+                        if len(parm.MainPart) == 2 && len(parm.LoopedPart) == 0 {
+                            if inRange(parm.MainPart, []int{0, 1}, []int{127, 127}) {
+                                return true
+                            } else {
+                                ERROR("Value of out range: " + parm.Format())
+                            }
+                        } else {
+                            ERROR("Bad PT: " + parm.Format())
+                        }
+                        return false
+                    })
+
+            // Waveform definition (@WT / @WTM)
+            } else if strings.HasPrefix(s, "WT") {
+                num := 0
+                err := error(nil)
+                isWTM := false
+                if strings.HasPrefix(s, "WTM") {
+                    isWTM = true
+                    num, err = strconv.Atoi(s[3:])
+                } else {
+                    num, err = strconv.Atoi(s[2:])
+                }
+                if err == nil {
+                    idx := 0
+                    if !isWTM {
+                        idx = effects.Waveforms.FindKey(num)
+                    } else {
+                        idx = effects.WaveformMacros.FindKey(num)
+                    }
+                    if idx < 0 {
+                        t := Parser.GetString()
+                        if t == "=" {
+                            if isWTM {
+                                Parser.AllowWTList()
+                            }
+                            lst, err := Parser.GetList()
+                            if comp.CurrSong.Target.SupportsWaveTable() {
+                                if err == nil {
+                                    if !isWTM { // Regular @WT
+                                        if len(lst.LoopedPart) == 0 {
+                                            if inRange(lst.MainPart,
+                                                       comp.CurrSong.Target.GetMinWavSample(),
+                                                       comp.CurrSong.Target.GetMaxWavSample()) {
+                                                if len(lst.MainPart) < comp.CurrSong.Target.GetMinWavLength() {
+                                                    WARNING(fmt.Sprintf("Padding waveform with zeroes (current length: %d, needs to be at least %d)",
+                                                        len(lst.MainPart), comp.CurrSong.Target.GetMinWavLength()))
+                                                    for padBytes := 0; padBytes < comp.CurrSong.Target.GetMinWavLength() - len(lst.MainPart); padBytes++ {
+                                                        lst.MainPart = append(lst.MainPart, 0)
+                                                    }
+
+                                                } else if len(lst.MainPart) > comp.CurrSong.Target.GetMaxWavLength() {
+                                                    WARNING("Truncating waveform")
+                                                    lst.MainPart = lst.MainPart[0:comp.CurrSong.Target.GetMaxWavLength()]
+                                                }
+                                                effects.Waveforms.Append(num, lst)
+                                            } else {
+                                                ERROR("Waveform data out of range: " + lst.Format())
+                                            }
+                                        } else {
+                                            ERROR("Loops not supported in waveform: " + lst.Format())
+                                        }
+                                    } else {            // @WTM
+                                        // ToDo: fix
+                                        convertedList := NewParamList()
+                                        for j := MAIN_PART; j <= LOOPED_PART; j++ {
+                                            listPart := lst.GetPart(j)
+                                            if (len(*listPart) & 1) == 1 {
+                                                ERROR("Bad WTM list. Length must be even: " + lst.Format())
+                                            }
+                                            for i, elem := range *listPart {
+                                                if (i & 1) == 0 {
+                                                    if wtmElem, ok := elem.([]interface{}); ok {
+                                                        if len(wtmElem) == 2 {
+                                                            if wtNum, wtNumOk := wtmElem[1].(int); wtNumOk {
+                                                                if effects.Waveforms.FindKey(wtNum) >= 0 {
+                                                                    convertedList.AppendToPart(j, wtNum)
+                                                                    effects.Waveforms.AddRef(wtNum)
+                                                                } else {
+                                                                    ERROR("WT%d has not been declared (at index %d)", wtNum, i)
+                                                                }
+                                                            } else {
+                                                                ERROR("Bad WTM list. Expected WT<num> at index %d: " + lst.Format(), i)
+                                                            }
+                                                        } else {
+                                                            ERROR("Bad WTM list. Expected WT<num> <frames>: " + lst.Format())
+                                                        }
+                                                    } else {
+                                                        switch elem.(type) {
+                                                        case int:
+                                                            fmt.Printf("int\n")
+                                                        case string:
+                                                            fmt.Printf("string\n")
+                                                        default:
+                                                            fmt.Printf("Unknown type\n")
+                                                        }
+                                                        ERROR("Bad WTM list (error at index %d): " + lst.Format(), i)
+                                                    }
+                                                } else {
+                                                    if numFrames, ok := elem.(int); ok {
+                                                        if !inRange(numFrames, 1, 127) {
+                                                            ERROR("Expected an integer in the range 1..127, got %d", numFrames)
+                                                        }
+                                                        convertedList.AppendToPart(j, numFrames)
+                                                    } else {
+                                                        ERROR("Bad WTM list. Expected an integer at index %d: " + lst.Format(), i)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        effects.WaveformMacros.Append(num, convertedList)
+                                        effects.WaveformMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())                            
+                                    }
+                                 }else {
+                                    ERROR("Bad waveform: " + t)
+                                }
+                            } else {
+                                WARNING("Unsupported command for this target: @WT")
+                            }
+                        } else {
+                            ERROR("Expected '='")
+                        }
+                    } else {
+                        ERROR("Redefinition of @" + s)
+                    }
+                } else {
+                    ERROR("Syntax error: @" + s)
+                }       
+
+            } else if strings.HasPrefix(s, "XPCM") {
+                comp.handleXpcmDef(s)
+
+            } else if strings.HasPrefix(s, "ADSR") {
+                _ = comp.handleAdsrEnvelopeDef(s, false)
+
+            } else if strings.HasPrefix(s, "te") {
+                //t := s[2:]
+                m = Parser.Getch()
+                num1, err1 := strconv.Atoi(s[2:])
+                num2 := 7
+                err2 := error(nil)
+                if m == ',' {
+                    num2, err2 = strconv.Atoi(Parser.GetNumericString()) 
+                } else {
+                    Parser.Ungetch()
+                }
+
+                if err1 == nil && err2 == nil {
+                    for _, chn := range comp.CurrSong.Channels {
+                        chn.WriteNote(true)
+                    }
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
+                        WARNING("Trying to set tone envelope with no active channels")
+                    } else {
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.Active {
+                                if chn.SupportsHwToneEnv() != 0 {
+                                    if inRange(num1, -chn.SupportsHwToneEnv(), chn.SupportsHwToneEnv()) {
+                                        switch chn.GetChipID() {
+                                        case specs.CHIP_GBAPU: 
+                                            if num1 < 0 {
+                                                num1 = ((abs(num1) - 1) ^ 7) * 16 + 8 + (num2 & 7)
+                                            } else if num1 > 0 {
+                                                num1 = ((num1 - 1) ^ 7) * 16 + (num2 & 7)
+                                            } else {
+                                                num1 = 8
+                                            }
+                                        case specs.CHIP_YM2413: //specs.CHIP_AY_3_8910
+                                            num1 = abs(num1)
+                                        }
+                                        chn.AddCmd([]int{defs.CMD_HWTE, num1})
+                                    } else {
+                                        ERROR("Tone envelope number out of range: " + s)
+                                    }
+                                } else {
+                                    WARNING("Unsupported command for channel " + chn.GetName() + ": @" + s)
+                                }
+                            }
+                        }
+                    } 
+                } else {
+                    ERROR("Bad tone envelope: " + s)
+                }
+
+            } else if strings.HasPrefix(s, "es") {
+                num, err := strconv.Atoi(s[2:])
+                if err == nil {
+                    for _, chn := range comp.CurrSong.Channels {
+                        chn.WriteNote(true)
+                    }
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
+                        WARNING("Trying to set envelope speed with no active channels")
+                    } else if inRange(num, 0, 65535) {
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.Active {
+                                switch chn.GetChipID() {
+                                case specs.CHIP_AY_3_8910:
+                                    num ^= 0xFFFF
+                                    chn.AddCmd([]int{defs.CMD_HWES, (num & 0xFF), (num / 0x100)})
+                                default:
+                                    WARNING("Unsupported command for this target: es")
+                                }
+                            }
+                        }
+                    } else {
+                        ERROR("Bad envelope speed: " + s)
+                    }
+                } else {
+                    ERROR("Bad tone envelope: " + s)
+                }
+
+            } else if strings.HasPrefix(s, "ve") {
+                num, err := strconv.Atoi(s[2:])
+                if err == nil {
+                    for _, chn := range comp.CurrSong.Channels {
+                        chn.WriteNote(true)
+                    }
+                    m = 0
+                    if comp.CurrSong.Target.GetID() == targets.TARGET_GBC {
+                        if num < 0 {
+                            num = (abs(num) - 1) ^ 7
+                        } else if num > 0 {
+                            num = (num - 1) ^ 7
+                            m = 8
+                        } else {
+                            num = 0
+                        }
+                    }
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
+                        WARNING("Trying to set volume envelope with no active channels")
+                    } else if err == nil {
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.Active {
+                                if chn.SupportsHwVolEnv() != 0 {
+                                    if inRange(num, -chn.SupportsHwVolEnv(), chn.SupportsHwVolEnv()) {
+                                        switch chn.GetChipID() {
+                                        case specs.CHIP_YM2413:
+                                            num = abs(num) ^ chn.SupportsHwVolEnv()
+                                        case specs.CHIP_SPC:
+                                            if num == -2 {
+                                                num = 0xA0
+                                            } else if num == -1 {
+                                                num = 0x80
+                                            } else if num == 1 {
+                                                num = 0xC0
+                                            } else if num == 2 {
+                                                num = 0xE0
+                                            }
+                                        case specs.CHIP_AY_3_8910:
+                                            num = abs(num)
+                                        }
+                                        chn.AddCmd([]int{defs.CMD_HWVE, num | m})
+                                    } else {
+                                        ERROR("Volume envelope value out of range: " + s[2:])
+                                    }
+                                } else {
+                                    WARNING("Unsupported command for channel " + chn.GetName() + ": @" + s)
+                                }
+                            }
+                        }
+                    } else {
+                        ERROR("Bad volume envelope: " + s)
+                    }
+                } else {
+                    ERROR("Bad volume envelope: " + s)
+                }
+
+            // Volume macro definition
+            } else if strings.HasPrefix(s, "v") {
+                num, err := strconv.Atoi(s[1:])
+                if err == nil {
+                    idx := effects.VolumeMacros.FindKey(num)
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
+                        if len(comp.patName) > 0 {
+                        } else {
+                            if idx < 0 {
+                                t := Parser.GetString()
+                                if t == "=" {
+                                    lst, err := Parser.GetList()
+                                    if err == nil {
+                                        if inRange(lst.MainPart,
+                                                   comp.CurrSong.Target.GetMinVolume(),
+                                                   comp.CurrSong.Target.GetMaxVolume()) &&
+                                           inRange(lst.LoopedPart,
+                                                   comp.CurrSong.Target.GetMinVolume(),
+                                                   comp.CurrSong.Target.GetMaxVolume()) {
+                                            effects.VolumeMacros.Append(num, lst)
+                                            effects.VolumeMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())
+                                        } else {
+                                            ERROR("@v: Value out of range: " + lst.Format() +
+                                                fmt.Sprintf(", Min=%d Max=%d", comp.CurrSong.Target.GetMinVolume(), comp.CurrSong.Target.GetMaxVolume()))
+                                        }
+                                    } else {
+                                        ERROR("Bad volume macro: " + t)
+                                    }
+                                } else {
+                                    ERROR("Expected '='")
+                                }
+                            } else {
+                                ERROR("Redefinition of @" + s)
+                            }
+                        }
+                    } else {
+                        if idx < 0 {
+                            ERROR("Undefined macro: @" + s)
+                        } else {
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if !effects.VolumeMacros.IsEmpty(num) {
+                                        if effects.VolumeMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) == defs.EFFECT_STEP_EVERY_FRAME {
+                                            chn.AddCmd([]int{defs.CMD_VOLMAC, idx + 1})
+                                        } else {
+                                            chn.AddCmd([]int{defs.CMD_VOLMAC, (idx + 1) | 0x80})
+                                        }
+                                        effects.VolumeMacros.AddRef(num)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    ERROR("Syntax error: @" + s)
+                }       
+
+            // Pulse width macro
+            } else if strings.HasPrefix(s, "pw") {
+                num, err := strconv.Atoi(s[2:])
+                if err == nil {
+                    idx := effects.PulseMacros.FindKey(num)
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
+                        if len(comp.patName) > 0 {
+                        } else {
+                            if idx < 0 {
+                                t := Parser.GetString()
+                                if t == "=" {
+                                    lst, err := Parser.GetList()
+                                    if err == nil {
+                                        if inRange(lst.MainPart, 0, 15) &&
+                                           inRange(lst.LoopedPart, 0, 15) {
+                                            effects.PulseMacros.Append(num, lst)
+                                            effects.PulseMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())
+                                        } else {
+                                            ERROR("Value out of range: " + lst.Format())
+                                        }
+                                    } else {
+                                        ERROR("Bad pulse width macro: " + t)
+                                    }
+                                } else {
+                                    ERROR("Expected '='")
+                                }
+                            } else {
+                                ERROR("Redefinition of @" + s)
+                            }
+                        }
+                    } else {
+                        if idx < 0 {
+                            ERROR("Undefined macro: @" + s)
+                        } else {
+                            for _, chn := range comp.CurrSong.Channels {
+                                if chn.Active {
+                                    if !effects.PulseMacros.IsEmpty(num) {
+                                        chn.AddCmd([]int{defs.CMD_PULMAC, idx})
+                                        effects.PulseMacros.AddRef(num)
+                                        chn.UsesEffect["pw"] = true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    ERROR("Syntax error: @" + s)
+                }       
+
+            } else if strings.HasPrefix(s, "q") {
+                num, err := strconv.Atoi(s[1:])
+                if err == nil {
+                    for _, chn := range comp.CurrSong.Channels {
+                        chn.WriteNote(true)
+                    }
+                    if comp.CurrSong.GetNumActiveChannels() == 0 {
+                        WARNING("Trying to set cutoff with no active channels")
+                    } else if num >= -15 && num <= 15 {
+                        for _, chn := range comp.CurrSong.Channels {
+                            if chn.Active {
+                                if num >= 0 {
+                                    chn.CurrentCutoff.Val = num
+                                    chn.CurrentCutoff.Typ = defs.CT_FRAMES
+                                } else {
+                                    chn.CurrentCutoff.Val = -num
+                                    chn.CurrentCutoff.Typ = defs.CT_NEG_FRAMES
+                                }
+                                active, cutoff, _ := chn.NoteLength(chn.CurrentLength)
+                                if active != chn.CurrentNoteFrames.Active {
+                                    chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff = active, cutoff
+                                    chn.AddCmd([]int{defs.CMD_LEN})
+                                    chn.WriteLength()
+                                }
+                            }
+                        }
+                    } else {
+                        ERROR("Bad cutoff: " + s)
+                    }
+                } else {
+                    ERROR("Bad cutoff: " + s)
+                }
+
+            } else {
+                ERROR("Syntax error: @" + s)
+            }
+        }
+    } else {
+        ERROR("Unexpected end of file")
     }
 }
 
@@ -354,528 +868,7 @@ func (comp *Compiler) CompileFile(fileName string) {
 */
 
             } else if c == '@' {
-                for _, chn := range comp.CurrSong.Channels {
-                    chn.WriteNote(true)
-                }
-                m := Parser.Getch()
-                s := ""
-                if m == '@' {
-                    s = "@" + Parser.GetNumericString()
-                } else if IsNumeric(m) {
-                    Parser.Ungetch()
-                    s = Parser.GetNumericString()
-                } else {
-                    Parser.Ungetch()
-                    s = Parser.GetAlphaString()
-                    s += Parser.GetNumericString()
-                }
-                
-                if len(s) > 0 {
-                    if strings.HasPrefix(s, "@") {
-                        num, err := strconv.Atoi(s[1:])
-                        if err == nil {
-                            idx := effects.DutyMacros.FindKey(num) 
-                            numChannels := 0
-                            for _, chn := range comp.CurrSong.Channels {
-                                if chn.Active {
-                                    numChannels++
-                                    if chn.SupportsDutyChange() > 0 {
-                                        idx |= effects.DutyMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) * 0x80    // Effect frequency
-                                        chn.AddCmd([]int{defs.CMD_DUTMAC, idx + 1})
-                                        effects.DutyMacros.AddRef(num)
-                                        chn.UsesEffect["DM"] = true
-                                    } else {
-                                        WARNING("Unsupported command for channel " +
-                                                      chn.GetName() + ": @@")
-                                    }
-                                }
-                            }
-                            if numChannels == 0 {
-                                WARNING("Use of @@ with no channels active")
-                            }
-                        } else {
-                            ERROR("Expected a number: " + s)
-                        }
-                    } else {
-                        num, err := strconv.Atoi(s)
-                        // Duty cycle macro definition
-                        if err == nil {
-                            comp.handleDutyMacDef(num)
-
-                        // Pan macro definition
-                        } else if strings.HasPrefix(s, "CS") {
-                            comp.handlePanMacDef(s)
-                            
-                        // Arpeggio definition
-                        } else if strings.HasPrefix(s, "EN") {
-                            comp.handleEffectDefinition("EN", s, effects.Arpeggios, func(parm *ParamList) bool {
-                                    if !parm.IsEmpty() {
-                                        if inRange(parm.MainPart, -63, 63) && inRange(parm.LoopedPart, -63, 63) {
-                                            return true;
-                                        } else {
-                                            ERROR("Value of out range (allowed: -63-63): " + parm.Format())
-                                        }
-                                    } else {
-                                        ERROR("Empty list for EN")
-                                    }
-                                    return false
-                                })
-                    
-                        // Feedback macro definition
-                        } else if strings.HasPrefix(s, "FBM") {
-                            comp.handleEffectDefinition("FBM", s, effects.FeedbackMacros, func(parm *ParamList) bool {
-                                    if !parm.IsEmpty() {
-                                        if inRange(parm.MainPart, 0, 7) && inRange(parm.LoopedPart, 0, 7) {
-                                            return true;
-                                        } else {
-                                            ERROR("Value of out range (allowed: 0-7): " + parm.Format())
-                                        }
-                                    } else {
-                                        ERROR("Empty list for FBM")
-                                    }
-                                    return false
-                                })
-                                                      
-                        // Vibrato definition
-                        } else if strings.HasPrefix(s, "MP") {
-                            comp.handleVibratoDef(s)
-                                
-                        // Amplitude/frequency modulator
-                        } else if strings.HasPrefix(s, "MOD") {
-                            comp.handleModMacDef(s)                  
-
-                        // Filter definition
-                        } else if strings.HasPrefix(s, "FT") {
-                            comp.handleFilterDef(s)                
-                            
-                        // Pitch macro definition
-                        } else if strings.HasPrefix(s, "EP") {
-                            comp.handleEffectDefinition("EP", s, effects.PitchMacros, func(parm *ParamList) bool {
-                                    if !parm.IsEmpty() {
-                                        return true
-                                    } else {
-                                        ERROR("Empty list for EP")
-                                    }
-                                    return false
-                                })
-                                
-                        // Portamento definition
-                        } else if strings.HasPrefix(s, "PT") {
-                            comp.handleEffectDefinition("PT", s, effects.Portamentos, func(parm *ParamList) bool {
-                                    if len(parm.MainPart) == 2 && len(parm.LoopedPart) == 0 {
-                                        if inRange(parm.MainPart, []int{0, 1}, []int{127, 127}) {
-                                            return true
-                                        } else {
-                                            ERROR("Value of out range: " + parm.Format())
-                                        }
-                                    } else {
-                                        ERROR("Bad PT: " + parm.Format())
-                                    }
-                                    return false
-                                })
-                                
-                        // Waveform definition (@WT / @WTM)
-                        } else if strings.HasPrefix(s, "WT") {
-                            num := 0
-                            err := error(nil)
-                            isWTM := false
-                            if strings.HasPrefix(s, "WTM") {
-                                isWTM = true
-                                num, err = strconv.Atoi(s[3:])
-                            } else {
-                                num, err = strconv.Atoi(s[2:])
-                            }
-                            if err == nil {
-                                idx := 0
-                                if !isWTM {
-                                    idx = effects.Waveforms.FindKey(num)
-                                } else {
-                                    idx = effects.WaveformMacros.FindKey(num)
-                                }
-                                if idx < 0 {
-                                    t := Parser.GetString()
-                                    if t == "=" {
-                                        if isWTM {
-                                            Parser.AllowWTList()
-                                        }
-                                        lst, err := Parser.GetList()
-                                        if comp.CurrSong.Target.SupportsWaveTable() {
-                                            if err == nil {
-                                                if !isWTM { // Regular @WT
-                                                    if len(lst.LoopedPart) == 0 {
-                                                        if inRange(lst.MainPart,
-                                                                   comp.CurrSong.Target.GetMinWavSample(),
-                                                                   comp.CurrSong.Target.GetMaxWavSample()) {
-                                                            if len(lst.MainPart) < comp.CurrSong.Target.GetMinWavLength() {
-                                                                WARNING(fmt.Sprintf("Padding waveform with zeroes (current length: %d, needs to be at least %d)",
-                                                                    len(lst.MainPart), comp.CurrSong.Target.GetMinWavLength()))
-                                                                for padBytes := 0; padBytes < comp.CurrSong.Target.GetMinWavLength() - len(lst.MainPart); padBytes++ {
-                                                                    lst.MainPart = append(lst.MainPart, 0)
-                                                                }
-                                                            
-                                                            } else if len(lst.MainPart) > comp.CurrSong.Target.GetMaxWavLength() {
-                                                                WARNING("Truncating waveform")
-                                                                lst.MainPart = lst.MainPart[0:comp.CurrSong.Target.GetMaxWavLength()]
-                                                            }
-                                                            effects.Waveforms.Append(num, lst)
-                                                        } else {
-                                                            ERROR("Waveform data out of range: " + lst.Format())
-                                                        }
-                                                    } else {
-                                                        ERROR("Loops not supported in waveform: " + lst.Format())
-                                                    }
-                                                } else {            // @WTM
-                                                    // ToDo: fix
-                                                    convertedList := NewParamList()
-                                                    for j := MAIN_PART; j <= LOOPED_PART; j++ {
-                                                        listPart := lst.GetPart(j)
-                                                        if (len(*listPart) & 1) == 1 {
-                                                            ERROR("Bad WTM list. Length must be even: " + lst.Format())
-                                                        }
-                                                        for i, elem := range *listPart {
-                                                            if (i & 1) == 0 {
-                                                                if wtmElem, ok := elem.([]interface{}); ok {
-                                                                    if len(wtmElem) == 2 {
-                                                                        if wtNum, wtNumOk := wtmElem[1].(int); wtNumOk {
-                                                                            if effects.Waveforms.FindKey(wtNum) >= 0 {
-                                                                                convertedList.AppendToPart(j, wtNum)
-                                                                                effects.Waveforms.AddRef(wtNum)
-                                                                            } else {
-                                                                                ERROR("WT%d has not been declared (at index %d)", wtNum, i)
-                                                                            }
-                                                                        } else {
-                                                                            ERROR("Bad WTM list. Expected WT<num> at index %d: " + lst.Format(), i)
-                                                                        }
-                                                                    } else {
-                                                                        ERROR("Bad WTM list. Expected WT<num> <frames>: " + lst.Format())
-                                                                    }
-                                                                } else {
-                                                                    switch elem.(type) {
-                                                                    case int:
-                                                                        fmt.Printf("int\n")
-                                                                    case string:
-                                                                        fmt.Printf("string\n")
-                                                                    default:
-                                                                        fmt.Printf("Unknown type\n")
-                                                                    }
-                                                                    ERROR("Bad WTM list (error at index %d): " + lst.Format(), i)
-                                                                }
-                                                            } else {
-                                                                if numFrames, ok := elem.(int); ok {
-                                                                    if !inRange(numFrames, 1, 127) {
-                                                                        ERROR("Expected an integer in the range 1..127, got %d", numFrames)
-                                                                    }
-                                                                    convertedList.AppendToPart(j, numFrames)
-                                                                } else {
-                                                                    ERROR("Bad WTM list. Expected an integer at index %d: " + lst.Format(), i)
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                    effects.WaveformMacros.Append(num, convertedList)
-                                                    effects.WaveformMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())                            
-                                                }
-                                             }else {
-                                                ERROR("Bad waveform: " + t)
-                                            }
-                                        } else {
-                                            WARNING("Unsupported command for this target: @WT")
-                                        }
-                                    } else {
-                                        ERROR("Expected '='")
-                                    }
-                                } else {
-                                    ERROR("Redefinition of @" + s)
-                                }
-                            } else {
-                                ERROR("Syntax error: @" + s)
-                            }       
-
-                        } else if strings.HasPrefix(s, "XPCM") {
-                            comp.handleXpcmDef(s)
-                        
-                        } else if strings.HasPrefix(s, "ADSR") {
-                            _ = comp.handleAdsrEnvelopeDef(s, false)
-                                
-                        } else if strings.HasPrefix(s, "te") {
-                            //t := s[2:]
-                            m = Parser.Getch()
-                            num1, err1 := strconv.Atoi(s[2:])
-                            num2 := 7
-                            err2 := error(nil)
-                            if m == ',' {
-                                num2, err2 = strconv.Atoi(Parser.GetNumericString()) 
-                            } else {
-                                Parser.Ungetch()
-                            }
-                                
-                            if err1 == nil && err2 == nil {
-                                for _, chn := range comp.CurrSong.Channels {
-                                    chn.WriteNote(true)
-                                }
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    WARNING("Trying to set tone envelope with no active channels")
-                                } else {
-                                    for _, chn := range comp.CurrSong.Channels {
-                                        if chn.Active {
-                                            if chn.SupportsHwToneEnv() != 0 {
-                                                if inRange(num1, -chn.SupportsHwToneEnv(), chn.SupportsHwToneEnv()) {
-                                                    switch chn.GetChipID() {
-                                                    case specs.CHIP_GBAPU: 
-                                                        if num1 < 0 {
-                                                            num1 = ((abs(num1) - 1) ^ 7) * 16 + 8 + (num2 & 7)
-                                                        } else if num1 > 0 {
-                                                            num1 = ((num1 - 1) ^ 7) * 16 + (num2 & 7)
-                                                        } else {
-                                                            num1 = 8
-                                                        }
-                                                    case specs.CHIP_YM2413: //specs.CHIP_AY_3_8910
-                                                        num1 = abs(num1)
-                                                    }
-                                                    chn.AddCmd([]int{defs.CMD_HWTE, num1})
-                                                } else {
-                                                    ERROR("Tone envelope number out of range: " + s)
-                                                }
-                                            } else {
-                                                WARNING("Unsupported command for channel " + chn.GetName() + ": @" + s)
-                                            }
-                                        }
-                                    }
-                                } 
-                            } else {
-                                ERROR("Bad tone envelope: " + s)
-                            }
-
-                        } else if strings.HasPrefix(s, "es") {
-                            num, err := strconv.Atoi(s[2:])
-                            if err == nil {
-                                for _, chn := range comp.CurrSong.Channels {
-                                    chn.WriteNote(true)
-                                }
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    WARNING("Trying to set envelope speed with no active channels")
-                                } else if inRange(num, 0, 65535) {
-                                    for _, chn := range comp.CurrSong.Channels {
-                                        if chn.Active {
-                                            switch chn.GetChipID() {
-                                            case specs.CHIP_AY_3_8910:
-                                                num ^= 0xFFFF
-                                                chn.AddCmd([]int{defs.CMD_HWES, (num & 0xFF), (num / 0x100)})
-                                            default:
-                                                WARNING("Unsupported command for this target: es")
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    ERROR("Bad envelope speed: " + s)
-                                }
-                            } else {
-                                ERROR("Bad tone envelope: " + s)
-                            }
-                            
-                        } else if strings.HasPrefix(s, "ve") {
-                            num, err := strconv.Atoi(s[2:])
-                            if err == nil {
-                                for _, chn := range comp.CurrSong.Channels {
-                                    chn.WriteNote(true)
-                                }
-                                m = 0
-                                if comp.CurrSong.Target.GetID() == targets.TARGET_GBC {
-                                    if num < 0 {
-                                        num = (abs(num) - 1) ^ 7
-                                    } else if num > 0 {
-                                        num = (num - 1) ^ 7
-                                        m = 8
-                                    } else {
-                                        num = 0
-                                    }
-                                }
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    WARNING("Trying to set volume envelope with no active channels")
-                                } else if err == nil {
-                                    for _, chn := range comp.CurrSong.Channels {
-                                        if chn.Active {
-                                            if chn.SupportsHwVolEnv() != 0 {
-                                                if inRange(num, -chn.SupportsHwVolEnv(), chn.SupportsHwVolEnv()) {
-                                                    switch chn.GetChipID() {
-                                                    case specs.CHIP_YM2413:
-                                                        num = abs(num) ^ chn.SupportsHwVolEnv()
-                                                    case specs.CHIP_SPC:
-                                                        if num == -2 {
-                                                            num =  0xA0
-                                                        } else if num == -1 {
-                                                            num = 0x80
-                                                        } else if num == 1 {
-                                                            num = 0xC0
-                                                        } else if num == 2 {
-                                                            num = 0xE0
-                                                        }
-                                                    case specs.CHIP_AY_3_8910:
-                                                        num = abs(num)
-                                                    }
-                                                    chn.AddCmd([]int{defs.CMD_HWVE, num | m})
-                                                } else {
-                                                    ERROR("Volume envelope value out of range: " + s[2:])
-                                                }
-                                            } else {
-                                                WARNING("Unsupported command for channel " + chn.GetName() + ": @" + s)
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    ERROR("Bad volume envelope: " + s)
-                                }
-                            } else {
-                                ERROR("Bad volume envelope: " + s)
-                            }
-
-                        // Volume macro definition
-                        } else if strings.HasPrefix(s, "v") {
-                            num, err := strconv.Atoi(s[1:])
-                            if err == nil {
-                                idx := effects.VolumeMacros.FindKey(num)
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    if len(comp.patName) > 0 {
-                                    } else {
-                                        if idx < 0 {
-                                            t := Parser.GetString()
-                                            if t == "=" {
-                                                lst, err := Parser.GetList()
-                                                if err == nil {
-                                                    if inRange(lst.MainPart,
-                                                               comp.CurrSong.Target.GetMinVolume(),
-                                                               comp.CurrSong.Target.GetMaxVolume()) &&
-                                                       inRange(lst.LoopedPart,
-                                                               comp.CurrSong.Target.GetMinVolume(),
-                                                               comp.CurrSong.Target.GetMaxVolume()) {
-                                                        effects.VolumeMacros.Append(num, lst)
-                                                        effects.VolumeMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())
-                                                    } else {
-                                                        ERROR("@v: Value out of range: " + lst.Format() +
-                                                            fmt.Sprintf(", Min=%d Max=%d", comp.CurrSong.Target.GetMinVolume(), comp.CurrSong.Target.GetMaxVolume()))
-                                                    }
-                                                } else {
-                                                    ERROR("Bad volume macro: " + t)
-                                                }
-                                            } else {
-                                                ERROR("Expected '='")
-                                            }
-                                        } else {
-                                            ERROR("Redefinition of @" + s)
-                                        }
-                                    }
-                                } else {
-                                    if idx < 0 {
-                                        ERROR("Undefined macro: @" + s)
-                                    } else {
-                                        for _, chn := range comp.CurrSong.Channels {
-                                            if chn.Active {
-                                                if !effects.VolumeMacros.IsEmpty(num) {
-                                                    if effects.VolumeMacros.GetExtraInt(num, effects.EXTRA_EFFECT_FREQ) == defs.EFFECT_STEP_EVERY_FRAME {
-                                                        chn.AddCmd([]int{defs.CMD_VOLMAC, idx + 1})
-                                                    } else {
-                                                        chn.AddCmd([]int{defs.CMD_VOLMAC, (idx + 1) | 0x80})
-                                                    }
-                                                    effects.VolumeMacros.AddRef(num)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                ERROR("Syntax error: @" + s)
-                            }       
-                            
-
-                        // Pulse width macro
-                        } else if strings.HasPrefix(s, "pw") {
-                            num, err := strconv.Atoi(s[2:])
-                            if err == nil {
-                                idx := effects.PulseMacros.FindKey(num)
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    if len(comp.patName) > 0 {
-                                    } else {
-                                        if idx < 0 {
-                                            t := Parser.GetString()
-                                            if t == "=" {
-                                                lst, err := Parser.GetList()
-                                                if err == nil {
-                                                    if inRange(lst.MainPart, 0, 15) &&
-                                                       inRange(lst.LoopedPart, 0, 15) {
-                                                        effects.PulseMacros.Append(num, lst)
-                                                        effects.PulseMacros.PutExtraInt(num, effects.EXTRA_EFFECT_FREQ, comp.getEffectFrequency())
-                                                    } else {
-                                                        ERROR("Value out of range: " + lst.Format())
-                                                    }
-                                                } else {
-                                                    ERROR("Bad pulse width macro: " + t)
-                                                }
-                                            } else {
-                                                ERROR("Expected '='")
-                                            }
-                                        } else {
-                                            ERROR("Redefinition of @" + s)
-                                        }
-                                    }
-                                } else {
-                                    if idx < 0 {
-                                        ERROR("Undefined macro: @" + s)
-                                    } else {
-                                        for _, chn := range comp.CurrSong.Channels {
-                                            if chn.Active {
-                                                if !effects.PulseMacros.IsEmpty(num) {
-                                                    chn.AddCmd([]int{defs.CMD_PULMAC, idx})
-                                                    effects.PulseMacros.AddRef(num)
-                                                    chn.UsesEffect["pw"] = true
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                ERROR("Syntax error: @" + s)
-                            }       
-
-                        } else if strings.HasPrefix(s, "q") {
-                            num, err := strconv.Atoi(s[1:])
-                            if err == nil {
-                                for _, chn := range comp.CurrSong.Channels {
-                                    chn.WriteNote(true)
-                                }
-                                if comp.CurrSong.GetNumActiveChannels() == 0 {
-                                    WARNING("Trying to set cutoff with no active channels")
-                                } else if num >= -15 && num <= 15 {
-                                    for _, chn := range comp.CurrSong.Channels {
-                                        if chn.Active {
-                                            if num >= 0 {
-                                                chn.CurrentCutoff.Val = num
-                                                chn.CurrentCutoff.Typ = defs.CT_FRAMES
-                                            } else {
-                                                chn.CurrentCutoff.Val = -num
-                                                chn.CurrentCutoff.Typ = defs.CT_NEG_FRAMES
-                                            }
-                                            active, cutoff, _ := chn.NoteLength(chn.CurrentLength)
-                                            if active != chn.CurrentNoteFrames.Active {
-                                                chn.CurrentNoteFrames.Active, chn.CurrentNoteFrames.Cutoff = active, cutoff
-                                                chn.AddCmd([]int{defs.CMD_LEN})
-                                                chn.WriteLength()
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    ERROR("Bad cutoff: " + s)
-                                }
-                            } else {
-                                ERROR("Bad cutoff: " + s)
-                            }
-                
-                        } else {
-                            ERROR("Syntax error: @" + s)
-                        }
-                    }
-                } else {
-                    ERROR("Unexpected end of file")
-                }
+                comp.handleAtCommand()
 
 
             // Pattern definition/invokation
@@ -1896,38 +1889,10 @@ func (comp *Compiler) CompileFile(fileName string) {
                     //Parser.Ungetch()    // why? is this correct?
                     num := 0
                     err := error(nil)
-                    m := Parser.Getch()
-                    Parser.Ungetch()
+                    m := Parser.Peekch()
                     if m == '(' {
                         // Implicit ADSR declaration
                         num = comp.handleAdsrEnvelopeDef("", true)
-                        /*Parser.SetListDelimiters("()")
-                        lst, err := Parser.GetList()
-                        key := -1
-                        if err == nil {
-                            if len(lst.LoopedPart) == 0 {
-                                if len(lst.MainPart) == comp.CurrSong.Target.GetAdsrLen() {
-                                    if inRange(lst.MainPart, 0, comp.CurrSong.Target.GetAdsrMax()) {
-                                        key = effects.ADSRs.GetKeyFor(lst)
-                                        if key == -1 {
-                                            effects.ADSRs.Append(comp.implicitAdsrId, lst)
-                                            num = comp.implicitAdsrId
-                                            comp.implicitAdsrId++
-                                        } else {
-                                            num = key
-                                        }
-                                    } else {
-                                        ERROR("ADSR parameters out of range: " + lst.Format())
-                                    }
-                                } else {
-                                    ERROR("Bad number of ADSR parameters: " + lst.Format())
-                                }
-                            } else {
-                                ERROR("Bad ADSR: " + lst.Format())
-                            }
-                        } else {
-                            ERROR("Bad ADSR: Unable to parse parameter list")
-                        }*/
                     } else {
                         // Use a previously declared ADSR
                         s = Parser.GetNumericString()
@@ -1979,7 +1944,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         comp.assertIsChannelName(c)
                     }                       
   
-
+                // Channel separation (panning)
                 } else if Parser.PeekString(2) == "CS" {
                     Parser.SkipN(2)
                     characterHandled = true
@@ -2009,6 +1974,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         }
                     }
                 
+                // Detune
                 } else if c == 'D' {
                     Parser.SkipN(1)
                     m := Parser.Getch()
@@ -2089,7 +2055,19 @@ func (comp *Compiler) CompileFile(fileName string) {
                 } else if Parser.PeekString(2) == "EN" {
                     Parser.SkipN(2)
                     characterHandled = true
-                    num, idx, err := comp.assertEffectIdExistsAndChannelsActive("EN", effects.Arpeggios)
+                    
+                    num := 0
+                    idx := 0
+                    err := error(nil)
+                    m := Parser.Peekch()
+                    if m == '(' {
+                        // Implicit EN declaration
+                        num = comp.handleArpeggioDef("", true)
+                        idx = effects.Arpeggios.FindKey(num)
+                    } else {
+                        // Use a previously declared EN
+                        num, idx, err = comp.assertEffectIdExistsAndChannelsActive("EN", effects.Arpeggios)
+                    }             
 
                     if err == nil {
                         for _, chn := range comp.CurrSong.Channels {
@@ -2113,7 +2091,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                         comp.assertDisablingEffect("EN", defs.CMD_ARPOFF)
                     }
 
-                // Pitch macro select ("PT<num>")
+                // Pitch macro select ("EP<num>")
                 } else if Parser.PeekString(2) == "EP" {
                     Parser.SkipN(2)
                     characterHandled = true
