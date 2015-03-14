@@ -1,0 +1,1 @@
+This is a rewrite of XPMC - which is part of the Cross-Platform Music Compiler Kit (XPMCK), a tool for creating music for various video game consoles using a dialect of the Music Macro Language (MML).
