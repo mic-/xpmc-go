@@ -189,8 +189,8 @@ func (chn *Channel) GetMaxVolume() int {
 }
 
 func (chn *Channel) MachineVolLimit() int {
-    // ToDo: implement
-    return 0
+    // ToDo: correct implementation?
+    return chn.GetMaxVolume()
 }
 
 func (chn *Channel) SetMaxVolume(maxVol int) {

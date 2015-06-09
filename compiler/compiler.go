@@ -1564,7 +1564,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                     if num <= chn.GetMaxVolume() {
                                         chn.CurrentVolume = num
                                         if chn.SupportsVolumeChange() > 0 {
-                                            vol := int((chn.CurrentVolume / chn.GetMaxVolume()) * chn.MachineVolLimit())
+                                            vol := int(( float64(chn.CurrentVolume) / float64(chn.GetMaxVolume()) ) * float64(chn.MachineVolLimit()))
                                             if vol <= 0x0F {
                                                 chn.AddCmd([]int{defs.CMD_VOL2 | vol})
                                             } else {
