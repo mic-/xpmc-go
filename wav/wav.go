@@ -100,6 +100,8 @@ func ConvertWav(fname string, sampleRate int, volume int) []int {
             _                 = getWord()       // Block alignment
             wavBitsPerSample  = getWord()
         
+            fileDataPos += chunkSize - 16
+            
             if wavFormat != 1 || (wavBitsPerSample != 8 && wavBitsPerSample != 16) || wavChannels > 2 {
                 utils.ERROR("Unsupported wav format in " + fname)
             }
