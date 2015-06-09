@@ -37,6 +37,8 @@ func (t *TargetSMS) Init() {
     t.MinVolume         = 0
     t.MaxLoopDepth      = 2
     t.MachineSpeed      = 3579545
+    t.AdsrLen           = 4
+    t.AdsrMax           = 15
     t.SupportsPal       = true
 }
 
