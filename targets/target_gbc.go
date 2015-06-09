@@ -108,6 +108,7 @@ func (t *TargetGBC) Output(outputFormat int) {
     
     // ToDo: output waveform macros (WTM)
     /*tableSize += output_wla_table("xpmp_WT_mac", waveformMacros, 1, 1, #80)*/
+    tableSize += t.outputCodeGenerator.OutputTable(outFile, "xpmp_WT_mac", effects.WaveformMacros,   true,  1, 0x80)
     
     wavSize := 0
     outFile.WriteString("xpmp_waveform_data:")
