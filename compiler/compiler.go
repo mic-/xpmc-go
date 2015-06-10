@@ -283,7 +283,11 @@ func (comp *Compiler) assertDisablingEffect(name string, cmd int) {
     c := Parser.Getch()
     s := string(byte(c)) + string(byte(Parser.Getch()))
     if s == "OF" {
-        comp.applyCmdOnAllActive(name, []int{cmd, 0})
+        if name == "EN" && cmd == defs.CMD_ARPOFF {
+            comp.applyCmdOnAllActive(name, []int{cmd})  // ENOF has a short form that only requires a single byte
+        } else {
+            comp.applyCmdOnAllActive(name, []int{cmd, 0})
+        }
     } else {
         ERROR("Syntax error. Found " + name + s + ". Did you mean " + name + "OF?")
     }
@@ -753,7 +757,7 @@ func (comp *Compiler) handleAtCommand() {
                                     if !effects.PulseMacros.IsEmpty(num) {
                                         chn.AddCmd([]int{defs.CMD_PULMAC, idx})
                                         effects.PulseMacros.AddRef(num)
-                                        chn.UsesEffect["pw"] = true
+                                        chn.UsesEffect["PM"] = true  // was "pw"
                                     }
                                 }
                             }
@@ -1028,7 +1032,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                                         }
                                     }
                                 }
-                                fmt.Printf("Macro expanded to %s on line %d\n", expandedMacro, Parser.LineNum)
+                                INFO("Macro %s expanded to %s on line %d", s, expandedMacro, Parser.LineNum)
 
                                 Parser.InsertString(expandedMacro)
 
