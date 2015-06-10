@@ -304,6 +304,26 @@ func (t *Target) GetMaxLoopDepth() int {
     return t.MaxLoopDepth
 }
 
+func (t *Target) GetMinOctave() int {
+    minOct := t.ChannelSpecs.MinOct[0]
+    for i, o := range t.ChannelSpecs.MinOct {
+        if o < minOct && t.ChannelSpecs.IDs[i] != specs.CHIP_UNKNOWN {
+            minOct = o
+        }
+    }
+    return minOct
+}
+
+func (t *Target) GetMaxOctave() int {
+    maxOct := t.ChannelSpecs.MaxOct[0]
+    for i, o := range t.ChannelSpecs.MaxOct {
+        if o > maxOct && t.ChannelSpecs.IDs[i] != specs.CHIP_UNKNOWN {
+            maxOct = o
+        }
+    }
+    return maxOct
+}
+
 func (t *Target) GetMinVolume() int {
     return t.MinVolume
 }

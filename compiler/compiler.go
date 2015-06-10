@@ -74,6 +74,9 @@ func (comp *Compiler) Init(target int) {
     
     comp.lastWasChannelSelect = false
    
+    defs.Rest  = (comp.CurrSong.Target.GetMaxOctave() + 1 - comp.CurrSong.Target.GetMinOctave()) * 12
+    defs.Rest2 = (comp.CurrSong.Target.GetMaxOctave() + 1 - comp.CurrSong.Target.GetMinOctave()) * 12 + 1
+    
     effects.Init()
 }
 

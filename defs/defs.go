@@ -160,6 +160,8 @@ type ITarget interface {
     GetID() int             // The ID of this target (one of the TARGET_* constants)
     GetMaxLoopDepth() int   // Max nesting of [] loops on this target
     GetMaxTempo() int
+    GetMinOctave() int
+    GetMaxOctave() int
     GetMaxVolume() int
     GetMaxWavLength() int   // Max length of WT samples on this target
     GetMaxWavSample() int   // Max amplitude for WT samples on this target
