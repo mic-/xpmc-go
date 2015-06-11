@@ -2811,5 +2811,5 @@ func (comp *Compiler) RemoveUnusedEffects() {
     effectsRemoved += comp.removeUnusedEffect(effects.ADSRs, []int{defs.CMD_ADSR})
     effectsRemoved += comp.removeUnusedEffect(effects.MODs, []int{defs.CMD_MODMAC})
     effectsRemoved += comp.removeUnusedEffect(effects.Filters, []int{defs.CMD_FILTER})
-    utils.INFO("Removed %d unused effects\n", effectsRemoved)
+    utils.INFO("Removed %d unused effects", effectsRemoved)
 }

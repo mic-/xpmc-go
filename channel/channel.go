@@ -67,6 +67,7 @@ func NewChannel() *Channel {
     chn.LoopPoint = -1
     chn.CurrentTempo = 125
     chn.CurrentOctave = 4
+    chn.CurrentLength = 8 // ToDo: correct init value?
     chn.UsesEffect = map[string]bool{}
     chn.Loops = NewLoopStack()
     chn.CurrentCutoff.Typ = defs.CT_NORMAL
@@ -301,9 +302,9 @@ func (chn *Channel) WriteNoteAndLength(note int, noteLen int, minLen int, scalin
 func (chn *Channel) WriteNote(forceOctChange bool) {
     var frames, cutoffFrames, scaling float64
     var len1, len2 int
-    
+       
     if chn.CurrentNote.HasData {
-        if !chn.Tuple.HasData {
+        if !chn.Tuple.Active {
             chn.Frames += chn.CurrentNote.Frames
             chn.Ticks += int(chn.CurrentNote.Frames)
             
@@ -412,7 +413,7 @@ func (chn *Channel) WriteNote(forceOctChange bool) {
     } else if forceOctChange && chn.PendingOctChange != 0 {
         // There's no note data to output, but there's been an octave change that
         // we need to flush to the command array.
-        if !chn.Tuple.HasData {
+        if !chn.Tuple.Active {
             chn.AddCmd([]int{defs.CMD_OCTAVE | chn.CurrentOctave})
         } else {
             chn.Tuple.Cmds = append(chn.Tuple.Cmds,
@@ -426,8 +427,8 @@ func (chn *Channel) WriteNote(forceOctChange bool) {
 
 func (chn *Channel) WriteTuple(tupleLen float64) {
     var totalFrames, frames, cutoffFrames, scaling float64
-    var w1, w2, skipBytes int
-
+    var w1, w2 int
+   
     chn.Frames += tupleLen
     
     totalFrames, cutoffFrames, scaling = chn.NoteLength(tupleLen)
@@ -454,42 +455,31 @@ func (chn *Channel) WriteTuple(tupleLen float64) {
         chn.WriteNoteAndLength(defs.CMD_REST, w2, 1, scaling)
     }
     
-    skipBytes = 0
-    
     for i, _ := range chn.Tuple.Cmds {
-        if skipBytes > 0 {
-            skipBytes--
+        if chn.Tuple.Cmds[i].Num == defs.NON_NOTE_TUPLE_CMD {
+            chn.AddCmd([]int{int(chn.Tuple.Cmds[i].Frames)})
+        } else if chn.Tuple.Cmds[i].Num == defs.Rest {
+            chn.Tuple.Cmds[i].Num = defs.CMD_REST
+        } else if chn.Tuple.Cmds[i].Num == defs.Rest2 {
+            chn.Tuple.Cmds[i].Num = defs.CMD_REST2
         } else {
-            if chn.Tuple.Cmds[i].Num == defs.NON_NOTE_TUPLE_CMD {
-                chn.AddCmd([]int{int(chn.Tuple.Cmds[i].Frames)})
-                skipBytes = 1           
-            } else if chn.Tuple.Cmds[i].Num == defs.Rest {
-                chn.Tuple.Cmds[i].Num = defs.CMD_REST
-            } else if chn.Tuple.Cmds[i].Num == defs.Rest2 {
-                chn.Tuple.Cmds[i].Num = defs.CMD_REST2
+            chn.Tuple.Cmds[i].Num = chn.Tuple.Cmds[i].Num % 12
+        }
+
+        if timing.UseFractionalDelays {
+            if int(chn.Tuple.Cmds[i].Frames / 256.0) > 127 {
+                chn.AddCmd([]int{chn.Tuple.Cmds[i].Num,
+                                 int(chn.Tuple.Cmds[i].Frames / 0x8000) | 0x80,
+                                 (int(chn.Tuple.Cmds[i].Frames / 0x100) & 0x7F),
+                                 (int(chn.Tuple.Cmds[i].Frames) & 0xFF)})
             } else {
-                chn.Tuple.Cmds[i].Num = chn.Tuple.Cmds[i].Num % 12
+                chn.AddCmd([]int{chn.Tuple.Cmds[i].Num,
+                                 int(chn.Tuple.Cmds[i].Frames / 0x100),
+                                 int(chn.Tuple.Cmds[i].Frames) & 0xFF})
             }
 
-            if skipBytes > 0 {
-                skipBytes--
-            } else {
-                if timing.UseFractionalDelays {
-                    if int(chn.Tuple.Cmds[i].Frames / 256.0) > 127 {
-                        chn.AddCmd([]int{chn.Tuple.Cmds[i].Num,
-                                         int(chn.Tuple.Cmds[i].Frames / 0x8000) | 0x80,
-                                         (int(chn.Tuple.Cmds[i].Frames / 0x100) & 0x7F),
-                                         (int(chn.Tuple.Cmds[i].Frames) & 0xFF)})
-                    } else {
-                        chn.AddCmd([]int{chn.Tuple.Cmds[i].Num,
-                                         int(chn.Tuple.Cmds[i].Frames / 0x100),
-                                         int(chn.Tuple.Cmds[i].Frames) & 0xFF})
-                    }
-
-                    timing.UpdateDelayMinMax(int(chn.Tuple.Cmds[i].Frames))
-                } else {
-                }
-            }
+            timing.UpdateDelayMinMax(int(chn.Tuple.Cmds[i].Frames))
+        } else {
         }
     }
     
