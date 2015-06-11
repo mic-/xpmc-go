@@ -478,11 +478,16 @@ func (p *ParserState) GetList() (*ParamList,error) {
                         if rept == 0 {
                             rept = 1
                         }
-                        
-                        for i := startVal; i <= stopVal; i+=stepVal {
+                                             
+                        i := startVal
+                        for {
                             for j := 1; j <= rept; j++ {
                                 concatTo = append(concatTo, int(i))
                             }
+                            if i == stopVal {
+                                break
+                            }
+                            i += stepVal
                         }
                     
                     } else if c == '\'' {
