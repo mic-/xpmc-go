@@ -11,6 +11,7 @@
 package utils
 
 import (
+    "encoding/binary"
     "fmt"
     "math"
     "os"
@@ -178,4 +179,14 @@ func Round2(x float64) int {
         return int(math.Ceil(x))
     }
     return int(math.Floor(x))
+}
+
+
+/* Converts the given uint32 into a slice of bytes in little-endian order, and
+ * appends those bytes to the slice pointed to by b 
+ */
+func AppendUint32(b *[]byte, u uint32) {
+    ubytes := make([]byte, 4)
+    binary.LittleEndian.PutUint32(ubytes, u)
+    (*b) = append((*b), ubytes...)
 }

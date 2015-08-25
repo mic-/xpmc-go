@@ -15,6 +15,7 @@
 
 package vgm
 
+import "../utils"
 
 const (
     // VGM commands as given in the VGM specification
@@ -98,7 +99,6 @@ type LastChannelSettings struct {
 
 
 
-
 // Write a VGM file based on the compiled song data.
 //
 // Arguments:
@@ -121,7 +121,7 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
              cmdPos, loopPos, pcmData
 
     if ym2413 {
-        if length(supportedChannels)-1 = 13 {
+        /*if length(supportedChannels)-1 = 13 {
             if length(songs[song][5])  = 1 and
                length(songs[song][6])  = 1 and
                length(songs[song][7])  = 1 and
@@ -136,11 +136,12 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
             }
         } else {
             ym2413 = false
-        }
+        }*/
+        ym2413 = song.UsesChip(CHIP_YM2413)
     }
 
     if ym2612 {
-        if length(supportedChannels)-1 = 10 {
+        /*if length(supportedChannels)-1 = 10 {
             if length(songs[song][5]) = 1 and
                length(songs[song][6]) = 1 and
                length(songs[song][7]) = 1 and
@@ -152,7 +153,8 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
             }
         } else {
             ym2612 = false
-        }
+        }*/
+        ym2413 = song.UsesChip(CHIP_YM2612)
     }
             
     nChannels = length(supportedChannels)-1
@@ -219,30 +221,30 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                0, 0, 0, 0,              // EOF offset, filled in later
                0x50, 0x01, 0, 0}        // VGM version (1.50)
     if psg {
-        vgmData &= int_to_bytes(machineSpeed)
+        utils.AppendUint32(&vgmData, machineSpeed)
     } else {
-        vgmData &= int_to_bytes(0)
+        utils.AppendUint32(&vgmData, 0)
     }
     if ym2413 {
-        vgmData &= int_to_bytes(machineSpeed)
+        utils.AppendUint32(&vgmData, machineSpeed)
     } else {
-        vgmData &= int_to_bytes(0)  
+        utils.AppendUint32(&vgmData, 0)  
     }
-    vgmData &= int_to_bytes(0)  // GD3 tag offset
-    vgmData &= int_to_bytes(0)  // Total samples
-    vgmData &= int_to_bytes(0)  // Loop offset
-    vgmData &= int_to_bytes(0)  // Loop samples
-    vgmData &= int_to_bytes(floor(updateFreq))
-    vgmData &= {9, 0, 8, 0}     // Noise feedback pattern / shift width
+    utils.AppendUint32(&vgmData, 0)  // GD3 tag offset
+    utils.AppendUint32(&vgmData, 0)  // Total samples
+    utils.AppendUint32(&vgmData, 0)  // Loop offset
+    utils.AppendUint32(&vgmData, 0)  // Loop samples
+    utils.AppendUint32(&vgmData, (floor(updateFreq))
+    vgmData = append(vgmData, []byte{9, 0, 8, 0}...)     // Noise feedback pattern / shift width
     if ym2612 {
         vgmData &= int_to_bytes(7.6*1000000)
     } else {
-        vgmData &= int_to_bytes(0)  
+        utils.AppendUint32(&vgmData, 0)  
     }
     if ym2151 {
-        vgmData &= int_to_bytes(machineSpeed)
+        utils.AppendUint32(&vgmData, machineSpeed)
     } else {
-        vgmData &= int_to_bytes(0)  
+        utils.AppendUint32(&vgmData, 0)  
     }
     vgmData &= int_to_bytes(0x0C)   // Data offset
     vgmData &= {0, 0, 0, 0, 0, 0, 0, 0}
@@ -348,9 +350,9 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
                      }, nChannels)
     
     if ym2413 {
-        vgmData &= {VGM_CMD_W_YM2413, #0F, #08}
-        vgmData &= {VGM_CMD_W_YM2413, R_YM2413_MOD_TL, 0x00}
-        vgmData &= {VGM_CMD_W_YM2413, R_YM2413_RHYTHM, YM2413_RHYTHM_ENABLE}
+        vgmData = append(vgmData, {VGM_CMD_W_YM2413, 0x0F, 0x08}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2413, R_YM2413_MOD_TL, 0x00}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2413, R_YM2413_RHYTHM, YM2413_RHYTHM_ENABLE}...)
         rhythm = 0
     }
     
@@ -376,18 +378,18 @@ func WriteVGM(fname string, Song *song, psg bool, ym2151 bool, ym2413 bool, ym26
         end for
         
         // Turn on left and right output for all channels
-        vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_PH_AM_S,   0xC0}
-        vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_PH_AM_S+1, 0xC0}
-        vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_PH_AM_S+2, 0xC0}
-        vgmData &= {VGM_CMD_W_YM2612H, R_YM2612_PH_AM_S,   0xC0}
-        vgmData &= {VGM_CMD_W_YM2612H, R_YM2612_PH_AM_S+1, 0xC0}
-        vgmData &= {VGM_CMD_W_YM2612H, R_YM2612_PH_AM_S+2, 0xC0}
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612L, R_YM2612_PH_AM_S,   0xC0}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612L, R_YM2612_PH_AM_S+1, 0xC0}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612L, R_YM2612_PH_AM_S+2, 0xC0}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612H, R_YM2612_PH_AM_S,   0xC0}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612H, R_YM2612_PH_AM_S+1, 0xC0}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612H, R_YM2612_PH_AM_S+2, 0xC0}...)
         
         // Turn off DAC, LFO
-        vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_SSG_EG, 0x00}
-        vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_LFO,    0x00}
-        vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_CH3_6,  0x00}
-        vgmData &= {VGM_CMD_W_YM2612L, R_YM2612_DAC_EN, 0x00}
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612L, R_YM2612_SSG_EG, 0x00}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612L, R_YM2612_LFO,    0x00}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612L, R_YM2612_CH3_6,  0x00}...)
+        vgmData = append(vgmData, {VGM_CMD_W_YM2612L, R_YM2612_DAC_EN, 0x00}...)
     }
     
     if ym2151 {
