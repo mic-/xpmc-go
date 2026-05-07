@@ -12,11 +12,14 @@ package targets
 import (
     "fmt"
     "os"
-    "../specs"
-    "../effects"
+    "xpmc-go/specs"
+    "xpmc-go/effects"
+    "xpmc-go/timing"
+    "xpmc-go/utils"
+    "xpmc-go/vgm"
 )
 
-import . "../defs"
+import . "xpmc-go/defs"
 
 const (
     TARGET_UNKNOWN = 0
@@ -102,6 +105,10 @@ type TargetKSS struct {
     Target
 }
 
+type TargetLYX struct {
+    Target
+}
+
 type TargetNES struct {
     Target
 }
@@ -153,7 +160,13 @@ func NewTarget(tID int, icomp ICompiler) ITarget {
     
     case TARGET_SMD:
         t = &TargetGen{}
-    
+
+    case TARGET_LYX:
+        t = &TargetLYX{}
+
+    case TARGET_NGP:
+        t = &TargetNGP{}
+
     case TARGET_SMS:
         t = &TargetSMS{}
     }
@@ -197,6 +210,12 @@ func NameToID(targetName string) int {
     
     case "smd", "gen":
         return TARGET_SMD;
+
+    case "lyx":
+        return TARGET_LYX;
+
+    case "ngp":
+        return TARGET_NGP;
     
     case "sms":
         return TARGET_SMS;
@@ -212,6 +231,31 @@ func (t *Target) Init() {
 
 func (t *Target) SetOutputSyntax(outputSyntax int) {
     t.outputCodeGenerator = NewCodeGenerator(outputSyntax, t)
+}
+
+func (t *Target) OutputVGM(outputFormat int) bool {
+    if outputFormat != OUTPUT_VGM && outputFormat != OUTPUT_VGZ {
+        return false
+    }
+
+    songs := t.CompilerItf.GetSongs()
+    if len(songs) == 0 {
+        utils.ERROR("No songs to write to VGM")
+        return true
+    }
+
+    fileEnding := ".vgm"
+    compress := false
+    if outputFormat == OUTPUT_VGZ {
+        fileEnding = ".vgz"
+        compress = true
+    }
+
+    fileName := t.CompilerItf.GetShortFileName() + fileEnding
+    if err := vgm.WriteVGM(fileName, songs[0], compress, int(timing.UpdateFreq)); err != nil {
+        utils.ERROR("Unable to write VGM file: " + err.Error())
+    }
+    return true
 }
    
 func (t *Target) Output(outputFormat int) {

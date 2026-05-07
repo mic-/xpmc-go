@@ -5,13 +5,14 @@ import (
     "fmt"
     "os"
     //"runtime/pprof"
+    "path/filepath"
     "strings"
-    "./compiler"
-    "./defs"
-    "./targets"
-    "./timing"
-    "./utils"
-//    "./player"
+    "xpmc-go/compiler"
+    "xpmc-go/defs"
+    "xpmc-go/targets"
+    "xpmc-go/timing"
+    "xpmc-go/utils"
+//    "xpmc-go/player"
 )
 
 
@@ -22,9 +23,11 @@ var gbc = flag.String("gbc", "", "select GBC target")*/
 func showHelp(what string) {
     switch what {
     case "EN":
-        fmt.Println("EN:\tArpeggio macro: { num | num}. num is zero or more numbers in\n\tthe range -63-63.\n")
+        fmt.Println("EN:\tArpeggio macro: { num | num}. num is zero or more numbers in\n\tthe range -63-63.")
+        fmt.Println("")
     default:
-        fmt.Println("Usage: xpmc.exe [options] target input [output]\n")
+        fmt.Println("Usage: xpmc.exe [options] target input [output]")
+        fmt.Println("")
         fmt.Println("Options:")
         fmt.Println("\t-h\tShow this information") 
         fmt.Println("\t-v\tVerbose mode")
@@ -40,13 +43,39 @@ func showHelp(what string) {
         fmt.Println("\t-gen\tSEGA Genesis")
         fmt.Println("\t-kss\tKSS")
         fmt.Println("\t-nes\tNintendo Entertainment System")
+        fmt.Println("\t-ngp\tNeoGeo Pocket Color")
         fmt.Println("\t-pce\tPC-Engine")
+        fmt.Println("\t-lyx\tAtari Lynx")
         //fmt.Println(1, "\t-nds\tNintendo DS")
         //fmt.Println(1, "\t-sat\tSEGA Saturn")
         fmt.Println("\t-sgg\tSEGA Game Gear")
         fmt.Println("\t-sms\tSEGA Master System")
 
     }
+}
+
+func determineOutputFormat(inputFileName string, outputFileName string) (string, string, int) {
+    if filepath.Ext(inputFileName) == "" {
+        inputFileName += ".mml"
+    }
+
+    outputFormat := targets.OUTPUT_ASSEMBLY
+    if outputFileName != "" {
+        ext := strings.ToLower(filepath.Ext(outputFileName))
+        switch ext {
+        case ".vgm":
+            outputFormat = targets.OUTPUT_VGM
+        case ".vgz":
+            outputFormat = targets.OUTPUT_VGZ
+        }
+        if ext != "" {
+            outputFileName = strings.TrimSuffix(outputFileName, ext)
+        }
+        return inputFileName, outputFileName, outputFormat
+    }
+
+    shortName := strings.TrimSuffix(inputFileName, filepath.Ext(inputFileName))
+    return inputFileName, shortName, outputFormat
 }
 
 
@@ -135,26 +164,13 @@ func main() {
                 comp.Init(target)
 
                 inputFileName := arg
-                lastDot := strings.LastIndexAny(inputFileName, ".")
-                lastSlash := strings.LastIndexAny(inputFileName, "/\\")
-                
-                if lastDot >= 0 && lastSlash < 0 {
-                    comp.ShortFileName = inputFileName[:lastDot]
-                } else {
-                    comp.ShortFileName = inputFileName
-                    inputFileName += ".mml"
+                outputFileName := ""
+                if i < len(os.Args)-1 {
+                    outputFileName = os.Args[i+1]
                 }
 
-                if i < len(os.Args)-1 {
-                    comp.ShortFileName = os.Args[i + 1]
-                    lastDot = strings.LastIndexAny(os.Args[i + 1], ".")
-                    if lastDot >= 0 {
-                        comp.ShortFileName = os.Args[i+1][:lastDot]
-                        //writeVGM = equal(lower(fileNames[2][n..length(fileNames[2])]), ".vgm")
-                        //writeVGM += equal(lower(fileNames[2][n..length(fileNames[2])]), ".vgz") * 2
-                        //writeWAV = equal(lower(fileNames[2][n..length(fileNames[2])]), ".wav")
-                    }
-                }
+                var outputFormat int
+                inputFileName, comp.ShortFileName, outputFormat = determineOutputFormat(inputFileName, outputFileName)
                 
                 //fmt.Printf("compiler.SFN = " + comp.ShortFileName + "\n")
                 
@@ -199,7 +215,7 @@ func main() {
     
                 comp.RemoveUnusedEffects()
                 
-                comp.CurrSong.Target.Output(targets.OUTPUT_ASSEMBLY)
+                comp.CurrSong.Target.Output(outputFormat)
                 
                 return
             }

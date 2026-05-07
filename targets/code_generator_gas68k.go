@@ -3,11 +3,11 @@ package targets
 import (
     "fmt"
     "os"
-    "../effects"
-    "../utils"
+    "xpmc-go/effects"
+    "xpmc-go/utils"
 )
 
-import . "../defs"
+import . "xpmc-go/defs"
 
 
 func (cg *CodeGeneratorGas68k) OutputCallbacks(outFile *os.File) int {

@@ -9,7 +9,8 @@
 package player
 
 import (
-    "../utils"
+    "xpmc-go/defs"
+    "xpmc-go/utils"
 )
 
 const (
@@ -34,6 +35,8 @@ type volume struct {
 }
 
 type PlaybackChannel struct {
+    Channel defs.IChannel
+    CmdPos int
     DataPtr int
     DataPos int
     Delay int
@@ -106,8 +109,23 @@ func NewPlaybackChannel(num int) *PlaybackChannel {
     }
 }
 
+func NewPlaybackChannelFromIChannel(chn defs.IChannel) *PlaybackChannel {
+    pc := NewPlaybackChannel(chn.GetNum())
+    pc.Channel = chn
+    return pc
+}
+
 type IPlaybackChannel interface {
     GetNote() int
+    GetCommands() []int
+    GetNum() int
+    GetChipID() int
+    GetName() string
+}
+
+type Player struct {
+    writer IPlaybackWriter
+    channels []*PlaybackChannel
 }
 
 type IPlayer interface {
@@ -116,6 +134,67 @@ type IPlayer interface {
 
 type IPlaybackWriter interface {
     Write(player IPlayer, chn int, cmd int)
+}
+
+func NewPlayer(w IPlaybackWriter) *Player {
+    return &Player{writer: w}
+}
+
+func (p *Player) GetChannels() []IPlaybackChannel {
+    channels := make([]IPlaybackChannel, len(p.channels))
+    for i, chn := range p.channels {
+        channels[i] = chn
+    }
+    return channels
+}
+
+func (p *Player) AddChannel(chn *PlaybackChannel) {
+    p.channels = append(p.channels, chn)
+}
+
+func (p *Player) SetChannels(channels []*PlaybackChannel) {
+    p.channels = channels
+}
+
+func (p *Player) Play() {
+    // TODO: Step through channels, track note/volume changes, and emit player events.
+    for i, chn := range p.channels {
+        if len(chn.GetCommands()) > 0 {
+            p.writer.Write(p, i, chn.GetCommands()[0])
+        }
+    }
+}
+
+func (chn *PlaybackChannel) GetNote() int {
+    return chn.Note
+}
+
+func (chn *PlaybackChannel) GetCommands() []int {
+    if chn.Channel == nil {
+        return nil
+    }
+    return chn.Channel.GetCommands()
+}
+
+func (chn *PlaybackChannel) GetNum() int {
+    if chn.Channel == nil {
+        return 0
+    }
+    return chn.Channel.GetNum()
+}
+
+func (chn *PlaybackChannel) GetChipID() int {
+    if chn.Channel == nil {
+        return 0
+    }
+    return chn.Channel.GetChipID()
+}
+
+func (chn *PlaybackChannel) GetName() string {
+    if chn.Channel == nil {
+        return ""
+    }
+    return chn.Channel.GetName()
 }
 
 func NewPlayer(w IPlaybackWriter) {

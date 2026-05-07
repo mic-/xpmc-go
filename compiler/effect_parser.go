@@ -14,15 +14,15 @@ import (
     "os"
     "strconv"
     "strings"
-    "../channel"
-    "../defs"
-    "../effects"
-    "../targets"
-    "../utils"
-    "../wav"
+    "xpmc-go/channel"
+    "xpmc-go/defs"
+    "xpmc-go/effects"
+    "xpmc-go/targets"
+    "xpmc-go/utils"
+    "xpmc-go/wav"
 )
 
-import . "../utils"
+import . "xpmc-go/utils"
 
 
 func (comp *Compiler) getEffectFrequency() int {

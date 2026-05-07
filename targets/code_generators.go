@@ -2,9 +2,9 @@ package targets
 
 import (
     "os"
-    "../effects"
+    "xpmc-go/effects"
 )
-import . "../defs"
+import . "xpmc-go/defs"
 
 const (
     SYNTAX_WLA_DX = 0

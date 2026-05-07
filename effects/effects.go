@@ -9,7 +9,7 @@
 package effects
 
 import (
-    "../utils"
+    "xpmc-go/utils"
 )
 
 const EXTRA_EFFECT_FREQ = "effect-freq"

@@ -2,7 +2,7 @@ package utils_test
 
 import (
 	"fmt"
-	"./utils"
+	"xpmc-go/utils"
 )
 
 func ExampleGetStringUntil() {

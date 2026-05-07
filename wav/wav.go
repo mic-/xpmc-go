@@ -4,7 +4,7 @@ import (
     "fmt"
     "io/ioutil"
     "math"
-    "../utils"
+    "xpmc-go/utils"
 )
 
 var fileData []byte

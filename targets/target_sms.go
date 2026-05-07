@@ -14,10 +14,10 @@ import (
     "fmt"
     "os"
     "time"
-    "../specs"
-    "../utils"
-    "../effects"
-    "../timing"
+    "xpmc-go/specs"
+    "xpmc-go/utils"
+    "xpmc-go/effects"
+    "xpmc-go/timing"
 )
 
 
@@ -47,17 +47,8 @@ func (t *TargetSMS) Output(outputFormat int) {
     utils.DEBUG("TargetSMS.Output")
 
     fileEnding := ".asm"
-    outputVgm := false
-    if outputFormat == OUTPUT_VGM {
-        fileEnding = ".vgm"
-        outputVgm = true
-    } else if outputFormat == OUTPUT_VGZ {
-        fileEnding = ".vgz"
-        outputVgm = true
-    }
 
-    if outputVgm {
-        // ToDo: output VGM/VGZ
+    if t.Target.OutputVGM(outputFormat) {
         return
     }
 

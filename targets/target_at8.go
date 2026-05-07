@@ -4,8 +4,8 @@ import (
     "fmt"
     "os"
     "time"
-    "../specs"
-    "../utils"
+    "xpmc-go/specs"
+    "xpmc-go/utils"
 )
 
 

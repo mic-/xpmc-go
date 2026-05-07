@@ -1,8 +1,8 @@
 package targets
 
 import (
-    "../specs"
-    "../utils"
+    "xpmc-go/specs"
+    "xpmc-go/utils"
 )
 
 

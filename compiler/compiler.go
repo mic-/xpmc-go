@@ -5,17 +5,17 @@ import (
     "strconv"
     "strings"
     "sync"
-    "../channel"
-    "../defs"
-    "../effects"
-    "../song"
-    "../specs"
-    "../targets"
-    "../timing"
-    "../utils"
+    "xpmc-go/channel"
+    "xpmc-go/defs"
+    "xpmc-go/effects"
+    "xpmc-go/song"
+    "xpmc-go/specs"
+    "xpmc-go/targets"
+    "xpmc-go/timing"
+    "xpmc-go/utils"
 )
 
-import . "../utils"
+import . "xpmc-go/utils"
 
 
 const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrtsuvwxyz"

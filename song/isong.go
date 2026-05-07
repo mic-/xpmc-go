@@ -1,6 +1,6 @@
 package song
 
-import "../defs"
+import "xpmc-go/defs"
 
 /* ISong interface *
 /*******************/

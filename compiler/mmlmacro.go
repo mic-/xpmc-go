@@ -1,6 +1,6 @@
 package compiler
 
-import "../utils"
+import "xpmc-go/utils"
 
 // For macro elements
 const (

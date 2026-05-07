@@ -15,13 +15,13 @@ import (
     "os"
     "strconv"
     "time"
-    "../defs"
-    "../specs"
-    "../utils"
-    "../effects"
+    "xpmc-go/defs"
+    "xpmc-go/specs"
+    "xpmc-go/utils"
+    "xpmc-go/effects"
 )
 
-import . "../utils"
+import . "xpmc-go/utils"
 
 /* Gameboy Color (and DMG) 
  */

@@ -2,7 +2,7 @@ package compiler
 
 import (
     "sort"
-    "../defs"
+    "xpmc-go/defs"
 )
 
 func (comp *Compiler) GetShortFileName() string {

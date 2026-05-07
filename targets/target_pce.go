@@ -4,9 +4,9 @@ import (
     "fmt"
     "os"
     "time"
-    "../specs"
-    "../utils"
-    "../effects"
+    "xpmc-go/specs"
+    "xpmc-go/utils"
+    "xpmc-go/effects"
 )
 
 
@@ -37,17 +37,8 @@ func (t *TargetPCE) Output(outputFormat int) {
     utils.DEBUG("TargetPCE.Output")
     
     fileEnding := ".asm"
-    outputVgm := false
-    if outputFormat == OUTPUT_VGM {
-        fileEnding = ".vgm"
-        outputVgm = true
-    } else if outputFormat == OUTPUT_VGZ {
-        fileEnding = ".vgz"
-        outputVgm = true
-    }
 
-    if outputVgm {
-        // ToDo: output VGM/VGZ
+    if t.Target.OutputVGM(outputFormat) {
         return
     }
     

@@ -1,6 +1,6 @@
 package channel
 
-import "../specs"
+import "xpmc-go/specs"
 
 /* IChannel interface *
 /**********************/

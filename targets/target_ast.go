@@ -13,9 +13,9 @@ package targets
 import (
     "os"
     "time"
-    "../specs"
-    "../utils"
-    "../timing"
+    "xpmc-go/specs"
+    "xpmc-go/utils"
+    "xpmc-go/timing"
 )
 
 
@@ -43,19 +43,11 @@ func (t *TargetAST) Output(outputFormat int) {
     utils.DEBUG("TargetAST.Output")
 
     fileEnding := ".s"
-    outputVgm := false
-    if outputFormat == OUTPUT_VGM {
-        fileEnding = ".vgm"
-        outputVgm = true
-    } else if outputFormat == OUTPUT_VGZ {
-        fileEnding = ".vgz"
-        outputVgm = true
-    } else if outputFormat == OUTPUT_YM {
+    if outputFormat == OUTPUT_YM {
         fileEnding = ".ym"
     }
 
-    if outputVgm {
-        // ToDo: output VGM/VGZ or YM
+    if t.Target.OutputVGM(outputFormat) {
         return
     }
     

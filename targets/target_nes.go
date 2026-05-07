@@ -13,9 +13,9 @@ package targets
 import (
     "os"
     "time"
-    "../specs"
-    "../utils"
-    "../timing"
+    "xpmc-go/specs"
+    "xpmc-go/utils"
+    "xpmc-go/timing"
 )
 
 

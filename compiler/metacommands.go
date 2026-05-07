@@ -13,14 +13,14 @@ package compiler
 import (
     "strconv"
     "strings"
-    "../defs"
-    "../song"
-    "../targets"
-    "../timing"
-    "../utils"
+    "xpmc-go/defs"
+    "xpmc-go/song"
+    "xpmc-go/targets"
+    "xpmc-go/timing"
+    "xpmc-go/utils"
 )
 
-import . "../utils"
+import . "xpmc-go/utils"
 
 const (
     POLARITY_POSITIVE = 0

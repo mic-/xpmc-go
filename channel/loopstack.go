@@ -11,7 +11,7 @@
  
 package channel
 
-import "../utils"
+import "xpmc-go/utils"
 
 type LoopStackElem struct {
     StartPos int    /* The index within the channel's command sequence where the first command

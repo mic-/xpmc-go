@@ -10,10 +10,10 @@ package song
 
 import (
     "fmt"
-    "../channel"
-    "../defs"
-    "../specs"
-    "../targets"
+    "xpmc-go/channel"
+    "xpmc-go/defs"
+    "xpmc-go/specs"
+    "xpmc-go/targets"
 )
 
 

@@ -12,9 +12,9 @@ package channel
 
 import (
     "math"
-    "../defs"
-    "../timing"
-    "../utils"
+    "xpmc-go/defs"
+    "xpmc-go/timing"
+    "xpmc-go/utils"
 )
 
 

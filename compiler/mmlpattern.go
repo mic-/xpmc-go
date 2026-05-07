@@ -1,6 +1,6 @@
 package compiler
 
-import "../utils"
+import "xpmc-go/utils"
 
 type MmlPattern struct {
     Name string
