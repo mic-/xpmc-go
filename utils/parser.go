@@ -34,18 +34,29 @@ type ParserState struct {
     listDelimiter string    
 }
 
-
-func (s *ParserState) Init(fileName string) error {
-    var err error
-    s.fileData, err = ioutil.ReadFile(fileName)
-    DEBUG("Parsing " + fileName)
-    s.fileDataPos = 0
+func (s *ParserState) Init(mmlCode []byte) {
     s.LineNum = 1
     s.Column = 0
+
+    s.ShortFileName = ""
+    s.WorkDir = ""
+
+    s.fileData = mmlCode
+    s.fileDataPos = 0
+
     s.UserDefinedBase = 10
     s.currentBase = 10
-    s.wtListOk = false
+
     s.allowFloats = false
+
+    s.listDelimiter = "{}"
+    s.wtListOk = false
+}
+
+func (s *ParserState) InitFromFile(fileName string) error {
+    fileData, err := ioutil.ReadFile(fileName)
+    DEBUG("Parsing " + fileName)
+    s.Init(fileData)
     
     s.WorkDir = ""
     lastSlash := strings.LastIndexAny(fileName, "\\/")
@@ -59,17 +70,21 @@ func (s *ParserState) Init(fileName string) error {
         s.WorkDir += string(os.PathSeparator)
         DEBUG("WorkDir = " + s.WorkDir)
     }
-    s.listDelimiter = "{}"
     return err
 }
 
 
-func NewParserState(fileName string) (parser *ParserState, err error) {
+func NewParserStateFromFile(fileName string) (parser *ParserState, err error) {
     parser = &ParserState{}
-    err = parser.Init(fileName)
+    err = parser.InitFromFile(fileName)
     return
 }
 
+func NewParserStateFromCode(mmlCode string) *ParserState {
+    parser := &ParserState{}
+    parser.Init([]byte(mmlCode))
+    return parser
+}
 
 /* Inserts the MML code in the given string into the parser's data blob
  * at the current position.

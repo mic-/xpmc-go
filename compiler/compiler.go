@@ -812,19 +812,27 @@ func (comp *Compiler) handleAtCommand() {
     }
 }
 
+func (comp *Compiler) CompileCode(mmlCode string) {
+    parser := NewParserStateFromCode(mmlCode)
+    comp.Compile(parser)
+}
 
 func (comp *Compiler) CompileFile(fileName string) {
+    parser, err := NewParserStateFromFile(fileName)
+    if err != nil {
+        ERROR("Failed to create parser from file: " + err.Error())
+        return
+    }
+    comp.Compile(parser)
+}
+
+func (comp *Compiler) Compile(parser *utils.ParserState) {
     var prevLine int
     var dotOff, tieOff, slurOff bool
-    var parserCreationError error
     
     OldParsers.Push(Parser)
-    
-    Parser,parserCreationError = NewParserState(fileName)
-    if parserCreationError != nil {
-        ERROR("Failed to read file: " + fileName);
-    }
-    
+    Parser = parser
+
     for {
         characterHandled := false
 
@@ -2235,7 +2243,7 @@ func (comp *Compiler) CompileFile(fileName string) {
                     if comp.CurrSong.GetNumActiveChannels() == 0 || comp.lastWasChannelSelect {
                         if !strings.ContainsRune(comp.CurrSong.Target.GetChannelNames(), rune(c)) {
                             comp.writeAllPendingNotes(true)
-                            WARNING(fmt.Sprintf("Trying to set a loop point with no active channels (last=%d)", comp.lastWasChannelSelect))
+                            WARNING(fmt.Sprintf("Trying to set a loop point with no active channels (last=%t)", comp.lastWasChannelSelect))
                             characterHandled = true
                         }
                     } else {
