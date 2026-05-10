@@ -8,6 +8,7 @@ import (
 	"xpmc-go/defs"
 	"xpmc-go/song"
 	"xpmc-go/targets"
+	"xpmc-go/testutil"
 	"xpmc-go/timing"
 	"xpmc-go/utils"
 )
@@ -103,12 +104,17 @@ func chanCmds(t *testing.T, s *song.Song, name string) []int {
 	return nil
 }
 
-// check is a shorthand for comparing got vs want and failing with a diff.
+// check compares two []int slices and prints a hex diff on failure.
 func check(t *testing.T, got, want []int) {
 	t.Helper()
 	if !slices.Equal(got, want) {
 		t.Errorf("\ngot:  %#04x\nwant: %#04x", got, want)
 	}
+}
+
+func assertEq[T any](t *testing.T, got, want T) {
+	t.Helper()
+	testutil.AssertEq(t, got, want)
 }
 
 // mmlChan extracts the leading channel letter from an MML snippet ("A t120 ..." → "A").
